@@ -1,0 +1,37 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.random.no-math-random-in-core
+  title: Avoid `Math.random()` in core code
+  summary: Core code should not depend on nondeterministic random generation.
+  rationale: Randomness in core logic makes behavior hard to test and reason about.
+  tags:
+    - determinism
+    - rules-catalog
+scope:
+  languages:
+    - typescript
+  paths:
+    include:
+      - "**/core/**"
+match:
+  node:
+    kind: CallExpression
+    bind: randomCall
+    where:
+      - path: callee.object.text
+        equals: Math
+      - path: callee.property.text
+        equals: random
+emit:
+  finding:
+    category: maintainability
+    severity: medium
+    confidence: high
+    tags:
+      - determinism
+  message:
+    title: Avoid `${captures.randomCall.text}`
+    summary: Replace `${captures.randomCall.text}` with an injected randomness source.
+  remediation:
+    summary: Pass a random source into core logic instead of calling `Math.random()` directly.

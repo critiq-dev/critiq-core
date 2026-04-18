@@ -1,0 +1,63 @@
+{
+  "apiVersion": "critiq.dev/v1alpha1",
+  "kind": "Rule",
+  "metadata": {
+    "id": "ts.logging.no-console-log",
+    "title": "Avoid console.log in production code",
+    "summary": "Production code must use the structured logger.",
+    "rationale": "Console logging bypasses standard logging controls.",
+    "tags": ["logging", "maintainability"],
+    "status": "experimental"
+  },
+  "scope": {
+    "languages": ["typescript", "javascript"],
+    "paths": {
+      "include": ["src/**"],
+      "exclude": ["**/*.test.*", "**/fixtures/**"]
+    },
+    "changedLinesOnly": true
+  },
+  "match": {
+    "all": [
+      {
+        "node": {
+          "kind": "CallExpression",
+          "bind": "call",
+          "where": [
+            {
+              "path": "callee.object.text",
+              "equals": "console"
+            },
+            {
+              "path": "callee.property.text",
+              "equals": "log"
+            }
+          ]
+        }
+      },
+      {
+        "not": {
+          "ancestor": {
+            "kind": "CatchClause"
+          }
+        }
+      }
+    ]
+  },
+  "emit": {
+    "finding": {
+      "category": "maintainability",
+      "severity": "low",
+      "confidence": "high",
+      "tags": ["logging"]
+    },
+    "message": {
+      "title": "Avoid console.log in production code",
+      "summary": "Use the team logger instead of console.log.",
+      "detail": "Found `${captures.call.text}` in `${file.path}`."
+    },
+    "remediation": {
+      "summary": "Replace this call with `logger.info` or `logger.debug`."
+    }
+  }
+}

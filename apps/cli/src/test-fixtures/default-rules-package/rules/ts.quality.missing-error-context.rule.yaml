@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.quality.missing-error-context
+  title: Missing error context or logging
+  summary: Catch blocks should include the caught error when they log or rethrow.
+  rationale: Logging or rethrowing without the original error strips the context needed to diagnose the failure.
+  tags:
+    - quality
+    - error-handling
+    - rules-catalog
+    - crq-qua-048
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: error-handling.missing-error-context
+    bind: issue
+emit:
+  finding:
+    category: quality.error-handling
+    severity: low
+    confidence: 0.8
+    tags:
+      - quality
+      - error-handling
+  message:
+    title: Preserve the original error context
+    summary: "Review `${captures.issue.text}` and include the caught error in the log or rethrow."
+  remediation:
+    summary: Pass the caught error to the logger or preserve it when constructing the replacement error.

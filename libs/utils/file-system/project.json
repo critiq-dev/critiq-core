@@ -1,0 +1,25 @@
+{
+  "name": "file-system",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/utils/file-system/src",
+  "projectType": "library",
+  "tags": ["scope:oss-core", "type:util"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/utils/file-system",
+        "main": "libs/utils/file-system/src/index.ts",
+        "tsConfig": "libs/utils/file-system/tsconfig.lib.json",
+        "assets": ["libs/utils/file-system/*.md"]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --pretty false --noEmit -p libs/utils/file-system/tsconfig.lib.json"
+      }
+    }
+  }
+}

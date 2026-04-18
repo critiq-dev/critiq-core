@@ -1,0 +1,34 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.implicit-undefined-return
+  title: Implicit undefined return in function
+  summary: Functions that return a value on some paths must not fall through implicitly.
+  rationale: Mixed value-return and implicit-fallthrough paths are a common source of undefined behavior.
+  tags:
+    - correctness
+    - control-flow
+    - rules-catalog
+    - crq-cor-005
+  stability: stable
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: control-flow.implicit-undefined-return
+emit:
+  finding:
+    category: correctness.control-flow
+    severity: medium
+    confidence: 0.9
+    tags:
+      - correctness
+      - control-flow
+  message:
+    title: Avoid implicit undefined return
+    summary: This function returns a value on some paths but falls through without returning on others.
+  remediation:
+    summary: Return a value on every reachable path or make the function consistently void.

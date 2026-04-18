@@ -1,0 +1,39 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.security.no-innerhtml-assignment
+  title: Unsafe HTML rendering (XSS risk)
+  summary: Application code should not assign directly to innerHTML.
+  rationale: Direct HTML injection can allow untrusted content to execute in the browser.
+  tags:
+    - security
+    - output-encoding
+    - xss
+    - rules-catalog
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  node:
+    kind: AssignmentExpression
+    bind: htmlAssignment
+    where:
+      - path: text
+        matches: "\\.innerHTML\\s*="
+emit:
+  finding:
+    category: security.output-encoding
+    severity: high
+    confidence: 0.85
+    tags:
+      - security
+      - xss
+      - output-encoding
+  message:
+    title: Avoid innerHTML assignment in `${captures.htmlAssignment.text}`
+    summary: "`${captures.htmlAssignment.text}` writes HTML directly and can introduce XSS risk."
+  remediation:
+    summary: Prefer text-only rendering APIs or sanitize the content before inserting HTML.

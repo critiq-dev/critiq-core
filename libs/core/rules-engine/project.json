@@ -1,0 +1,25 @@
+{
+  "name": "rules-engine",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/core/rules-engine/src",
+  "projectType": "library",
+  "tags": ["scope:oss-core", "type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/core/rules-engine",
+        "main": "libs/core/rules-engine/src/index.ts",
+        "tsConfig": "libs/core/rules-engine/tsconfig.lib.json",
+        "assets": ["libs/core/rules-engine/*.md"]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --pretty false --noEmit -p libs/core/rules-engine/tsconfig.lib.json"
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "check-runner",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/runtime/check-runner/src",
+  "projectType": "library",
+  "tags": ["scope:oss-core", "type:runtime"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/runtime/check-runner",
+        "main": "libs/runtime/check-runner/src/index.ts",
+        "tsConfig": "libs/runtime/check-runner/tsconfig.lib.json",
+        "assets": ["libs/runtime/check-runner/*.md"]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --pretty false --noEmit -p libs/runtime/check-runner/tsconfig.lib.json"
+      }
+    }
+  }
+}

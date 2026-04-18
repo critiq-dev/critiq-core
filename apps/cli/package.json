@@ -1,0 +1,27 @@
+{
+  "name": "critiq",
+  "version": "0.0.1",
+  "private": false,
+  "type": "commonjs",
+  "bin": {
+    "critiq": "./main.js"
+  },
+  "main": "./main.js",
+  "types": "./main.d.ts",
+  "exports": {
+    ".": {
+      "types": "./main.d.ts",
+      "default": "./main.js"
+    }
+  },
+  "dependencies": {
+    "@critiq/check-runner": "0.0.1",
+    "@critiq/core-diagnostics": "0.0.1",
+    "@critiq/core-finding-schema": "0.0.1",
+    "@critiq/core-ir": "0.0.1",
+    "@critiq/core-rules-dsl": "0.0.1",
+    "@critiq/testing-harness": "0.0.1",
+    "minimatch": "^10.2.5",
+    "tslib": "^2.3.0"
+  }
+}

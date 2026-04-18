@@ -1,0 +1,54 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  workflow-lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: devops-actions/actionlint@e7ee33fbf5aa8c9f9ee1145137f3e52e25d6a35b
+
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Verify Workspace
+        run: npm run verify
+
+      - name: Check Schema Drift
+        run: npm run check:schema-drift
+
+      - name: Check Package Exports
+        run: npm run check:package-exports
+
+      - name: Check Package Contents
+        run: npm run check:package-contents
+
+      - name: Publish Dry Run
+        run: npm run release:dry-run
+
+  reusable-workflow-smoke:
+    needs:
+      - workflow-lint
+    uses: ./.github/workflows/run-critiq-cli.yml
+    with:
+      critiq-version: file:./dist/apps/cli
+      validate-glob: examples/starter-pack/rules/*.rule.yaml
+      test-glob: examples/starter-pack/rules/*.spec.yaml

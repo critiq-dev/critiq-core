@@ -1,0 +1,66 @@
+{
+  "name": "critiq-core",
+  "version": "0.0.0",
+  "description": "Deterministic OSS core packages for critiq.dev scanning, findings, adapters, and CLI runtime.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "nx": "nx",
+    "build": "nx run-many -t build --all",
+    "lint": "nx run-many -t lint --all",
+    "test": "nx run-many -t test --all",
+    "typecheck": "nx run-many -t typecheck --all",
+    "verify": "npm run lint && npm run test && npm run build && npm run typecheck",
+    "check:schema-drift": "node scripts/check-schema-drift.mjs",
+    "check:package-exports": "node scripts/check-package-exports.mjs",
+    "check:package-contents": "node scripts/check-package-contents.mjs",
+    "release:dry-run": "node scripts/publish-dry-run.mjs"
+  },
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "libs/*/*",
+    "tools/*/*"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@nx/esbuild": "22.6.4",
+    "@nx/eslint": "^22.6.4",
+    "@nx/eslint-plugin": "^22.6.4",
+    "@nx/jest": "^22.6.4",
+    "@nx/js": "22.6.4",
+    "@nx/node": "^22.6.4",
+    "@nx/workspace": "22.6.4",
+    "@swc-node/register": "~1.11.1",
+    "@swc/core": "~1.15.5",
+    "@swc/helpers": "~0.5.18",
+    "@types/jest": "^30.0.0",
+    "@types/node": "20.19.9",
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
+    "esbuild": "^0.19.2",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.0.0",
+    "jest": "^30.3.0",
+    "jest-environment-node": "^30.0.2",
+    "jest-util": "^30.0.2",
+    "jsonc-eslint-parser": "^2.1.0",
+    "nx": "22.6.4",
+    "prettier": "~3.6.2",
+    "ts-jest": "^29.4.0",
+    "ts-node": "10.9.1",
+    "tslib": "^2.3.0",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.58.0"
+  },
+  "dependencies": {
+    "@changesets/cli": "^2.30.0",
+    "@typescript-eslint/typescript-estree": "^8.58.0",
+    "minimatch": "^10.2.5",
+    "yaml": "^2.8.3",
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "^3.25.2"
+  }
+}

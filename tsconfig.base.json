@@ -1,0 +1,63 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "es2015",
+    "module": "esnext",
+    "lib": [
+      "es2020",
+      "dom"
+    ],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@critiq/core-finding-schema": [
+        "libs/core/finding-schema/src/index.ts"
+      ],
+      "@critiq/core-rules-dsl": [
+        "libs/core/rules-dsl/src/index.ts"
+      ],
+      "@critiq/core-diagnostics": [
+        "libs/core/diagnostics/src/index.ts"
+      ],
+      "@critiq/core-rules-engine": [
+        "libs/core/rules-engine/src/index.ts"
+      ],
+      "@critiq/core-config": [
+        "libs/core/config/src/index.ts"
+      ],
+      "@critiq/core-catalog": [
+        "libs/core/catalog/src/index.ts"
+      ],
+      "@critiq/core-ir": [
+        "libs/core/ir/src/index.ts"
+      ],
+      "@critiq/check-runner": [
+        "libs/runtime/check-runner/src/index.ts"
+      ],
+      "@critiq/adapter-typescript": [
+        "libs/adapters/typescript/src/index.ts"
+      ],
+      "@critiq/util-file-system": [
+        "libs/utils/file-system/src/index.ts"
+      ],
+      "@critiq/util-yaml-loader": [
+        "libs/utils/yaml-loader/src/index.ts"
+      ],
+      "@critiq/testing-harness": [
+        "tools/testing/harness/src/index.ts"
+      ]
+    }
+  },
+  "exclude": [
+    "node_modules",
+    "tmp"
+  ]
+}

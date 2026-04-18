@@ -1,0 +1,34 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.logging.no-console-log
+  title: Avoid console.log
+  summary: Use the project logger instead of console.log.
+  rationale: Console logging bypasses the shared logger pipeline.
+  tags:
+    - logging
+    - rules-catalog
+scope:
+  languages:
+    - typescript
+match:
+  node:
+    kind: CallExpression
+    bind: call
+    where:
+      - path: callee.object.text
+        equals: console
+      - path: callee.property.text
+        equals: log
+emit:
+  finding:
+    category: maintainability
+    severity: low
+    confidence: high
+    tags:
+      - logging
+  message:
+    title: Avoid `${captures.call.text}`
+    summary: Use the project logger instead of `${captures.call.text}`.
+  remediation:
+    summary: Replace `${captures.call.text}` with the logger.

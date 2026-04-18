@@ -1,0 +1,40 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.unreachable-statement
+  title: Unreachable code after return or throw
+  summary: Statements after terminal exits should be removed or moved before the exit.
+  rationale: Dead statements obscure intent and often indicate a refactor that left stale logic behind.
+  tags:
+    - correctness
+    - control-flow
+    - rules-catalog
+    - crq-cor-010
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: control-flow.unreachable-statement
+    bind: issue
+    where:
+      - path: reason
+        in:
+          - after-return
+          - after-throw
+emit:
+  finding:
+    category: correctness.control-flow
+    severity: low
+    confidence: 0.95
+    tags:
+      - correctness
+      - control-flow
+  message:
+    title: Remove unreachable statement
+    summary: "`${captures.issue.text}` cannot execute because control flow already terminated."
+  remediation:
+    summary: Delete the dead statement or move it before the return or throw.

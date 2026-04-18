@@ -1,0 +1,240 @@
+name: run-critiq-cli
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Working directory inside the consumer repository.
+        required: false
+        default: .
+        type: string
+      node-version:
+        description: Node.js version used to run the Critiq CLI.
+        required: false
+        default: '24'
+        type: string
+      critiq-version:
+        description: Critiq npm version. Advanced use may pass a local file spec for CI smoke coverage.
+        required: false
+        default: latest
+        type: string
+      validate-glob:
+        description: Glob passed to `critiq rules validate`.
+        required: false
+        default: .critiq/rules/*.rule.yaml
+        type: string
+      test-glob:
+        description: Glob passed to `critiq rules test`.
+        required: false
+        default: .critiq/rules/*.spec.yaml
+        type: string
+      check-target:
+        description: Concrete directory or file path passed to `critiq check`. The target repository must include `.critiq/config.yaml`.
+        required: false
+        default: .
+        type: string
+      check-base:
+        description: Optional git base ref for diff-scoped `critiq check`.
+        required: false
+        default: ''
+        type: string
+      check-head:
+        description: Optional git head ref for diff-scoped `critiq check`.
+        required: false
+        default: ''
+        type: string
+      run-validate:
+        description: Whether to run `critiq rules validate`.
+        required: false
+        default: true
+        type: boolean
+      run-test:
+        description: Whether to run `critiq rules test`.
+        required: false
+        default: true
+        type: boolean
+      run-check:
+        description: Whether to run `critiq check`.
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Initialize runtime directories
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "CRITIQ_RESULTS_DIR=$RUNNER_TEMP/critiq-cli-results" >> "$GITHUB_ENV"
+          echo "CRITIQ_INSTALL_DIR=$RUNNER_TEMP/critiq-cli-install" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/critiq-cli-results"
+
+      - name: Resolve Critiq package spec
+        id: package_spec
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          set -euo pipefail
+
+          critiq_version='${{ inputs.critiq-version }}'
+          local_workspace_cli=false
+
+          if [[ "$critiq_version" == 'file:./dist/apps/cli' ]] || [[ "$critiq_version" == 'file:dist/apps/cli' ]] || [[ "$critiq_version" == './dist/apps/cli' ]] || [[ "$critiq_version" == 'dist/apps/cli' ]]; then
+            local_workspace_cli=true
+          fi
+
+          if [[ "$critiq_version" == file:* ]] || [[ "$critiq_version" == ./* ]] || [[ "$critiq_version" == ../* ]] || [[ "$critiq_version" == /* ]] || [[ "$critiq_version" == dist/* ]]; then
+            path_spec="${critiq_version#file:}"
+
+            if [[ "$path_spec" == /* ]]; then
+              resolved_path="$path_spec"
+            else
+              resolved_path="$(node -p "require('node:path').resolve(process.cwd(), process.argv[1])" "$path_spec")"
+            fi
+
+            package_spec="file:$resolved_path"
+          else
+            package_spec="critiq@$critiq_version"
+          fi
+
+          echo "value=$package_spec" >> "$GITHUB_OUTPUT"
+          echo "local_workspace_cli=$local_workspace_cli" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare local CLI package for smoke runs
+        if: ${{ steps.package_spec.outputs.local_workspace_cli == 'true' }}
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          set -euo pipefail
+
+          # Local file specs are only used by this repo's CI smoke path. Build
+          # the packaged CLI first so npm can install a runnable artifact.
+          npm ci
+          npx nx run cli:prune
+
+      - name: Install Critiq CLI package
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          set -euo pipefail
+
+          rm -rf "$CRITIQ_INSTALL_DIR"
+          mkdir -p "$CRITIQ_INSTALL_DIR"
+          cd "$CRITIQ_INSTALL_DIR"
+          npm init -y >/dev/null 2>&1
+          npm install --no-package-lock --no-save "${{ steps.package_spec.outputs.value }}"
+
+      - name: Run Critiq validate
+        if: ${{ inputs.run-validate }}
+        id: validate
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          set +e
+
+          node "$CRITIQ_INSTALL_DIR/node_modules/critiq/main.js" \
+            rules validate "${{ inputs.validate-glob }}" \
+            --format json > "$CRITIQ_RESULTS_DIR/validate.json"
+          exit_code=$?
+
+          set -e
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Write skipped validate result
+        if: ${{ !inputs.run-validate }}
+        shell: bash
+        run: |
+          printf '{\n  "command": "rules.validate",\n  "skipped": true,\n  "reason": "disabled-by-input"\n}\n' > "$CRITIQ_RESULTS_DIR/validate.json"
+
+      - name: Run Critiq test
+        if: ${{ always() && inputs.run-test }}
+        id: test
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          set +e
+
+          node "$CRITIQ_INSTALL_DIR/node_modules/critiq/main.js" \
+            rules test "${{ inputs.test-glob }}" \
+            --format json > "$CRITIQ_RESULTS_DIR/test.json"
+          exit_code=$?
+
+          set -e
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Write skipped test result
+        if: ${{ always() && !inputs.run-test }}
+        shell: bash
+        run: |
+          printf '{\n  "command": "rules.test",\n  "skipped": true,\n  "reason": "disabled-by-input"\n}\n' > "$CRITIQ_RESULTS_DIR/test.json"
+
+      - name: Run Critiq check
+        if: ${{ always() && inputs.run-check }}
+        id: check
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          set +e
+
+          args=(
+            check
+            "${{ inputs.check-target }}"
+            --format json
+          )
+
+          if [[ -n '${{ inputs.check-base }}' ]] || [[ -n '${{ inputs.check-head }}' ]]; then
+            args+=(--base '${{ inputs.check-base }}' --head '${{ inputs.check-head }}')
+          fi
+
+          node "$CRITIQ_INSTALL_DIR/node_modules/critiq/main.js" \
+            "${args[@]}" > "$CRITIQ_RESULTS_DIR/check.json"
+          exit_code=$?
+
+          set -e
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Write skipped check result
+        if: ${{ always() && !inputs.run-check }}
+        shell: bash
+        run: |
+          printf '{\n  "command": "check",\n  "skipped": true,\n  "reason": "disabled-by-input"\n}\n' > "$CRITIQ_RESULTS_DIR/check.json"
+
+      - name: Upload Critiq JSON results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: critiq-cli-results
+          path: ${{ env.CRITIQ_RESULTS_DIR }}
+          if-no-files-found: error
+
+      - name: Fail on Critiq command errors
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          validate_exit='${{ steps.validate.outputs.exit_code || '0' }}'
+          test_exit='${{ steps.test.outputs.exit_code || '0' }}'
+          check_exit='${{ steps.check.outputs.exit_code || '0' }}'
+
+          if [[ "$validate_exit" != '0' ]] || [[ "$test_exit" != '0' ]] || [[ "$check_exit" != '0' ]]; then
+            echo "validate exit code: $validate_exit"
+            echo "test exit code: $test_exit"
+            echo "check exit code: $check_exit"
+            exit 1
+          fi

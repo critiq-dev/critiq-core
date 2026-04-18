@@ -1,0 +1,58 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.security.no-command-execution-with-request-input
+  title: Command execution using untrusted input
+  summary: Command execution helpers must not receive request-controlled input.
+  rationale: Request-controlled shell commands can become remote code execution vulnerabilities.
+  tags:
+    - security
+    - injection
+    - command-execution
+    - rules-catalog
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  any:
+    - node:
+        kind: CallExpression
+        bind: execCall
+        where:
+          - path: callee.text
+            in:
+              - exec
+              - execSync
+              - spawn
+              - spawnSync
+          - path: text
+            matches: "(req\\.|request\\.|query\\.|params\\.|body\\.|process\\.argv|argv\\.)"
+    - node:
+        kind: CallExpression
+        bind: execCall
+        where:
+          - path: callee.property.text
+            in:
+              - exec
+              - execSync
+              - spawn
+              - spawnSync
+          - path: text
+            matches: "(req\\.|request\\.|query\\.|params\\.|body\\.|process\\.argv|argv\\.)"
+emit:
+  finding:
+    category: security.injection
+    severity: critical
+    confidence: 0.9
+    tags:
+      - security
+      - injection
+      - command-execution
+  message:
+    title: Avoid request-controlled command execution in `${captures.execCall.text}`
+    summary: "`${captures.execCall.text}` executes a command using untrusted input."
+  remediation:
+    summary: Use an allowlisted command dispatcher and pass validated arguments without invoking a shell.

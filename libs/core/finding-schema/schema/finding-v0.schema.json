@@ -1,0 +1,296 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FindingV0",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "finding/v0"
+    },
+    "findingId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "rule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)*$"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "locations": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "startLine": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "startColumn": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "endLine": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "endColumn": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "path",
+            "startLine",
+            "startColumn",
+            "endLine",
+            "endColumn"
+          ],
+          "additionalProperties": false
+        },
+        "related": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "startLine": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "startColumn": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "endLine": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "endColumn": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "path",
+              "startLine",
+              "startColumn",
+              "endLine",
+              "endColumn"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "primary"
+      ],
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "excerpt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "range": {
+            "type": "object",
+            "properties": {
+              "startLine": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "startColumn": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "endLine": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "endColumn": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "startLine",
+              "startColumn",
+              "endLine",
+              "endColumn"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "path",
+          "excerpt",
+          "range"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "remediation": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "summary"
+      ],
+      "additionalProperties": false
+    },
+    "fingerprints": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "pattern": "^sha256:.+$"
+        },
+        "logical": {
+          "type": "string",
+          "pattern": "^sha256:.+$"
+        }
+      },
+      "required": [
+        "primary"
+      ],
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "engineKind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "engineVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rulePack": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "engineKind",
+        "engineVersion",
+        "generatedAt"
+      ],
+      "additionalProperties": false
+    },
+    "attributes": {
+      "type": "object",
+      "additionalProperties": {}
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "findingId",
+    "rule",
+    "title",
+    "summary",
+    "category",
+    "severity",
+    "confidence",
+    "locations",
+    "evidence",
+    "fingerprints",
+    "provenance"
+  ],
+  "additionalProperties": false
+}

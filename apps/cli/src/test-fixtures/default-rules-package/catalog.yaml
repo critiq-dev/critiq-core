@@ -1,0 +1,86 @@
+apiVersion: critiq.dev/v1alpha1
+kind: RuleCatalog
+rules:
+  - id: ts.logging.no-console-log
+    rulePath: ./rules/ts.logging.no-console-log.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.logging.no-console-error
+    rulePath: ./rules/ts.logging.no-console-error.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.runtime.no-debugger-statement
+    rulePath: ./rules/ts.runtime.no-debugger-statement.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.implicit-undefined-return
+    rulePath: ./rules/ts.correctness.implicit-undefined-return.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.missing-default-dispatch
+    rulePath: ./rules/ts.correctness.missing-default-dispatch.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.unreachable-statement
+    rulePath: ./rules/ts.correctness.unreachable-statement.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.quality.swallowed-error
+    rulePath: ./rules/ts.quality.swallowed-error.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.quality.missing-error-context
+    rulePath: ./rules/ts.quality.missing-error-context.rule.yaml
+    presets:
+      - strict
+  - id: ts.config.no-process-env-outside-config
+    rulePath: ./rules/ts.config.no-process-env-outside-config.rule.yaml
+    presets:
+      - strict
+  - id: ts.random.no-math-random-in-core
+    rulePath: ./rules/ts.random.no-math-random-in-core.rule.yaml
+    presets:
+      - strict
+  - id: ts.security.no-sql-interpolation
+    rulePath: ./rules/ts.security.no-sql-interpolation.rule.yaml
+    presets:
+      - recommended
+      - strict
+      - security
+  - id: ts.security.no-dynamic-execution
+    rulePath: ./rules/ts.security.no-dynamic-execution.rule.yaml
+    presets:
+      - recommended
+      - strict
+      - security
+  - id: ts.security.no-request-path-file-read
+    rulePath: ./rules/ts.security.no-request-path-file-read.rule.yaml
+    presets:
+      - recommended
+      - strict
+      - security
+  - id: ts.security.no-command-execution-with-request-input
+    rulePath: ./rules/ts.security.no-command-execution-with-request-input.rule.yaml
+    presets:
+      - recommended
+      - strict
+      - security
+  - id: ts.security.no-innerhtml-assignment
+    rulePath: ./rules/ts.security.no-innerhtml-assignment.rule.yaml
+    presets:
+      - recommended
+      - strict
+      - security
+  - id: ts.security.no-hardcoded-credentials
+    rulePath: ./rules/ts.security.no-hardcoded-credentials.rule.yaml
+    presets:
+      - recommended
+      - strict
+      - security

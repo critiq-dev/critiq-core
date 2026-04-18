@@ -1,0 +1,25 @@
+{
+  "name": "diagnostics",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/core/diagnostics/src",
+  "projectType": "library",
+  "tags": ["scope:oss-core", "type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/core/diagnostics",
+        "main": "libs/core/diagnostics/src/index.ts",
+        "tsConfig": "libs/core/diagnostics/tsconfig.lib.json",
+        "assets": ["libs/core/diagnostics/*.md"]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --pretty false --noEmit -p libs/core/diagnostics/tsconfig.lib.json"
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "finding/v0",
+  "findingId": "6d86f84f-3f5c-4bc3-9f5d-8e24d441f8d7",
+  "rule": {
+    "id": "ts.logging.no-console-log"
+  },
+  "title": "Avoid console.log in production code",
+  "summary": "Use the team logger instead of console.log.",
+  "category": "maintainability",
+  "severity": "low",
+  "confidence": "high",
+  "locations": {
+    "primary": {
+      "path": "src/app/service.ts",
+      "startLine": 17,
+      "startColumn": 5,
+      "endLine": 17,
+      "endColumn": 28
+    }
+  },
+  "evidence": [
+    {
+      "kind": "ast",
+      "label": "matched-call",
+      "path": "src/app/service.ts",
+      "excerpt": "console.log(\"hello\")",
+      "range": {
+        "startLine": 17,
+        "startColumn": 5,
+        "endLine": 17,
+        "endColumn": 28
+      }
+    }
+  ],
+  "fingerprints": {
+    "primary": "sha256:0f5f4d20f7e8f53d4fb01d6d8d09b6c38b738d8a6f3184b31d4b2d6ecf65e123"
+  },
+  "provenance": {
+    "engineKind": "dsl-runtime",
+    "engineVersion": "0.1.0",
+    "generatedAt": "2026-04-06T12:00:00.000Z"
+  }
+}

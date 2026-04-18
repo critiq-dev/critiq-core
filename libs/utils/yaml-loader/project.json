@@ -1,0 +1,25 @@
+{
+  "name": "yaml-loader",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/utils/yaml-loader/src",
+  "projectType": "library",
+  "tags": ["scope:oss-core", "type:util"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/utils/yaml-loader",
+        "main": "libs/utils/yaml-loader/src/index.ts",
+        "tsConfig": "libs/utils/yaml-loader/tsconfig.lib.json",
+        "assets": ["libs/utils/yaml-loader/*.md"]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --pretty false --noEmit -p libs/utils/yaml-loader/tsconfig.lib.json"
+      }
+    }
+  }
+}

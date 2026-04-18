@@ -1,0 +1,25 @@
+{
+  "name": "@critiq/check-runner",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "dependencies": {
+    "@critiq/adapter-typescript": "0.0.1",
+    "@critiq/core-catalog": "0.0.1",
+    "@critiq/core-config": "0.0.1",
+    "@critiq/core-diagnostics": "0.0.1",
+    "@critiq/core-finding-schema": "0.0.1",
+    "@critiq/core-ir": "0.0.1",
+    "@critiq/core-rules-dsl": "0.0.1",
+    "@critiq/core-rules-engine": "0.0.1",
+    "minimatch": "^10.2.5",
+    "tslib": "^2.3.0"
+  }
+}

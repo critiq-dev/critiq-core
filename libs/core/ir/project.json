@@ -1,0 +1,25 @@
+{
+  "name": "ir",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/core/ir/src",
+  "projectType": "library",
+  "tags": ["scope:oss-core", "type:core"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/core/ir",
+        "main": "libs/core/ir/src/index.ts",
+        "tsConfig": "libs/core/ir/tsconfig.lib.json",
+        "assets": ["libs/core/ir/*.md"]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --pretty false --noEmit -p libs/core/ir/tsconfig.lib.json"
+      }
+    }
+  }
+}

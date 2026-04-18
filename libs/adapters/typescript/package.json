@@ -1,0 +1,19 @@
+{
+  "name": "@critiq/adapter-typescript",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "dependencies": {
+    "@critiq/core-diagnostics": "0.0.1",
+    "@critiq/core-rules-engine": "0.0.1",
+    "@typescript-eslint/typescript-estree": "^8.58.0",
+    "tslib": "^2.3.0"
+  }
+}

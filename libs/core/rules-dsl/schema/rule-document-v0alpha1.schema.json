@@ -1,0 +1,382 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RuleDocumentV0Alpha1",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "critiq.dev/v1alpha1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "Rule"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "$ref": "#/properties/metadata/properties/id"
+        },
+        "summary": {
+          "$ref": "#/properties/metadata/properties/id"
+        },
+        "rationale": {
+          "$ref": "#/properties/metadata/properties/id"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/properties/metadata/properties/id"
+          }
+        },
+        "status": {
+          "$ref": "#/properties/metadata/properties/id"
+        },
+        "stability": {
+          "type": "string",
+          "enum": [
+            "stable",
+            "experimental"
+          ]
+        },
+        "appliesTo": {
+          "type": "string",
+          "enum": [
+            "block",
+            "function",
+            "file",
+            "project"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "summary"
+      ],
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "typescript",
+              "javascript",
+              "ts",
+              "js",
+              "python",
+              "go",
+              "all"
+            ]
+          }
+        },
+        "paths": {
+          "type": "object",
+          "properties": {
+            "include": {
+              "type": "array",
+              "items": {
+                "$ref": "#/properties/metadata/properties/id"
+              }
+            },
+            "exclude": {
+              "type": "array",
+              "items": {
+                "$ref": "#/properties/metadata/properties/id"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "changedLinesOnly": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "languages"
+      ],
+      "additionalProperties": false
+    },
+    "match": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "all": {
+              "type": "array",
+              "items": {
+                "$ref": "#/properties/match"
+              }
+            }
+          },
+          "required": [
+            "all"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "any": {
+              "type": "array",
+              "items": {
+                "$ref": "#/properties/match"
+              }
+            }
+          },
+          "required": [
+            "any"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "not": {
+              "$ref": "#/properties/match"
+            }
+          },
+          "required": [
+            "not"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "node": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "$ref": "#/properties/metadata/properties/id"
+                },
+                "bind": {
+                  "$ref": "#/properties/metadata/properties/id"
+                },
+                "where": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "$ref": "#/properties/metadata/properties/id"
+                          },
+                          "equals": {
+                            "anyOf": [
+                              {
+                                "$ref": "#/properties/metadata/properties/id"
+                              },
+                              {
+                                "type": "boolean"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "equals"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "$ref": "#/properties/metadata/properties/id"
+                          },
+                          "in": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/properties/metadata/properties/id"
+                            },
+                            "minItems": 1
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "in"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "$ref": "#/properties/metadata/properties/id"
+                          },
+                          "matches": {
+                            "$ref": "#/properties/metadata/properties/id"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "matches"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "$ref": "#/properties/metadata/properties/id"
+                          },
+                          "exists": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "exists"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "node"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "ancestor": {
+              "$ref": "#/properties/match/anyOf/3/properties/node"
+            }
+          },
+          "required": [
+            "ancestor"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fact": {
+              "$ref": "#/properties/match/anyOf/3/properties/node"
+            }
+          },
+          "required": [
+            "fact"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "emit": {
+      "type": "object",
+      "properties": {
+        "finding": {
+          "type": "object",
+          "properties": {
+            "category": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)*$"
+            },
+            "severity": {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "critical"
+              ]
+            },
+            "confidence": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high"
+                  ]
+                },
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              ]
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "$ref": "#/properties/metadata/properties/id"
+              }
+            }
+          },
+          "required": [
+            "category",
+            "severity",
+            "confidence"
+          ],
+          "additionalProperties": false
+        },
+        "message": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "$ref": "#/properties/metadata/properties/id"
+            },
+            "summary": {
+              "$ref": "#/properties/metadata/properties/id"
+            },
+            "detail": {
+              "$ref": "#/properties/metadata/properties/id"
+            }
+          },
+          "required": [
+            "title",
+            "summary"
+          ],
+          "additionalProperties": false
+        },
+        "remediation": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "$ref": "#/properties/metadata/properties/id"
+            }
+          },
+          "required": [
+            "summary"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "finding",
+        "message"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "scope",
+    "match",
+    "emit"
+  ],
+  "additionalProperties": false
+}

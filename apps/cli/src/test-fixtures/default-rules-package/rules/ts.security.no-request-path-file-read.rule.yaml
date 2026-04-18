@@ -1,0 +1,58 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.security.no-request-path-file-read
+  title: Path traversal via user input
+  summary: File access calls must not use request-controlled paths directly.
+  rationale: User-controlled paths can escape the intended directory and expose sensitive files.
+  tags:
+    - security
+    - filesystem
+    - path-traversal
+    - rules-catalog
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  any:
+    - node:
+        kind: CallExpression
+        bind: fileRead
+        where:
+          - path: callee.object.text
+            equals: fs
+          - path: callee.property.text
+            in:
+              - readFile
+              - readFileSync
+          - path: arguments.0.text
+            matches: "(req\\.|request\\.|query\\.|params\\.|body\\.)"
+    - node:
+        kind: CallExpression
+        bind: fileRead
+        where:
+          - path: callee.object.object.text
+            equals: fs
+          - path: callee.property.text
+            in:
+              - readFile
+              - readFileSync
+          - path: arguments.0.text
+            matches: "(req\\.|request\\.|query\\.|params\\.|body\\.)"
+emit:
+  finding:
+    category: security.filesystem
+    severity: high
+    confidence: 0.85
+    tags:
+      - security
+      - filesystem
+      - path-traversal
+  message:
+    title: Avoid request-controlled file access in `${captures.fileRead.text}`
+    summary: "`${captures.fileRead.text}` reads from a path derived from request data without an allowlist or boundary check."
+  remediation:
+    summary: Resolve the path against a trusted base directory and reject values that escape it.

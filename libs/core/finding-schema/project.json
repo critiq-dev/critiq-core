@@ -1,0 +1,35 @@
+{
+  "name": "finding-schema",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/core/finding-schema/src",
+  "projectType": "library",
+  "tags": ["scope:oss-core", "type:core"],
+  "targets": {
+    "generate-schema": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node libs/core/finding-schema/scripts/generate-finding-v0-schema.cjs"
+      }
+    },
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/core/finding-schema",
+        "main": "libs/core/finding-schema/src/index.ts",
+        "tsConfig": "libs/core/finding-schema/tsconfig.lib.json",
+        "assets": [
+          "libs/core/finding-schema/*.md",
+          "libs/core/finding-schema/examples/*.json",
+          "libs/core/finding-schema/schema/*.json"
+        ]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --pretty false --noEmit -p libs/core/finding-schema/tsconfig.lib.json"
+      }
+    }
+  }
+}

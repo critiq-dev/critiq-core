@@ -1,0 +1,11 @@
+{
+  "name": "@critiq/util-yaml-loader",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "dependencies": {
+    "tslib": "^2.3.0",
+    "yaml": "^2.8.3"
+  }
+}

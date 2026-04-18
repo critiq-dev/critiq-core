@@ -1,0 +1,25 @@
+{
+  "name": "harness",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "tools/testing/harness/src",
+  "projectType": "library",
+  "tags": ["scope:oss-core", "type:test"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/tools/testing/harness",
+        "main": "tools/testing/harness/src/index.ts",
+        "tsConfig": "tools/testing/harness/tsconfig.lib.json",
+        "assets": ["tools/testing/harness/*.md"]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --pretty false --noEmit -p tools/testing/harness/tsconfig.lib.json"
+      }
+    }
+  }
+}

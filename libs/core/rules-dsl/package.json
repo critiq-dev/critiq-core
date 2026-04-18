@@ -1,0 +1,26 @@
+{
+  "name": "@critiq/core-rules-dsl",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "dependencies": {
+    "@critiq/core-diagnostics": "0.0.1",
+    "@critiq/core-finding-schema": "0.0.1",
+    "@critiq/util-yaml-loader": "0.0.1",
+    "ts-node": "10.9.1",
+    "tsconfig-paths": "^4.2.0",
+    "tslib": "^2.3.0",
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "devDependencies": {
+    "ajv": "^8.18.0"
+  }
+}

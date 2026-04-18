@@ -1,0 +1,21 @@
+{
+  "name": "@critiq/core-config",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "dependencies": {
+    "@critiq/core-diagnostics": "0.0.1",
+    "@critiq/core-finding-schema": "0.0.1",
+    "@critiq/core-rules-dsl": "0.0.1",
+    "@critiq/util-yaml-loader": "0.0.1",
+    "tslib": "^2.3.0",
+    "zod": "^3.25.76"
+  }
+}

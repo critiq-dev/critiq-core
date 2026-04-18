@@ -1,0 +1,35 @@
+{
+  "name": "rules-dsl",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/core/rules-dsl/src",
+  "projectType": "library",
+  "tags": ["scope:oss-core", "type:core"],
+  "targets": {
+    "generate-schema": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node libs/core/rules-dsl/scripts/generate-rule-document-v0alpha1-schema.cjs"
+      }
+    },
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/core/rules-dsl",
+        "main": "libs/core/rules-dsl/src/index.ts",
+        "tsConfig": "libs/core/rules-dsl/tsconfig.lib.json",
+        "assets": [
+          "libs/core/rules-dsl/*.md",
+          "libs/core/rules-dsl/examples/*.json",
+          "libs/core/rules-dsl/schema/*.json"
+        ]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --pretty false --noEmit -p libs/core/rules-dsl/tsconfig.lib.json"
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.security.no-sql-interpolation
+  title: SQL query built via string concatenation
+  summary: Database queries must not interpolate untrusted values directly into SQL.
+  rationale: Interpolated SQL strings can allow attackers to change query structure.
+  tags:
+    - security
+    - sql
+    - injection
+    - rules-catalog
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  node:
+    kind: CallExpression
+    bind: queryCall
+    where:
+      - path: callee.property.text
+        equals: query
+      - path: arguments.0.text
+        matches: "^`[\\s\\S]*\\$\\{[\\s\\S]+\\}[\\s\\S]*`$"
+emit:
+  finding:
+    category: security.injection
+    severity: high
+    confidence: 0.95
+    tags:
+      - security
+      - sql
+      - injection
+  message:
+    title: Avoid interpolated SQL in `${captures.queryCall.text}`
+    summary: Use parameter placeholders instead of string interpolation in `${captures.queryCall.text}`.
+  remediation:
+    summary: Pass values separately to the database client and use placeholders such as `$1`.

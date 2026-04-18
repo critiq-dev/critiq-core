@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.quality.swallowed-error
+  title: Errors swallowed silently
+  summary: Catch blocks must log, reject, or rethrow failures instead of dropping them silently.
+  rationale: Silent catch blocks hide failures and make production diagnosis unnecessarily difficult.
+  tags:
+    - quality
+    - error-handling
+    - rules-catalog
+    - crq-qua-047
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: error-handling.swallowed-error
+    bind: issue
+emit:
+  finding:
+    category: quality.error-handling
+    severity: medium
+    confidence: 0.95
+    tags:
+      - quality
+      - error-handling
+  message:
+    title: Do not swallow caught errors
+    summary: "Review `${captures.issue.text}` and propagate or record the failure."
+  remediation:
+    summary: Rethrow the error, reject the async flow, or log the failure through a recognized error sink.

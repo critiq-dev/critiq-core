@@ -1,0 +1,39 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.security.no-dynamic-execution
+  title: Eval or dynamic code execution
+  summary: Runtime code execution helpers such as eval should not process application input.
+  rationale: Dynamic execution turns data into code and expands the attack surface.
+  tags:
+    - security
+    - execution
+    - rules-catalog
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  node:
+    kind: CallExpression
+    bind: dynamicExecution
+    where:
+      - path: callee.text
+        in:
+          - eval
+          - Function
+emit:
+  finding:
+    category: security.execution
+    severity: high
+    confidence: 0.95
+    tags:
+      - security
+      - execution
+  message:
+    title: Avoid `${captures.dynamicExecution.text}`
+    summary: "`${captures.dynamicExecution.text}` executes dynamic code and should be replaced with a safer alternative."
+  remediation:
+    summary: Replace dynamic execution with explicit parsing, validation, or a fixed dispatcher.

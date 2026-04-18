@@ -1,0 +1,37 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.config.no-process-env-outside-config
+  title: Avoid direct `process.env` access outside config
+  summary: Keep environment variable access inside config modules.
+  rationale: Centralized config makes environment handling predictable and testable.
+  tags:
+    - config
+    - rules-catalog
+scope:
+  languages:
+    - typescript
+  paths:
+    exclude:
+      - "**/config/**"
+match:
+  node:
+    kind: MemberExpression
+    bind: envAccess
+    where:
+      - path: object.object.text
+        equals: process
+      - path: object.property.text
+        equals: env
+emit:
+  finding:
+    category: maintainability
+    severity: medium
+    confidence: high
+    tags:
+      - config
+  message:
+    title: Avoid `${captures.envAccess.text}`
+    summary: Keep `${captures.envAccess.text}` access inside config modules.
+  remediation:
+    summary: Read the environment value in a config module and inject it where needed.

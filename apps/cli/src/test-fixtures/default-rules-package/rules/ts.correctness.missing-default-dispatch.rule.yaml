@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.missing-default-dispatch
+  title: Missing default case in switch or conditional dispatch
+  summary: Dispatch constructs should include an explicit default or final else path.
+  rationale: Default handling makes control-flow intent explicit and avoids silent fallthrough for unhandled values.
+  tags:
+    - correctness
+    - control-flow
+    - rules-catalog
+    - crq-cor-007
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: control-flow.missing-default-dispatch
+    bind: issue
+emit:
+  finding:
+    category: correctness.control-flow
+    severity: medium
+    confidence: 0.85
+    tags:
+      - correctness
+      - control-flow
+  message:
+    title: Add an explicit default dispatch path
+    summary: "Review `${captures.issue.text}` and add a `default` case or final `else`."
+  remediation:
+    summary: Handle the fallback branch explicitly so unexpected values do not rely on implicit behavior.

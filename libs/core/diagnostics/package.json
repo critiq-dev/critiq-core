@@ -1,0 +1,16 @@
+{
+  "name": "@critiq/core-diagnostics",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  }
+}
