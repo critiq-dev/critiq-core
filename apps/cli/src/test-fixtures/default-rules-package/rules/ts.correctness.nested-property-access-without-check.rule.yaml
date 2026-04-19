@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.nested-property-access-without-check
+  title: Nested property access without existence check
+  summary: Deep property chains derived from external input should verify intermediate values before access.
+  rationale: Multi-hop access into request or payload objects is brittle when any segment can be absent, renamed, or malformed.
+  tags:
+    - correctness
+    - "null"
+    - rules-catalog
+    - crq-cor-002
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: data-flow.nested-property-access-without-check
+    bind: issue
+emit:
+  finding:
+    category: correctness.null
+    severity: medium
+    confidence: 0.8
+    tags:
+      - correctness
+      - "null"
+  message:
+    title: Check nested external-input paths before use
+    summary: "`${captures.issue.text}` walks a deep property chain without checking that each segment exists."
+  remediation:
+    summary: Add guards for the intermediate objects or switch the chain to explicit optional access with a fallback.

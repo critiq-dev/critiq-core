@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.security.unsafe-deserialization
+  title: Unsafe deserialization from external input
+  summary: Deserializers should not consume untrusted payloads directly.
+  rationale: Deserializing attacker-controlled input creates a high-leverage parsing boundary and can amplify malformed or malicious payloads.
+  tags:
+    - security
+    - deserialization
+    - rules-catalog
+    - crq-sec-028
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: security.unsafe-deserialization
+    bind: issue
+emit:
+  finding:
+    category: security.deserialization
+    severity: high
+    confidence: 0.85
+    tags:
+      - security
+      - deserialization
+  message:
+    title: Avoid deserializing untrusted input directly
+    summary: "`${captures.issue.text}` deserializes data that originated from external input."
+  remediation:
+    summary: Parse only trusted data, or validate and constrain the payload shape before deserializing it.

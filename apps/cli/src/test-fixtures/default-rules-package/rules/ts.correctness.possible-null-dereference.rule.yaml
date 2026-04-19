@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.possible-null-dereference
+  title: Possible null or undefined dereference
+  summary: Nullable values should be guarded before property access or invocation.
+  rationale: Dereferencing a value that can still be null or undefined causes avoidable runtime failures on common unhappy paths.
+  tags:
+    - correctness
+    - "null"
+    - rules-catalog
+    - crq-cor-001
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: data-flow.possible-null-dereference
+    bind: issue
+emit:
+  finding:
+    category: correctness.null
+    severity: high
+    confidence: 0.85
+    tags:
+      - correctness
+      - "null"
+  message:
+    title: Guard nullable values before dereferencing
+    summary: "`${captures.issue.text}` dereferences a value that may still be null or undefined."
+  remediation:
+    summary: Add an explicit guard, use optional chaining deliberately, or provide a fallback before dereferencing the value.

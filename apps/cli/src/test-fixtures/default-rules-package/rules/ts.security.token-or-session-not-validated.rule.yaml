@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.security.token-or-session-not-validated
+  title: Token or session not validated
+  summary: Session and token values from external input should be verified before authentication or identity use.
+  rationale: Parsing or loading session state without verification allows forged or stale credentials to influence authorization paths.
+  tags:
+    - security
+    - authentication
+    - rules-catalog
+    - crq-sec-023
+  stability: stable
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: security.token-or-session-not-validated
+    bind: issue
+emit:
+  finding:
+    category: security.authentication
+    severity: high
+    confidence: 0.85
+    tags:
+      - security
+      - authentication
+  message:
+    title: Validate tokens and sessions before use
+    summary: "`${captures.issue.text}` uses token or session input without any preceding validation step."
+  remediation:
+    summary: Verify or authenticate the token or session value before decoding, loading, or deriving identity from it.

@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.quality.function-too-large-or-complex
+  title: Function too large or too complex
+  summary: Oversized or overly complex functions should be split into smaller units.
+  rationale: Large functions are harder to test, review, and change safely because behavior and branching accumulate in one place.
+  tags:
+    - quality
+    - structure
+    - rules-catalog
+    - crq-qua-041
+  stability: stable
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: quality.function-too-large-or-complex
+    bind: issue
+emit:
+  finding:
+    category: quality.structure
+    severity: low
+    confidence: 0.95
+    tags:
+      - quality
+      - structure
+  message:
+    title: Split large or complex functions
+    summary: Review `${captures.issue.text}` and extract smaller units of behavior.
+  remediation:
+    summary: Break the function into helpers, reduce branching, and isolate independent responsibilities.

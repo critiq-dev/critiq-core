@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.quality.duplicate-code-block
+  title: Duplicate code block
+  summary: Large duplicated function bodies across files make behavior harder to maintain safely.
+  rationale: Duplicated logic often diverges over time and increases the cost of fixes, testing, and future changes.
+  tags:
+    - quality
+    - duplication
+    - rules-catalog
+    - crq-qua-043
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: quality.duplicate-code-block
+    bind: issue
+emit:
+  finding:
+    category: quality.duplication
+    severity: low
+    confidence: 0.75
+    tags:
+      - quality
+      - duplication
+  message:
+    title: Extract duplicated logic into a shared unit
+    summary: "`${captures.issue.text}` duplicates a substantial code block already present elsewhere in the project."
+  remediation:
+    summary: Extract the shared logic into a common helper or module and keep one maintained implementation.

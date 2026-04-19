@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.performance.repeated-io-in-loop
+  title: Repeated IO call inside loop
+  summary: Database or network calls inside loops can multiply latency and load.
+  rationale: Per-item IO in loops often turns one operation into N round trips and is a common performance bottleneck.
+  tags:
+    - performance
+    - io
+    - rules-catalog
+    - crq-per-033
+  stability: stable
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: performance.repeated-io-in-loop
+    bind: issue
+emit:
+  finding:
+    category: performance.io
+    severity: high
+    confidence: 0.9
+    tags:
+      - performance
+      - io
+  message:
+    title: Avoid repeated IO calls inside loops
+    summary: "`${captures.issue.text}` performs IO inside a loop and can multiply latency."
+  remediation:
+    summary: Move the IO outside the loop, batch the work, or fetch the required data in one call before iterating.

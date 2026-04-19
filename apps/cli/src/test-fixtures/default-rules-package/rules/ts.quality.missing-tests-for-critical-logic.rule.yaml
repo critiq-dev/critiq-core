@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.quality.missing-tests-for-critical-logic
+  title: Missing tests for critical logic
+  summary: Critical auth, payment, or similar business logic should have a matching test file.
+  rationale: Important business and security logic needs direct regression coverage to keep changes safe and reviewable.
+  tags:
+    - quality
+    - testing
+    - rules-catalog
+    - crq-qua-049
+  stability: stable
+  appliesTo: project
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: quality.missing-tests-for-critical-logic
+    bind: issue
+emit:
+  finding:
+    category: quality.testing
+    severity: medium
+    confidence: 0.8
+    tags:
+      - quality
+      - testing
+  message:
+    title: Add tests for critical logic paths
+    summary: "`${captures.issue.text}` looks like critical logic but no matching test file was found."
+  remediation:
+    summary: Add a focused unit or integration test that covers the critical behavior before future changes land.

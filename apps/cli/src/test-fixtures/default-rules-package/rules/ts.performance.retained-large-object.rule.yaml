@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.performance.retained-large-object
+  title: Unnecessarily retained large object
+  summary: Large payloads assigned into shared state should be reviewed for shorter lifetimes.
+  rationale: Retaining large buffers or payload objects longer than needed increases memory pressure and GC churn.
+  tags:
+    - performance
+    - memory
+    - rules-catalog
+    - crq-per-039
+  stability: experimental
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: performance.retained-large-object
+    bind: issue
+emit:
+  finding:
+    category: performance.memory
+    severity: medium
+    confidence: 0.65
+    tags:
+      - performance
+      - memory
+  message:
+    title: Avoid retaining large payloads in shared state
+    summary: Review `${captures.issue.text}` and release large payload objects as soon as possible.
+  remediation:
+    summary: Keep the payload local, persist only the fields you need, or clear the shared reference after use.

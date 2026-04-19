@@ -16,8 +16,34 @@ rules:
     presets:
       - recommended
       - strict
+  - id: ts.correctness.constant-condition
+    rulePath: ./rules/ts.correctness.constant-condition.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.missing-await-on-async-call
+    rulePath: ./rules/ts.correctness.missing-await-on-async-call.rule.yaml
+    presets:
+      - recommended
+      - strict
   - id: ts.correctness.implicit-undefined-return
     rulePath: ./rules/ts.correctness.implicit-undefined-return.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.unhandled-async-error
+    rulePath: ./rules/ts.correctness.unhandled-async-error.rule.yaml
+    presets:
+      - recommended
+      - strict
+      - security
+  - id: ts.correctness.incorrect-boolean-logic
+    rulePath: ./rules/ts.correctness.incorrect-boolean-logic.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.blocking-call-in-async-flow
+    rulePath: ./rules/ts.correctness.blocking-call-in-async-flow.rule.yaml
     presets:
       - recommended
       - strict
@@ -26,6 +52,41 @@ rules:
     presets:
       - recommended
       - strict
+  - id: ts.correctness.missing-timeout-on-external-call
+    rulePath: ./rules/ts.correctness.missing-timeout-on-external-call.rule.yaml
+    presets:
+      - recommended
+      - strict
+      - security
+  - id: ts.correctness.possible-null-dereference
+    rulePath: ./rules/ts.correctness.possible-null-dereference.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.nested-property-access-without-check
+    rulePath: ./rules/ts.correctness.nested-property-access-without-check.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.unchecked-map-key-access
+    rulePath: ./rules/ts.correctness.unchecked-map-key-access.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.optional-value-without-fallback
+    rulePath: ./rules/ts.correctness.optional-value-without-fallback.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.off-by-one-loop-boundary
+    rulePath: ./rules/ts.correctness.off-by-one-loop-boundary.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.shared-state-race
+    rulePath: ./rules/ts.correctness.shared-state-race.rule.yaml
+    presets:
+      - experimental
   - id: ts.correctness.unreachable-statement
     rulePath: ./rules/ts.correctness.unreachable-statement.rule.yaml
     presets:
@@ -36,8 +97,44 @@ rules:
     presets:
       - recommended
       - strict
+  - id: ts.quality.function-too-large-or-complex
+    rulePath: ./rules/ts.quality.function-too-large-or-complex.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.quality.duplicate-code-block
+    rulePath: ./rules/ts.quality.duplicate-code-block.rule.yaml
+    presets:
+      - strict
+  - id: ts.quality.deep-nesting
+    rulePath: ./rules/ts.quality.deep-nesting.rule.yaml
+    presets:
+      - recommended
+      - strict
   - id: ts.quality.missing-error-context
     rulePath: ./rules/ts.quality.missing-error-context.rule.yaml
+    presets:
+      - strict
+  - id: ts.quality.tight-module-coupling
+    rulePath: ./rules/ts.quality.tight-module-coupling.rule.yaml
+    presets:
+      - strict
+  - id: ts.quality.hardcoded-configuration-values
+    rulePath: ./rules/ts.quality.hardcoded-configuration-values.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.quality.magic-numbers-or-strings
+    rulePath: ./rules/ts.quality.magic-numbers-or-strings.rule.yaml
+    presets:
+      - strict
+  - id: ts.quality.missing-tests-for-critical-logic
+    rulePath: ./rules/ts.quality.missing-tests-for-critical-logic.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.quality.logic-change-without-test-updates
+    rulePath: ./rules/ts.quality.logic-change-without-test-updates.rule.yaml
     presets:
       - strict
   - id: ts.config.no-process-env-outside-config
@@ -48,6 +145,50 @@ rules:
     rulePath: ./rules/ts.random.no-math-random-in-core.rule.yaml
     presets:
       - strict
+  - id: ts.performance.sequential-async-calls
+    rulePath: ./rules/ts.performance.sequential-async-calls.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.performance.repeated-io-in-loop
+    rulePath: ./rules/ts.performance.repeated-io-in-loop.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.performance.repeated-expensive-computation
+    rulePath: ./rules/ts.performance.repeated-expensive-computation.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.performance.inefficient-data-structure-usage
+    rulePath: ./rules/ts.performance.inefficient-data-structure-usage.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.performance.nested-loops-hot-path
+    rulePath: ./rules/ts.performance.nested-loops-hot-path.rule.yaml
+    presets:
+      - strict
+  - id: ts.performance.missing-batch-operations
+    rulePath: ./rules/ts.performance.missing-batch-operations.rule.yaml
+    presets:
+      - strict
+  - id: ts.performance.large-payload-without-streaming
+    rulePath: ./rules/ts.performance.large-payload-without-streaming.rule.yaml
+    presets:
+      - strict
+  - id: ts.performance.unbounded-growth-memory-leak
+    rulePath: ./rules/ts.performance.unbounded-growth-memory-leak.rule.yaml
+    presets:
+      - strict
+  - id: ts.performance.retained-large-object
+    rulePath: ./rules/ts.performance.retained-large-object.rule.yaml
+    presets:
+      - experimental
+  - id: ts.performance.unnecessary-rerenders-from-state-misuse
+    rulePath: ./rules/ts.performance.unnecessary-rerenders-from-state-misuse.rule.yaml
+    presets:
+      - experimental
   - id: ts.security.no-sql-interpolation
     rulePath: ./rules/ts.security.no-sql-interpolation.rule.yaml
     presets:
@@ -82,5 +223,41 @@ rules:
     rulePath: ./rules/ts.security.no-hardcoded-credentials.rule.yaml
     presets:
       - recommended
+      - strict
+      - security
+  - id: ts.security.missing-authorization-before-sensitive-action
+    rulePath: ./rules/ts.security.missing-authorization-before-sensitive-action.rule.yaml
+    presets:
+      - strict
+      - security
+  - id: ts.security.missing-ownership-validation
+    rulePath: ./rules/ts.security.missing-ownership-validation.rule.yaml
+    presets:
+      - strict
+      - security
+  - id: ts.security.frontend-only-authorization
+    rulePath: ./rules/ts.security.frontend-only-authorization.rule.yaml
+    presets:
+      - experimental
+  - id: ts.security.token-or-session-not-validated
+    rulePath: ./rules/ts.security.token-or-session-not-validated.rule.yaml
+    presets:
+      - recommended
+      - strict
+      - security
+  - id: ts.security.unvalidated-external-input
+    rulePath: ./rules/ts.security.unvalidated-external-input.rule.yaml
+    presets:
+      - strict
+      - security
+  - id: ts.security.unsafe-deserialization
+    rulePath: ./rules/ts.security.unsafe-deserialization.rule.yaml
+    presets:
+      - recommended
+      - strict
+      - security
+  - id: ts.security.missing-request-timeout-or-retry
+    rulePath: ./rules/ts.security.missing-request-timeout-or-retry.rule.yaml
+    presets:
       - strict
       - security

@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.security.missing-request-timeout-or-retry
+  title: Missing request timeout or retry protection
+  summary: External calls should define timeout, cancellation, or retry behavior before they enter security-sensitive flows.
+  rationale: Authentication and dependency calls that have neither timeout nor retry protection fail unpredictably under network stress.
+  tags:
+    - security
+    - resilience
+    - rules-catalog
+    - crq-sec-030
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: security.missing-request-timeout-or-retry
+    bind: issue
+emit:
+  finding:
+    category: security.resilience
+    severity: medium
+    confidence: 0.8
+    tags:
+      - security
+      - resilience
+  message:
+    title: Add timeout or retry protection to external calls
+    summary: "`${captures.issue.text}` performs an external call without timeout, cancellation, or retry handling."
+  remediation:
+    summary: Add explicit timeout or cancellation support, wrap the call in retry handling, or do both when the dependency is critical.

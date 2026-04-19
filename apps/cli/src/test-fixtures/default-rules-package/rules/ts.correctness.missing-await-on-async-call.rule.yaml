@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.missing-await-on-async-call
+  title: Missing await on async call
+  summary: Async functions should not drop direct async calls without awaiting them.
+  rationale: Unawaited async work in an async function often indicates a missed dependency or a promise that can reject outside the intended control flow.
+  tags:
+    - correctness
+    - async
+    - rules-catalog
+    - crq-cor-011
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: async.missing-await
+    bind: issue
+emit:
+  finding:
+    category: correctness.async
+    severity: high
+    confidence: 0.9
+    tags:
+      - correctness
+      - async
+  message:
+    title: Await direct async work
+    summary: "`${captures.issue.text}` starts async work without `await`."
+  remediation:
+    summary: Await the call, return the promise explicitly, or document a deliberate fire-and-forget path outside the async flow.

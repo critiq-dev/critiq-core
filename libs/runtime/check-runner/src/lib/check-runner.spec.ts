@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -19,6 +20,25 @@ function writeWorkspaceFile(
   const absolutePath = join(rootDirectory, relativePath);
   mkdirSync(dirname(absolutePath), { recursive: true });
   writeFileSync(absolutePath, content, 'utf8');
+}
+
+function runGitCommand(rootDirectory: string, args: string[]): string {
+  return execFileSync('git', args, {
+    cwd: rootDirectory,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+function initializeGitRepository(rootDirectory: string): void {
+  runGitCommand(rootDirectory, ['init']);
+  runGitCommand(rootDirectory, ['config', 'user.email', 'test@example.com']);
+  runGitCommand(rootDirectory, ['config', 'user.name', 'Critiq Test']);
+}
+
+function commitAll(rootDirectory: string, message: string): void {
+  runGitCommand(rootDirectory, ['add', '.']);
+  runGitCommand(rootDirectory, ['commit', '-m', message, '--no-gpg-sign']);
 }
 
 const noConsoleLogRule = [
@@ -56,6 +76,100 @@ const noConsoleLogRule = [
   '    summary: Use the project logger instead of `${captures.call.text}`.',
   '  remediation:',
   '    summary: Replace `${captures.call.text}` with the logger.',
+].join('\n');
+
+const tightModuleCouplingRule = [
+  'apiVersion: critiq.dev/v1alpha1',
+  'kind: Rule',
+  'metadata:',
+  '  id: ts.quality.tight-module-coupling',
+  '  title: Tight coupling between modules',
+  '  summary: Direct import cycles between modules increase coupling.',
+  '  rationale: Cyclic dependencies complicate initialization order and testing.',
+  '  tags:',
+  '    - quality',
+  '    - architecture',
+  '  appliesTo: project',
+  'scope:',
+  '  languages:',
+  '    - typescript',
+  'match:',
+  '  fact:',
+  '    kind: quality.tight-module-coupling',
+  '    bind: issue',
+  'emit:',
+  '  finding:',
+  '    category: quality.architecture',
+  '    severity: medium',
+  '    confidence: 0.9',
+  '  message:',
+  '    title: Break direct cyclic imports between modules',
+  '    summary: "`${captures.issue.text}` participates in a direct import cycle."',
+  '  remediation:',
+  '    summary: Extract a shared dependency to remove the cycle.',
+].join('\n');
+
+const frontendOnlyAuthorizationRule = [
+  'apiVersion: critiq.dev/v1alpha1',
+  'kind: Rule',
+  'metadata:',
+  '  id: ts.security.frontend-only-authorization',
+  '  title: Authorization enforced only on frontend',
+  '  summary: Backend routes should enforce authorization directly.',
+  '  rationale: Frontend checks are easy to bypass.',
+  '  tags:',
+  '    - security',
+  '    - authorization',
+  '  appliesTo: project',
+  'scope:',
+  '  languages:',
+  '    - typescript',
+  'match:',
+  '  fact:',
+  '    kind: security.frontend-only-authorization',
+  '    bind: issue',
+  'emit:',
+  '  finding:',
+  '    category: security.authorization',
+  '    severity: high',
+  '    confidence: 0.65',
+  '  message:',
+  '    title: Backend authorization must not live only in the frontend',
+  '    summary: "Route `${captures.issue.text}` appears gated only in frontend code."',
+  '  remediation:',
+  '    summary: Add a backend authorization check on the route.',
+].join('\n');
+
+const logicChangeWithoutTestsRule = [
+  'apiVersion: critiq.dev/v1alpha1',
+  'kind: Rule',
+  'metadata:',
+  '  id: ts.quality.logic-change-without-test-updates',
+  '  title: Logic change without corresponding test updates',
+  '  summary: Diffs that change critical logic should usually update the matching tests.',
+  '  rationale: Critical logic changes without tests are regression-prone.',
+  '  tags:',
+  '    - quality',
+  '    - testing',
+  '  appliesTo: project',
+  'scope:',
+  '  languages:',
+  '    - typescript',
+  '  changedLinesOnly: true',
+  'match:',
+  '  fact:',
+  '    kind: quality.logic-change-without-test-updates',
+  '    bind: issue',
+  'emit:',
+  '  finding:',
+  '    category: quality.testing',
+  '    severity: medium',
+  '    confidence: 0.7',
+  '  message:',
+  '    title: Update tests alongside critical logic changes',
+  '    summary: "`${captures.issue.text}` changed without a corresponding test change."',
+  '  remediation:',
+  '    summary: Update the matching tests in the same diff.',
 ].join('\n');
 
 describe('check runner', () => {
@@ -132,5 +246,198 @@ describe('check runner', () => {
     expect(result.envelope.matchedRuleCount).toBe(1);
     expect(result.envelope.findingCount).toBe(1);
     expect(result.envelope.findings[0].rule.id).toBe('ts.logging.no-console-log');
+  });
+
+  it('adds repo-level project facts before evaluating cross-file rules', () => {
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/catalog.yaml',
+      [
+        'apiVersion: critiq.dev/v1alpha1',
+        'kind: RuleCatalog',
+        'rules:',
+        '  - id: ts.quality.tight-module-coupling',
+        '    rulePath: ./rules/ts.quality.tight-module-coupling.rule.yaml',
+        '    presets:',
+        '      - recommended',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/rules/ts.quality.tight-module-coupling.rule.yaml',
+      tightModuleCouplingRule,
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/modules/cycle-a.ts',
+      [
+        "import { createBLabel } from './cycle-b';",
+        '',
+        'export function createALabel(name: string) {',
+        '  return `a:${createBLabel(name)}`;',
+        '}',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/modules/cycle-b.ts',
+      [
+        "import { createALabel } from './cycle-a';",
+        '',
+        'export function createBLabel(name: string) {',
+        '  return `b:${createALabel(name)}`;',
+        '}',
+      ].join('\n'),
+    );
+
+    const result = runCheckCommand({
+      cwd: tempDirectory,
+      format: 'json',
+    });
+
+    expect(result.envelope.findingCount).toBe(2);
+    expect(result.envelope.findings.map((finding) => finding.rule.id)).toEqual([
+      'ts.quality.tight-module-coupling',
+      'ts.quality.tight-module-coupling',
+    ]);
+    expect(
+      result.envelope.findings.map((finding) => finding.locations.primary.path),
+    ).toEqual(['src/modules/cycle-a.ts', 'src/modules/cycle-b.ts']);
+  });
+
+  it('correlates frontend-gated routes with unguarded backend handlers', () => {
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/catalog.yaml',
+      [
+        'apiVersion: critiq.dev/v1alpha1',
+        'kind: RuleCatalog',
+        'rules:',
+        '  - id: ts.security.frontend-only-authorization',
+        '    rulePath: ./rules/ts.security.frontend-only-authorization.rule.yaml',
+        '    presets:',
+        '      - recommended',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/rules/ts.security.frontend-only-authorization.rule.yaml',
+      frontendOnlyAuthorizationRule,
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/api/staff.ts',
+      [
+        'const router = {',
+        '  get: (_path: string, handler: unknown) => handler,',
+        '};',
+        '',
+        "router.get('/staff/users', async () => ['ada']);",
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/frontend/staff.tsx',
+      [
+        'const session = {',
+        "  user: { id: 'employee-1' },",
+        '};',
+        '',
+        'export async function loadDirectory() {',
+        '  if (!session.user) {',
+        '    return [];',
+        '  }',
+        '',
+        "  return fetch('/staff/users');",
+        '}',
+      ].join('\n'),
+    );
+
+    const result = runCheckCommand({
+      cwd: tempDirectory,
+      format: 'json',
+    });
+
+    expect(result.envelope.findingCount).toBe(1);
+    expect(result.envelope.findings[0].rule.id).toBe(
+      'ts.security.frontend-only-authorization',
+    );
+    expect(result.envelope.findings[0].locations.primary.path).toBe(
+      'src/api/staff.ts',
+    );
+  });
+
+  it('flags changed critical logic when the diff has no matching test updates', () => {
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/catalog.yaml',
+      [
+        'apiVersion: critiq.dev/v1alpha1',
+        'kind: RuleCatalog',
+        'rules:',
+        '  - id: ts.quality.logic-change-without-test-updates',
+        '    rulePath: ./rules/ts.quality.logic-change-without-test-updates.rule.yaml',
+        '    presets:',
+        '      - recommended',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/rules/ts.quality.logic-change-without-test-updates.rule.yaml',
+      logicChangeWithoutTestsRule,
+    );
+    initializeGitRepository(tempDirectory);
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/services/payment-service.ts',
+      [
+        'export async function transferPayment(accountId: string) {',
+        "  return `payment:${accountId}`;",
+        '}',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/services/payment-service.test.ts',
+      [
+        "import { transferPayment } from './payment-service';",
+        '',
+        "it('transfers payments', async () => {",
+        "  await expect(transferPayment('acct-1')).resolves.toBe('payment:acct-1');",
+        '});',
+      ].join('\n'),
+    );
+    commitAll(tempDirectory, 'initial');
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/services/payment-service.ts',
+      [
+        'export async function transferPayment(accountId: string) {',
+        "  return `payment:updated:${accountId}`;",
+        '}',
+      ].join('\n'),
+    );
+    commitAll(tempDirectory, 'logic change');
+
+    const result = runCheckCommand({
+      cwd: tempDirectory,
+      format: 'json',
+      baseRef: 'HEAD~1',
+      headRef: 'HEAD',
+    });
+
+    expect(result.envelope.scope).toEqual({
+      mode: 'diff',
+      base: 'HEAD~1',
+      head: 'HEAD',
+      changedFileCount: 1,
+    });
+    expect(result.envelope.findingCount).toBe(1);
+    expect(result.envelope.findings[0].rule.id).toBe(
+      'ts.quality.logic-change-without-test-updates',
+    );
+    expect(result.envelope.findings[0].locations.primary.path).toBe(
+      'src/services/payment-service.ts',
+    );
   });
 });

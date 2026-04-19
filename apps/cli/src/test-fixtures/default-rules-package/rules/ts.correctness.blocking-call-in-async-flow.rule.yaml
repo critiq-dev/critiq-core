@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.blocking-call-in-async-flow
+  title: Blocking call inside async flow
+  summary: Async functions should not call synchronous blocking APIs on the hot path.
+  rationale: Blocking sync APIs stall the event loop and erase the throughput benefits of async control flow.
+  tags:
+    - correctness
+    - async
+    - rules-catalog
+    - crq-cor-013
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: async.blocking-call-in-async-flow
+    bind: issue
+emit:
+  finding:
+    category: correctness.async
+    severity: medium
+    confidence: 0.75
+    tags:
+      - correctness
+      - async
+  message:
+    title: Avoid blocking sync calls in async flows
+    summary: "`${captures.issue.text}` uses a blocking sync API inside an async function."
+  remediation:
+    summary: Replace the sync API with its asynchronous equivalent or move the blocking work out of the async request path.

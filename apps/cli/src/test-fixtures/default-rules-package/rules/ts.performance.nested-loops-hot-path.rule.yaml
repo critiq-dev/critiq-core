@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.performance.nested-loops-hot-path
+  title: Nested loops in hot path (O(n²) risk)
+  summary: Nested loops in the same function should be reviewed for quadratic work on larger inputs.
+  rationale: Nested iteration often becomes the dominant cost on hot paths and usually benefits from indexing or precomputation.
+  tags:
+    - performance
+    - algorithmic
+    - rules-catalog
+    - crq-per-031
+  stability: stable
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: performance.nested-loops-hot-path
+    bind: issue
+emit:
+  finding:
+    category: performance.algorithmic
+    severity: medium
+    confidence: 0.75
+    tags:
+      - performance
+      - algorithmic
+  message:
+    title: Review nested loops on hot paths
+    summary: "`${captures.issue.text}` nests loops and may introduce quadratic work."
+  remediation:
+    summary: Precompute lookups, index one side with a set or map, or otherwise flatten the repeated scan.

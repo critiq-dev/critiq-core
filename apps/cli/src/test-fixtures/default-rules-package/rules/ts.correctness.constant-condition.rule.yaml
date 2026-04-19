@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.constant-condition
+  title: Always-true or always-false condition
+  summary: Flow-control conditions should not resolve to a constant boolean value.
+  rationale: Constant conditions hide dead branches and usually signal leftover debug code or a mistaken comparison.
+  tags:
+    - correctness
+    - logic
+    - rules-catalog
+    - crq-cor-006
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: control-flow.constant-condition
+    bind: issue
+emit:
+  finding:
+    category: correctness.logic
+    severity: medium
+    confidence: 0.95
+    tags:
+      - correctness
+      - logic
+  message:
+    title: Review constant condition
+    summary: "`${captures.issue.text}` always resolves to the same boolean value."
+  remediation:
+    summary: Replace the constant predicate with a real runtime check or remove the dead branch.

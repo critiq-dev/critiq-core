@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.quality.deep-nesting
+  title: Deep nesting reducing readability
+  summary: Deeply nested control flow should be flattened where practical.
+  rationale: Deep nesting increases cognitive load and makes edge cases harder to reason about during review.
+  tags:
+    - quality
+    - structure
+    - rules-catalog
+    - crq-qua-042
+  stability: stable
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: quality.deep-nesting
+    bind: issue
+emit:
+  finding:
+    category: quality.structure
+    severity: low
+    confidence: 0.9
+    tags:
+      - quality
+      - structure
+  message:
+    title: Flatten deeply nested control flow
+    summary: Review `${captures.issue.text}` and reduce indentation depth.
+  remediation:
+    summary: Use guard clauses, helper functions, or early returns to keep the main path shallow.

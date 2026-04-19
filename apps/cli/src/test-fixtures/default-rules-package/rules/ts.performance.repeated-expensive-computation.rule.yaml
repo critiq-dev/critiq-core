@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.performance.repeated-expensive-computation
+  title: Repeated expensive computation
+  summary: Repeating the same expensive computation in one block should usually be cached.
+  rationale: Recomputing the same serialization, key projection, or formatter construction wastes CPU and obscures intent.
+  tags:
+    - performance
+    - compute
+    - rules-catalog
+    - crq-per-032
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: performance.repeated-expensive-computation
+    bind: issue
+emit:
+  finding:
+    category: performance.compute
+    severity: medium
+    confidence: 0.8
+    tags:
+      - performance
+      - compute
+  message:
+    title: Cache repeated expensive work
+    summary: "`${captures.issue.text}` repeats expensive computation in the same block."
+  remediation:
+    summary: Compute the value once, store it in a local binding, and reuse the cached result.

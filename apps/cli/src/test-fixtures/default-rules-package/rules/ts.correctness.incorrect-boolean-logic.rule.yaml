@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.incorrect-boolean-logic
+  title: Incorrect boolean logic (AND/OR misuse)
+  summary: Comparison chains on the same value must use the boolean operator that matches the intended logic.
+  rationale: Using `&&` for mutually exclusive equality checks or `||` for inequality chains produces conditions that can never behave as intended.
+  tags:
+    - correctness
+    - logic
+    - rules-catalog
+    - crq-cor-008
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: control-flow.incorrect-boolean-logic
+    bind: issue
+emit:
+  finding:
+    category: correctness.logic
+    severity: medium
+    confidence: 0.9
+    tags:
+      - correctness
+      - logic
+  message:
+    title: Review boolean comparison logic
+    summary: "`${captures.issue.text}` uses an AND/OR comparison chain that cannot behave as intended."
+  remediation:
+    summary: Use `||` for equality alternatives or `&&` for inequality exclusions, depending on the intended condition.

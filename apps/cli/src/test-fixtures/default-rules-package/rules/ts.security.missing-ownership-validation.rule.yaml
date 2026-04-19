@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.security.missing-ownership-validation
+  title: Missing ownership validation
+  summary: Resource identifiers from request input should be checked against the caller before sensitive actions run.
+  rationale: Authorization alone is not enough when handlers act on caller-provided resource ids that may belong to someone else.
+  tags:
+    - security
+    - authorization
+    - rules-catalog
+    - crq-sec-022
+  stability: stable
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: security.missing-ownership-validation
+    bind: issue
+emit:
+  finding:
+    category: security.authorization
+    severity: high
+    confidence: 0.75
+    tags:
+      - security
+      - authorization
+  message:
+    title: Validate ownership before acting on caller-supplied resource ids
+    summary: "`${captures.issue.text}` is used in a sensitive path without a matching ownership check."
+  remediation:
+    summary: Compare the request-derived resource id to the authenticated caller or load the resource through an ownership-enforcing query.

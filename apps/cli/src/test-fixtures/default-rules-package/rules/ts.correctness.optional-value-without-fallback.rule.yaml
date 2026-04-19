@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.optional-value-without-fallback
+  title: Optional value used without fallback
+  summary: Optional values should be normalized before arithmetic, concatenation, or other direct use.
+  rationale: Using maybe-undefined values in ordinary expressions bakes uncertainty into the result and can fail or stringify unexpectedly at runtime.
+  tags:
+    - correctness
+    - "null"
+    - rules-catalog
+    - crq-cor-004
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: data-flow.optional-value-without-fallback
+    bind: issue
+emit:
+  finding:
+    category: correctness.null
+    severity: medium
+    confidence: 0.8
+    tags:
+      - correctness
+      - "null"
+  message:
+    title: Normalize optional values before using them
+    summary: "`${captures.issue.text}` uses a maybe-missing value without a fallback."
+  remediation:
+    summary: Add `??`, `||`, or an explicit guard so the expression always receives a defined value.

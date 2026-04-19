@@ -10,6 +10,9 @@ It owns:
 - rule normalization for catalog content
 - repository and diff file discovery
 - source adapter registration and dispatch
+- repo-level heuristic augmentation layered on analyzed files for
+  auth/ownership coverage, route mismatches, looped IO, batching, duplication,
+  direct import cycles, and test coverage gaps
 - finding aggregation and deduplication
 - the stable `check` JSON envelope
 

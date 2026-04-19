@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.security.missing-authorization-before-sensitive-action
+  title: Missing authorization before sensitive action
+  summary: Sensitive backend actions should be guarded by an authorization or permission check.
+  rationale: Calling destructive or privileged actions without an authorization guard increases the risk of broken access control.
+  tags:
+    - security
+    - authorization
+    - rules-catalog
+    - crq-sec-021
+  stability: stable
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: security.missing-authorization-before-sensitive-action
+    bind: issue
+emit:
+  finding:
+    category: security.authorization
+    severity: high
+    confidence: 0.75
+    tags:
+      - security
+      - authorization
+  message:
+    title: Add authorization before sensitive backend actions
+    summary: "`${captures.issue.text}` performs a sensitive action without a matching authorization guard."
+  remediation:
+    summary: Add an explicit authorization or permission check before the sensitive action executes.

@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.performance.large-payload-without-streaming
+  title: Large payload processing without streaming
+  summary: Whole-payload reads of likely large content should be reviewed for streaming alternatives.
+  rationale: Pulling large payloads into memory increases latency and memory pressure compared with streaming or chunked processing.
+  tags:
+    - performance
+    - memory-io
+    - rules-catalog
+    - crq-per-037
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: performance.large-payload-without-streaming
+    bind: issue
+emit:
+  finding:
+    category: performance.memory-io
+    severity: medium
+    confidence: 0.8
+    tags:
+      - performance
+      - memory-io
+  message:
+    title: Stream large payloads when practical
+    summary: "`${captures.issue.text}` reads likely large payload data into memory at once."
+  remediation:
+    summary: Prefer `createReadStream`, iterator-based parsing, or chunked processing for large files and binary payloads.

@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.performance.missing-batch-operations
+  title: Missing batching of operations
+  summary: Repeated one-by-one operations inside loops should prefer available batch-style helpers.
+  rationale: Batch APIs usually reduce round trips, contention, and request overhead compared with item-at-a-time loops.
+  tags:
+    - performance
+    - io
+    - rules-catalog
+    - crq-per-036
+  stability: stable
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: performance.missing-batch-operations
+    bind: issue
+emit:
+  finding:
+    category: performance.io
+    severity: medium
+    confidence: 0.75
+    tags:
+      - performance
+      - io
+  message:
+    title: Prefer batch helpers over one-by-one loops
+    summary: "`${captures.issue.text}` runs one item at a time even though a batch-style helper appears available."
+  remediation:
+    summary: Replace the per-item loop with the available batch or bulk helper, or add one if the dependency already supports it.

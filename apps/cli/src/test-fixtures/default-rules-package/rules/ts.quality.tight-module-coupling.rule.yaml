@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.quality.tight-module-coupling
+  title: Tight coupling between modules
+  summary: Direct import cycles between modules increase coupling and make change boundaries harder to maintain.
+  rationale: Cyclic dependencies complicate initialization order, testing, and architecture boundaries.
+  tags:
+    - quality
+    - architecture
+    - rules-catalog
+    - crq-qua-046
+  stability: stable
+  appliesTo: project
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: quality.tight-module-coupling
+    bind: issue
+emit:
+  finding:
+    category: quality.architecture
+    severity: medium
+    confidence: 0.9
+    tags:
+      - quality
+      - architecture
+  message:
+    title: Break direct cyclic imports between modules
+    summary: "`${captures.issue.text}` participates in a direct module import cycle."
+  remediation:
+    summary: Extract shared types or helpers into a third module, or invert the dependency so the cycle disappears.

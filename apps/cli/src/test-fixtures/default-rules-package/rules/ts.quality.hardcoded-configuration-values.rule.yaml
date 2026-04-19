@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.quality.hardcoded-configuration-values
+  title: Hardcoded configuration values
+  summary: Config-like values should usually come from configuration sources rather than source literals.
+  rationale: Hardcoded service URLs, timeouts, and regions make deployments harder to vary and review safely.
+  tags:
+    - quality
+    - configuration
+    - rules-catalog
+    - crq-qua-044
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: quality.hardcoded-configuration-values
+    bind: issue
+emit:
+  finding:
+    category: quality.configuration
+    severity: low
+    confidence: 0.8
+    tags:
+      - quality
+      - configuration
+  message:
+    title: Externalize config-like literals
+    summary: Review `${captures.issue.text}` and move config-like literals behind a configuration source.
+  remediation:
+    summary: Load the value from env, params, or a dedicated config module instead of hardcoding it in source.

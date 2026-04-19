@@ -1,0 +1,36 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.quality.logic-change-without-test-updates
+  title: Logic change without corresponding test updates
+  summary: Diffs that change critical logic should usually update the matching tests in the same change.
+  rationale: Critical logic changes without test updates are easy to miss in review and increase regression risk.
+  tags:
+    - quality
+    - testing
+    - rules-catalog
+    - crq-qua-050
+  stability: stable
+  appliesTo: project
+scope:
+  languages:
+    - typescript
+    - javascript
+  changedLinesOnly: true
+match:
+  fact:
+    kind: quality.logic-change-without-test-updates
+    bind: issue
+emit:
+  finding:
+    category: quality.testing
+    severity: medium
+    confidence: 0.7
+    tags:
+      - quality
+      - testing
+  message:
+    title: Update tests alongside critical logic changes
+    summary: "`${captures.issue.text}` changed without a corresponding test file change in the same diff."
+  remediation:
+    summary: Update or add the matching tests in the same change so the new behavior is exercised by the diff.

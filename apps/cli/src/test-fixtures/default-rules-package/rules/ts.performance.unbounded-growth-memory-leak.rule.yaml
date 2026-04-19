@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.performance.unbounded-growth-memory-leak
+  title: Potential memory leak from unbounded growth
+  summary: Shared collections that only grow should be reviewed for eviction or lifecycle boundaries.
+  rationale: Appending to long-lived state without a cap can leak memory across requests or over process lifetime.
+  tags:
+    - performance
+    - memory
+    - rules-catalog
+    - crq-per-038
+  stability: stable
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: performance.unbounded-growth-memory-leak
+    bind: issue
+emit:
+  finding:
+    category: performance.memory
+    severity: high
+    confidence: 0.75
+    tags:
+      - performance
+      - memory
+  message:
+    title: Bound long-lived collection growth
+    summary: Review `${captures.issue.text}` for unbounded growth of shared state.
+  remediation:
+    summary: Add eviction, scoping, or cleanup so the collection cannot grow forever across calls.

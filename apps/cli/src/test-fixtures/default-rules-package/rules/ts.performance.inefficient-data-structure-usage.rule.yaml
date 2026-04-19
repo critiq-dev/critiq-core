@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.performance.inefficient-data-structure-usage
+  title: Inefficient data structure usage
+  summary: Linear membership checks or key projections should be reviewed for more suitable lookup structures.
+  rationale: Repeated array scans or `Object.keys(...).includes(...)` patterns are often avoidable with `Set`, `Map`, or direct key checks.
+  tags:
+    - performance
+    - algorithmic
+    - rules-catalog
+    - crq-per-034
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: performance.inefficient-data-structure-usage
+    bind: issue
+emit:
+  finding:
+    category: performance.algorithmic
+    severity: medium
+    confidence: 0.8
+    tags:
+      - performance
+      - algorithmic
+  message:
+    title: Prefer a more efficient lookup structure
+    summary: "`${captures.issue.text}` uses a linear lookup where a dedicated structure would be cheaper."
+  remediation:
+    summary: Replace repeated array scans with `Set` or `Map`, or use direct key existence checks instead of projecting keys first.

@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.unchecked-map-key-access
+  title: Unchecked map or dictionary key access
+  summary: Lookups should verify key presence before reading from maps or keyed objects.
+  rationale: Missing-key reads often flow undefined deeper into the function and fail far away from the original lookup.
+  tags:
+    - correctness
+    - data-access
+    - rules-catalog
+    - crq-cor-003
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: data-flow.unchecked-map-key-access
+    bind: issue
+emit:
+  finding:
+    category: correctness.data-access
+    severity: medium
+    confidence: 0.8
+    tags:
+      - correctness
+      - data-access
+  message:
+    title: Guard keyed lookups before reading values
+    summary: "`${captures.issue.text}` reads from a keyed collection without checking whether the key is present."
+  remediation:
+    summary: Check `has`, `in`, or `Object.hasOwn` before reading, or provide a safe default when the key is missing.

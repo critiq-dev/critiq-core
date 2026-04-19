@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.performance.sequential-async-calls
+  title: Sequential async calls that could run in parallel
+  summary: Independent awaited calls in the same block should not serialize unnecessarily.
+  rationale: Awaiting unrelated async operations one by one increases end-to-end latency without adding correctness.
+  tags:
+    - performance
+    - async
+    - rules-catalog
+    - crq-per-035
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: performance.sequential-async-calls
+    bind: issue
+emit:
+  finding:
+    category: performance.async
+    severity: medium
+    confidence: 0.8
+    tags:
+      - performance
+      - async
+  message:
+    title: Parallelize independent async calls
+    summary: "`${captures.issue.text}` is awaited after an independent async call and may serialize work unnecessarily."
+  remediation:
+    summary: Start both operations first and await them together, for example with `Promise.all(...)`.

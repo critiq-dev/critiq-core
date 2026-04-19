@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.off-by-one-loop-boundary
+  title: Off-by-one error in loop boundaries
+  summary: Index-based loops should not skip the first element or iterate one step past the collection boundary.
+  rationale: Off-by-one loop conditions frequently cause undefined reads, missed work, or stale guard logic around array bounds.
+  tags:
+    - correctness
+    - logic
+    - rules-catalog
+    - crq-cor-009
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: control-flow.off-by-one-loop-boundary
+    bind: issue
+emit:
+  finding:
+    category: correctness.logic
+    severity: medium
+    confidence: 0.85
+    tags:
+      - correctness
+      - logic
+  message:
+    title: Review loop boundary condition
+    summary: "`${captures.issue.text}` likely skips or overruns one loop iteration."
+  remediation:
+    summary: Use `< collection.length` for ascending loops and `>= 0` for descending loops that start at `length - 1`.

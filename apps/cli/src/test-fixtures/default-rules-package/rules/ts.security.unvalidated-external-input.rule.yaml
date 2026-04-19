@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.security.unvalidated-external-input
+  title: Unvalidated external input
+  summary: External input should be validated before it is used to construct sensitive runtime objects.
+  rationale: Treating raw request data as patterns or URLs increases the risk of malformed input, denial of service, and downstream security defects.
+  tags:
+    - security
+    - input-validation
+    - rules-catalog
+    - crq-sec-027
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: security.unvalidated-external-input
+    bind: issue
+emit:
+  finding:
+    category: security.input-validation
+    severity: medium
+    confidence: 0.8
+    tags:
+      - security
+      - input-validation
+  message:
+    title: Validate external input before constructing sensitive objects
+    summary: "`${captures.issue.text}` uses external input without first validating or sanitizing it."
+  remediation:
+    summary: Validate, sanitize, or normalize the external input before passing it into URL, RegExp, or similarly sensitive constructors.

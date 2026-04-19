@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.unhandled-async-error
+  title: Unhandled promise rejection or async error
+  summary: Promise chains started in a function should terminate with explicit rejection handling.
+  rationale: Floating `.then(...)` chains without a terminal catch can reject outside the intended error-handling path and make failures hard to trace.
+  tags:
+    - correctness
+    - async
+    - rules-catalog
+    - crq-cor-012
+  stability: stable
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: async.unhandled-async-error
+    bind: issue
+emit:
+  finding:
+    category: correctness.async
+    severity: high
+    confidence: 0.85
+    tags:
+      - correctness
+      - async
+  message:
+    title: Handle async rejections explicitly
+    summary: Review `${captures.issue.text}` and terminate the promise chain with rejection handling.
+  remediation:
+    summary: Await the operation in a try/catch block or attach a terminal `.catch(...)` handler to the promise chain.

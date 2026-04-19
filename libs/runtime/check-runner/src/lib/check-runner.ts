@@ -40,6 +40,8 @@ import {
 } from 'node:fs';
 import { dirname, extname, isAbsolute, relative, resolve, sep } from 'node:path';
 
+import { augmentProjectFacts } from './project-analysis';
+
 const DEFAULT_CATALOG_PACKAGE_NAME = '@critiq/rules' as const;
 const RULE_CATALOG_FILENAME = 'catalog.yaml' as const;
 
@@ -1114,6 +1116,7 @@ export function runCheckCommand(
   const diagnostics: Diagnostic[] = [...informationalDiagnostics];
   const seenFingerprints = new Set<string>();
   const sourceTextsByPath = new Map<string, string>();
+  const analyzedFiles: AnalyzedFile[] = [];
 
   for (const absolutePath of filteredScope.files) {
     const textResult = readTextFileSafe(absolutePath);
@@ -1150,11 +1153,17 @@ export function runCheckCommand(
       continue;
     }
 
-    const analyzedFile = {
+    analyzedFiles.push({
       ...analysis.data,
       changedRanges: filteredScope.changedRangesByAbsolutePath.get(absolutePath),
-    };
+    });
+  }
 
+  const projectAugmentedFiles = augmentProjectFacts(analyzedFiles, {
+    scopeMode: resolvedScope.data.scope.mode,
+  });
+
+  for (const analyzedFile of projectAugmentedFiles) {
     for (const rule of activeRules) {
       const applicability = evaluateRuleApplicability(rule, analyzedFile);
 

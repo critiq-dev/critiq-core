@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.security.frontend-only-authorization
+  title: Authorization enforced only on frontend
+  summary: Backend routes should enforce authorization directly instead of relying on frontend gating alone.
+  rationale: Frontend checks are easy to bypass, so sensitive routes need server-side authorization on the backend path itself.
+  tags:
+    - security
+    - authorization
+    - rules-catalog
+    - crq-sec-024
+  stability: experimental
+  appliesTo: project
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: security.frontend-only-authorization
+    bind: issue
+emit:
+  finding:
+    category: security.authorization
+    severity: high
+    confidence: 0.65
+    tags:
+      - security
+      - authorization
+  message:
+    title: Backend authorization must not live only in the frontend
+    summary: "Route `${captures.issue.text}` appears gated in frontend code but not on the backend handler."
+  remediation:
+    summary: Add a backend authorization or permission check on the matching route handler.

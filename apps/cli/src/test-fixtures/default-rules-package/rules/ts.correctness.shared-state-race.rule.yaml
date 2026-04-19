@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.shared-state-race
+  title: Race condition on shared state
+  summary: Async functions that mutate shared state after an await boundary should be reviewed for races.
+  rationale: Mutating outer-scope or instance state after suspension can interleave with concurrent callers and corrupt shared state.
+  tags:
+    - correctness
+    - concurrency
+    - rules-catalog
+    - crq-cor-015
+  stability: experimental
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: concurrency.shared-state-race
+    bind: issue
+emit:
+  finding:
+    category: correctness.concurrency
+    severity: high
+    confidence: 0.65
+    tags:
+      - correctness
+      - concurrency
+  message:
+    title: Review shared-state mutation across await boundaries
+    summary: "`${captures.issue.text}` mutates shared state after async suspension."
+  remediation:
+    summary: Isolate the state per request, serialize access, or move the mutation before the await boundary.

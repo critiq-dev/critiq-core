@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.performance.unnecessary-rerenders-from-state-misuse
+  title: Unnecessary re-renders from state misuse
+  summary: React state setters invoked directly during render should be reviewed for rerender loops.
+  rationale: Calling a state setter during render can trigger avoidable rerenders and unstable component behavior.
+  tags:
+    - performance
+    - ui
+    - rules-catalog
+    - crq-per-040
+  stability: experimental
+  appliesTo: function
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: performance.unnecessary-rerenders-from-state-misuse
+    bind: issue
+emit:
+  finding:
+    category: performance.ui
+    severity: medium
+    confidence: 0.7
+    tags:
+      - performance
+      - ui
+  message:
+    title: Avoid render-path state updates
+    summary: Review `${captures.issue.text}` and move state updates out of the render path.
+  remediation:
+    summary: Trigger the state update from an event, effect, or transition instead of directly during render.

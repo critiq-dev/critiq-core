@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.quality.magic-numbers-or-strings
+  title: Magic numbers or magic strings
+  summary: Non-trivial literals in logic should be named to explain their meaning.
+  rationale: Bare literals hide domain meaning and make future changes riskier because intent is not captured in code.
+  tags:
+    - quality
+    - readability
+    - rules-catalog
+    - crq-qua-045
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: quality.magic-numbers-or-strings
+    bind: issue
+emit:
+  finding:
+    category: quality.readability
+    severity: low
+    confidence: 0.65
+    tags:
+      - quality
+      - readability
+  message:
+    title: Name magic literals
+    summary: Review `${captures.issue.text}` and replace unexplained literals with named constants.
+  remediation:
+    summary: Extract the literal into a descriptive constant or enum so the intent is explicit.

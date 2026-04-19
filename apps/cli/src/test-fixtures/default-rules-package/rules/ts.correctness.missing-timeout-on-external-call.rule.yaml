@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.missing-timeout-on-external-call
+  title: Missing timeout on external call
+  summary: External HTTP calls should declare timeout or cancellation behavior.
+  rationale: Network calls without explicit timeouts can hang indefinitely and make retry or fallback behavior unreliable.
+  tags:
+    - correctness
+    - resilience
+    - rules-catalog
+    - crq-cor-014
+  stability: stable
+  appliesTo: block
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: resilience.missing-timeout-on-external-call
+    bind: issue
+emit:
+  finding:
+    category: correctness.resilience
+    severity: high
+    confidence: 0.9
+    tags:
+      - correctness
+      - resilience
+  message:
+    title: Configure timeouts on external calls
+    summary: "`${captures.issue.text}` performs an external call without explicit timeout or cancellation settings."
+  remediation:
+    summary: Add a timeout-bearing config object, such as `signal` for `fetch` or `timeout` for axios.
