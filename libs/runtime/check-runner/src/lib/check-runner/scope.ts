@@ -278,9 +278,13 @@ export function resolveCheckScope(
   ]);
 
   if (!changedFilesResult.success) {
+    const { diagnostics } = changedFilesResult as Extract<
+      typeof changedFilesResult,
+      { success: false }
+    >;
     return {
       success: false,
-      diagnostics: changedFilesResult.diagnostics,
+      diagnostics,
     };
   }
 
@@ -295,9 +299,13 @@ export function resolveCheckScope(
   ]);
 
   if (!diffResult.success) {
+    const { diagnostics } = diffResult as Extract<
+      typeof diffResult,
+      { success: false }
+    >;
     return {
       success: false,
-      diagnostics: diffResult.diagnostics,
+      diagnostics,
     };
   }
 

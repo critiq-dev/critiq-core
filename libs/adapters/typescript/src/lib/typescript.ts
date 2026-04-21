@@ -4,6 +4,7 @@ import { parse, type TSESTree } from '@typescript-eslint/typescript-estree';
 import { extname } from 'node:path';
 
 import { buildTypeScriptControlFlow } from './control-flow';
+import { collectAdditionalTypeScriptFacts } from './custom-facts';
 
 export interface TypeScriptAnalysisSuccess {
   success: true;
@@ -293,6 +294,22 @@ export function analyzeTypeScriptFile(
     const nodeIds = new WeakMap<object, string>();
 
     visitNode(program as unknown as NodeLike, text, nodes, nodeIds);
+    const semantics = buildTypeScriptControlFlow(program, text, nodeIds);
+    const additionalFacts = collectAdditionalTypeScriptFacts({
+      nodeIds,
+      path,
+      program,
+      sourceText: text,
+    });
+
+    const controlFlow = semantics.controlFlow ?? {
+      functions: [],
+      blocks: [],
+      edges: [],
+      facts: [],
+    };
+    controlFlow.facts.push(...additionalFacts);
+    semantics.controlFlow = controlFlow;
 
     return {
       success: true,
@@ -301,7 +318,7 @@ export function analyzeTypeScriptFile(
         language: extensionToLanguage(path),
         text,
         nodes,
-        semantics: buildTypeScriptControlFlow(program, text, nodeIds),
+        semantics,
       },
     };
   } catch (error) {

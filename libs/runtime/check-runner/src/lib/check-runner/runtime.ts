@@ -149,13 +149,17 @@ export function runCheckCommand(
   const resolvedTarget = resolveCheckTarget(cwd, target);
 
   if (!resolvedTarget.success) {
+    const { diagnostics } = resolvedTarget as Extract<
+      typeof resolvedTarget,
+      { success: false }
+    >;
     return buildFailureResult(
       {
         format,
         target,
         catalogPackage: null,
         preset: null,
-        diagnostics: resolvedTarget.diagnostics,
+        diagnostics,
       },
       options.baseRef,
       options.headRef,
@@ -167,13 +171,17 @@ export function runCheckCommand(
   );
 
   if (!loadedConfig.success) {
+    const { diagnostics } = loadedConfig as Extract<
+      typeof loadedConfig,
+      { success: false }
+    >;
     return buildFailureResult(
       {
         format,
         target,
         catalogPackage: null,
         preset: null,
-        diagnostics: loadedConfig.diagnostics,
+        diagnostics,
       },
       options.baseRef,
       options.headRef,
@@ -191,13 +199,17 @@ export function runCheckCommand(
   );
 
   if (!resolvedCatalogPackage.success) {
+    const { diagnostics } = resolvedCatalogPackage as Extract<
+      typeof resolvedCatalogPackage,
+      { success: false }
+    >;
     return buildFailureResult(
       {
         format,
         target,
         catalogPackage: catalogPackageName,
         preset: loadedConfig.data.preset,
-        diagnostics: resolvedCatalogPackage.diagnostics,
+        diagnostics,
       },
       options.baseRef,
       options.headRef,
@@ -209,13 +221,17 @@ export function runCheckCommand(
   );
 
   if (!loadedCatalog.success) {
+    const { diagnostics } = loadedCatalog as Extract<
+      typeof loadedCatalog,
+      { success: false }
+    >;
     return buildFailureResult(
       {
         format,
         target,
         catalogPackage: catalogPackageName,
         preset: loadedConfig.data.preset,
-        diagnostics: loadedCatalog.diagnostics,
+        diagnostics,
       },
       options.baseRef,
       options.headRef,
@@ -254,6 +270,10 @@ export function runCheckCommand(
   );
 
   if (!resolvedScope.success) {
+    const { diagnostics } = resolvedScope as Extract<
+      typeof resolvedScope,
+      { success: false }
+    >;
     return buildFailureResult(
       {
         format,
@@ -261,7 +281,7 @@ export function runCheckCommand(
         catalogPackage: catalogPackageName,
         preset: loadedConfig.data.preset,
         matchedRuleCount: loadedRules.rules.length,
-        diagnostics: resolvedScope.diagnostics,
+        diagnostics,
       },
       options.baseRef,
       options.headRef,
@@ -315,7 +335,11 @@ export function runCheckCommand(
     const textResult = readTextFileSafe(absolutePath);
 
     if (!textResult.success) {
-      diagnostics.push(...textResult.diagnostics);
+      const { diagnostics: textDiagnostics } = textResult as Extract<
+        typeof textResult,
+        { success: false }
+      >;
+      diagnostics.push(...textDiagnostics);
       continue;
     }
 
@@ -340,7 +364,11 @@ export function runCheckCommand(
     const analysis = adapter.analyze(displayPath, textResult.text);
 
     if (!analysis.success) {
-      diagnostics.push(...analysis.diagnostics);
+      const { diagnostics: analysisDiagnostics } = analysis as Extract<
+        typeof analysis,
+        { success: false }
+      >;
+      diagnostics.push(...analysisDiagnostics);
       continue;
     }
 
@@ -369,8 +397,12 @@ export function runCheckCommand(
         });
 
         if (!buildResult.success) {
+          const { issues } = buildResult as Extract<
+            typeof buildResult,
+            { success: false }
+          >;
           diagnostics.push(
-            ...buildResult.issues.map((issue) =>
+            ...issues.map((issue) =>
               createCheckRuntimeDiagnostic(
                 issue.code,
                 issue.message,
