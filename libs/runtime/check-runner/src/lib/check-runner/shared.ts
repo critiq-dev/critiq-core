@@ -4,6 +4,7 @@ import {
   type Diagnostic,
 } from '@critiq/core-diagnostics';
 import type {
+  FindingProvenance,
   FindingSeverity,
   FindingV0,
 } from '@critiq/core-finding-schema';
@@ -52,6 +53,20 @@ export interface CheckRuleSummary {
   severityCounts: Record<FindingSeverity, number>;
 }
 
+export interface CheckReportFindingAttributes {
+  detail?: string;
+}
+
+export interface CheckReportFinding
+  extends Omit<FindingV0, 'provenance' | 'fingerprints' | 'attributes'> {
+  fingerprints: {
+    primary: FindingV0['fingerprints']['primary'];
+  };
+  attributes?: CheckReportFindingAttributes;
+}
+
+export type CheckCommandProvenance = FindingProvenance;
+
 export interface CheckOverallRuleResult {
   ruleId: string;
   status: 'passed' | 'failed';
@@ -78,10 +93,11 @@ export interface CheckCommandEnvelope {
   catalogPackage: string | null;
   preset: 'recommended' | 'strict' | 'security' | 'experimental' | null;
   scope: CheckCommandScope;
+  provenance: CheckCommandProvenance;
   scannedFileCount: number;
   matchedRuleCount: number;
   findingCount: number;
-  findings: FindingV0[];
+  findings: CheckReportFinding[];
   ruleSummaries: CheckRuleSummary[];
   diagnostics: Diagnostic[];
 }
@@ -163,8 +179,19 @@ export function determineExitCode(diagnostics: readonly Diagnostic[]): number {
   return 0;
 }
 
-function isSkippableDirectory(name: string): boolean {
-  return ['.git', '.nx', 'coverage', 'dist', 'node_modules'].includes(name);
+function isSkippableDirectory(
+  currentDirectory: string,
+  name: string,
+): boolean {
+  if (
+    ['.git', '.nx', '.serverless', 'cdk.out', 'coverage', 'dist', 'node_modules', 'vendor'].includes(
+      name,
+    )
+  ) {
+    return true;
+  }
+
+  return name === 'cache' && currentDirectory.split(sep).at(-1) === '.yarn';
 }
 
 export function walkFiles(rootDirectory: string): string[] {
@@ -186,7 +213,7 @@ export function walkFiles(rootDirectory: string): string[] {
       const absolutePath = resolve(currentDirectory, entry.name);
 
       if (entry.isDirectory()) {
-        if (!isSkippableDirectory(entry.name)) {
+        if (!isSkippableDirectory(currentDirectory, entry.name)) {
           queue.push(absolutePath);
         }
 

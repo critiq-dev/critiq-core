@@ -19,8 +19,9 @@ import {
   createFileStartRange,
   createRangeFromOffsets,
   isBatchAlternative,
+  isFixtureLikePath,
+  matchingTestPathsForSource,
   normalizeEndpointPath,
-  normalizeStem,
   rangeContains,
   type FileContext,
   type FunctionInfo,
@@ -566,23 +567,32 @@ export function emitTightCouplingFacts(
 
 export function emitMissingTestsFacts(
   fileContexts: ReadonlyMap<string, FileContext>,
+  availableTestPaths: ReadonlySet<string> = new Set(),
 ): void {
-  const testStems = new Set(
-    [...fileContexts.values()]
-      .filter((context) => context.isTestFile)
-      .map((context) => normalizeStem(context.file.path)),
+  const testPaths = new Set(
+    [
+      ...availableTestPaths,
+      ...[...fileContexts.values()]
+        .filter((context) => context.isTestFile)
+        .map((context) => context.file.path),
+    ],
   );
 
   for (const context of fileContexts.values()) {
     if (
       context.isTestFile ||
+      isFixtureLikePath(context.file.path) ||
       !CRITICAL_PATH_PATTERN.test(context.file.path) ||
       !CRITICAL_KEYWORD_PATTERN.test(context.file.text)
     ) {
       continue;
     }
 
-    if (testStems.has(normalizeStem(context.file.path))) {
+    if (
+      matchingTestPathsForSource(context.file.path).some((path) =>
+        testPaths.has(path),
+      )
+    ) {
       continue;
     }
 
@@ -598,22 +608,27 @@ export function emitMissingTestsFacts(
 
 export function emitLogicChangeWithoutTestsFacts(
   fileContexts: ReadonlyMap<string, FileContext>,
+  availableChangedTestPaths: ReadonlySet<string> = new Set(),
 ): void {
-  const changedTestStems = new Set(
-    [...fileContexts.values()]
-      .filter(
-        (context) =>
-          context.isTestFile &&
-          Boolean(
-            context.file.changedRanges && context.file.changedRanges.length > 0,
-          ),
-      )
-      .map((context) => normalizeStem(context.file.path)),
+  const changedTestPaths = new Set(
+    [
+      ...availableChangedTestPaths,
+      ...[...fileContexts.values()]
+        .filter(
+          (context) =>
+            context.isTestFile &&
+            Boolean(
+              context.file.changedRanges && context.file.changedRanges.length > 0,
+            ),
+        )
+        .map((context) => context.file.path),
+    ],
   );
 
   for (const context of fileContexts.values()) {
     if (
       context.isTestFile ||
+      isFixtureLikePath(context.file.path) ||
       !context.file.changedRanges ||
       context.file.changedRanges.length === 0 ||
       !CRITICAL_PATH_PATTERN.test(context.file.path) ||
@@ -622,7 +637,11 @@ export function emitLogicChangeWithoutTestsFacts(
       continue;
     }
 
-    if (changedTestStems.has(normalizeStem(context.file.path))) {
+    if (
+      matchingTestPathsForSource(context.file.path).some((path) =>
+        changedTestPaths.has(path),
+      )
+    ) {
       continue;
     }
 

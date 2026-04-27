@@ -15,6 +15,8 @@ export type ProjectAnalysisScopeMode = 'repo' | 'diff';
 
 export interface ProjectAnalysisOptions {
   scopeMode: ProjectAnalysisScopeMode;
+  availableTestPaths?: ReadonlySet<string>;
+  availableChangedTestPaths?: ReadonlySet<string>;
 }
 
 export interface ImportEdge {
@@ -86,6 +88,11 @@ export const OWNERSHIP_INPUT_PATTERN =
   /\b(?:context|ctx|event|params|req|request)\.(?:body|params|query)\.(?:accountId|organizationId|ownerId|profileId|projectId|userId|workspaceId)\b/;
 export const DIRECT_IO_CALL_PATTERN =
   /\b(axios\.(delete|get|patch|post|put|request)|client\.query|db\.[A-Za-z_$][A-Za-z0-9_$]*|fetch|httpClient\.[A-Za-z_$][A-Za-z0-9_$]*|pool\.query|prisma\.[A-Za-z_$][A-Za-z0-9_$]*)\s*\(/;
+const FIXTURE_LIKE_PATH_PATTERN =
+  /(?:^|\/)(?:__data__|__fixtures__|__mocks__|fixtures?|mocks?|test-data|testdata)(?:\/|$)/i;
+const TEST_CONTAINER_DIRECTORY_PATTERN =
+  /^__(?:tests|fixtures|mocks|data)__$/i;
+const supportedTestExtensions = ['.js', '.jsx', '.ts', '.tsx'] as const;
 
 function buildLineStarts(text: string): number[] {
   const lineStarts = [0];
@@ -203,7 +210,7 @@ export function rangeContains(
   );
 }
 
-function isTestPath(path: string): boolean {
+export function isTestPath(path: string): boolean {
   return /(?:^|\/)__tests__(?:\/|$)|\.(spec|test)\.[jt]sx?$/i.test(path);
 }
 
@@ -254,7 +261,55 @@ export function isBatchAlternative(
 }
 
 export function normalizeStem(path: string): string {
-  return basename(path, extname(path)).replace(/\.(spec|test)$/i, '');
+  const rawStem = basename(path, extname(path)).replace(/\.(spec|test)$/i, '');
+
+  if (rawStem.toLowerCase() !== 'index') {
+    return rawStem;
+  }
+
+  let currentDirectory = dirname(path);
+  let directoryStem = basename(currentDirectory);
+
+  if (TEST_CONTAINER_DIRECTORY_PATTERN.test(directoryStem)) {
+    currentDirectory = dirname(currentDirectory);
+    directoryStem = basename(currentDirectory);
+  }
+
+  return directoryStem || rawStem;
+}
+
+export function isFixtureLikePath(path: string): boolean {
+  return FIXTURE_LIKE_PATH_PATTERN.test(path);
+}
+
+export function matchingTestPathsForSource(sourcePath: string): string[] {
+  const sourceDirectory = dirname(sourcePath);
+  const rawStem = basename(sourcePath, extname(sourcePath)).replace(/\.(spec|test)$/i, '');
+  const normalizedStem = normalizeStem(sourcePath);
+  const stems = new Set([rawStem, normalizedStem]);
+  const directories = new Set([
+    sourceDirectory,
+    join(sourceDirectory, '__tests__'),
+  ]);
+
+  if (rawStem.toLowerCase() === 'index' || normalizedStem !== rawStem) {
+    const parentDirectory = dirname(sourceDirectory);
+    directories.add(parentDirectory);
+    directories.add(join(parentDirectory, '__tests__'));
+  }
+
+  const paths: string[] = [];
+
+  for (const directory of directories) {
+    for (const stem of stems) {
+      for (const extension of supportedTestExtensions) {
+        paths.push(join(directory, `${stem}.spec${extension}`));
+        paths.push(join(directory, `${stem}.test${extension}`));
+      }
+    }
+  }
+
+  return [...new Set(paths)];
 }
 
 export function normalizeEndpointPath(path: string): string {

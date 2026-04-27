@@ -100,7 +100,6 @@ rules:
   - id: ts.quality.function-too-large-or-complex
     rulePath: ./rules/ts.quality.function-too-large-or-complex.rule.yaml
     presets:
-      - recommended
       - strict
   - id: ts.quality.duplicate-code-block
     rulePath: ./rules/ts.quality.duplicate-code-block.rule.yaml
@@ -109,7 +108,6 @@ rules:
   - id: ts.quality.deep-nesting
     rulePath: ./rules/ts.quality.deep-nesting.rule.yaml
     presets:
-      - recommended
       - strict
   - id: ts.quality.missing-error-context
     rulePath: ./rules/ts.quality.missing-error-context.rule.yaml
@@ -131,7 +129,6 @@ rules:
   - id: ts.quality.missing-tests-for-critical-logic
     rulePath: ./rules/ts.quality.missing-tests-for-critical-logic.rule.yaml
     presets:
-      - recommended
       - strict
   - id: ts.quality.logic-change-without-test-updates
     rulePath: ./rules/ts.quality.logic-change-without-test-updates.rule.yaml

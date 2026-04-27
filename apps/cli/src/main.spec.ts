@@ -214,7 +214,7 @@ describe('cli', () => {
     expect(envelope.preset).toBe('recommended');
     expect(envelope.scope).toEqual({ mode: 'repo' });
     expect(envelope.scannedFileCount).toBe(1);
-    expect(envelope.matchedRuleCount).toBe(34);
+    expect(envelope.matchedRuleCount).toBe(30);
     expect(envelope.findingCount).toBe(0);
     expect(envelope.findings).toEqual([]);
     expect(envelope.ruleSummaries).toEqual([]);
@@ -230,11 +230,19 @@ describe('cli', () => {
     expect(result.exitCode).toBe(1);
     const envelope = JSON.parse(result.stdout) as {
       command: string;
+      provenance: {
+        engineKind: string;
+        engineVersion: string;
+        generatedAt: string;
+      };
       findingCount: number;
       findings: Array<{
         rule: { id: string };
         severity: string;
         locations: { primary: { path: string; startLine: number } };
+        fingerprints: { primary: string };
+        attributes?: { detail?: string };
+        provenance?: unknown;
       }>;
       ruleSummaries: Array<{
         ruleId: string;
@@ -249,11 +257,19 @@ describe('cli', () => {
     };
 
     expect(envelope.command).toBe('check');
+    expect(envelope.provenance.engineKind).toBe('critiq-cli');
+    expect(envelope.provenance.engineVersion).toBe('0.0.1');
+    expect(typeof envelope.provenance.generatedAt).toBe('string');
     expect(envelope.findingCount).toBe(1);
     expect(envelope.findings[0].rule.id).toBe('ts.logging.no-console-log');
     expect(envelope.findings[0].severity).toBe('low');
     expect(envelope.findings[0].locations.primary.path).toBe('src/invalid.ts');
     expect(envelope.findings[0].locations.primary.startLine).toBe(1);
+    expect(envelope.findings[0].fingerprints).toEqual({
+      primary: expect.any(String),
+    });
+    expect(envelope.findings[0].attributes).toBeUndefined();
+    expect(envelope.findings[0]).not.toHaveProperty('provenance');
     expect(envelope.ruleSummaries).toEqual([
       {
         ruleId: 'ts.logging.no-console-log',
@@ -291,8 +307,8 @@ describe('cli', () => {
     expect(output).toContain('> 1 | console.log("hello");');
     expect(output).toContain('| ^^^^^^^^^^^^^^^^^^^^');
     expect(output).toContain('at src/invalid.ts:1:1');
-    expect(output).toContain('Checked 1 file(s) against 34 rule(s)');
-    expect(output).toContain('Rules:       1 failed, 33 passed, 34 total');
+    expect(output).toContain('Checked 1 file(s) against 30 rule(s)');
+    expect(output).toContain('Rules:       1 failed, 29 passed, 30 total');
     expect(output).toContain('Files:       1 failed, 0 passed, 1 total');
     expect(output).toContain('Findings:    1 total');
   });
@@ -311,7 +327,7 @@ describe('cli', () => {
     };
 
     expect(envelope.catalogPackage).toBe('@critiq/rules');
-    expect(envelope.matchedRuleCount).toBe(34);
+    expect(envelope.matchedRuleCount).toBe(30);
     expect(envelope.findingCount).toBe(1);
   });
 
@@ -333,7 +349,7 @@ describe('cli', () => {
     expect(envelope.catalogPackage).toBe('@critiq/rules');
     expect(envelope.preset).toBe('recommended');
     expect(envelope.scannedFileCount).toBe(1);
-    expect(envelope.matchedRuleCount).toBe(34);
+    expect(envelope.matchedRuleCount).toBe(30);
     expect(envelope.findingCount).toBe(1);
     expect(envelope.diagnostics).toEqual([]);
   });
@@ -516,7 +532,7 @@ describe('cli', () => {
     };
 
     expect(result.exitCode).toBe(0);
-    expect(envelope.matchedRuleCount).toBe(31);
+    expect(envelope.matchedRuleCount).toBe(27);
     expect(envelope.findingCount).toBe(0);
   });
 

@@ -26,10 +26,13 @@ export function augmentProjectFacts(
   emitMissingBatchFacts(contexts);
   emitDuplicateCodeFacts(contexts);
   emitTightCouplingFacts(contexts);
-  emitMissingTestsFacts(contexts);
+  emitMissingTestsFacts(contexts, options.availableTestPaths);
 
   if (options.scopeMode === 'diff') {
-    emitLogicChangeWithoutTestsFacts(contexts);
+    emitLogicChangeWithoutTestsFacts(
+      contexts,
+      options.availableChangedTestPaths,
+    );
   }
 
   return [...analyzedFiles];

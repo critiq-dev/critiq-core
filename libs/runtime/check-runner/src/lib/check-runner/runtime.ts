@@ -23,7 +23,13 @@ import {
 } from '@critiq/core-rules-engine';
 import { resolve } from 'node:path';
 
-import { applySeverityOverride, compareFindings, summarizeFindings } from './findings';
+import {
+  applySeverityOverride,
+  compareFindings,
+  compactFindingForReport,
+  dedupeReportFindings,
+  summarizeFindings,
+} from './findings';
 import { createDefaultSourceAdapterRegistry } from './registry';
 import { filterIgnoredPaths, resolveCheckScope, resolveCheckTarget } from './scope';
 import {
@@ -41,6 +47,10 @@ import {
   type RunCheckCommandResult,
 } from './shared';
 import { augmentProjectFacts } from '../project-analysis';
+import { isTestPath } from '../project-analysis/context';
+
+const CHECK_ENGINE_KIND = 'critiq-cli' as const;
+const CHECK_ENGINE_VERSION = '0.0.1' as const;
 
 function buildScopeFallback(
   baseRef?: string,
@@ -71,6 +81,7 @@ function buildFailureResult(
   headRef?: string,
 ): RunCheckCommandResult {
   const diagnostics = aggregateDiagnostics(options.diagnostics);
+  const generatedAt = new Date().toISOString();
 
   return {
     envelope: {
@@ -80,6 +91,12 @@ function buildFailureResult(
       catalogPackage: options.catalogPackage,
       preset: options.preset,
       scope: buildScopeFallback(baseRef, headRef),
+      provenance: {
+        engineKind: CHECK_ENGINE_KIND,
+        engineVersion: CHECK_ENGINE_VERSION,
+        rulePack: options.catalogPackage ?? undefined,
+        generatedAt,
+      },
       scannedFileCount: 0,
       matchedRuleCount: options.matchedRuleCount ?? 0,
       findingCount: 0,
@@ -131,7 +148,10 @@ export { createSourceAdapterRegistry } from './registry';
 export type {
   CheckProgressUpdate,
   CheckCommandEnvelope,
+  CheckCommandProvenance,
   CheckOverallRuleResult,
+  CheckReportFinding,
+  CheckReportFindingAttributes,
   CheckRuleSummary,
   RunCheckCommandOptions,
   RunCheckCommandResult,
@@ -320,6 +340,13 @@ export function runCheckCommand(
     effectiveConfig.includeTests,
     effectiveConfig.ignorePaths,
   );
+  const analysisScope = filterIgnoredPaths(
+    resolvedScope.data.files,
+    resolvedScope.data.changedRangesByAbsolutePath,
+    resolvedTarget.data.displayRoot,
+    true,
+    effectiveConfig.ignorePaths,
+  );
   options.onProgress?.({
     step: 'preparing',
     scannedFileCount: 0,
@@ -362,6 +389,7 @@ export function runCheckCommand(
   const sourceTextsByPath = new Map<string, string>();
   const analyzedFiles: AnalyzedFile[] = [];
   let processedFileCount = 0;
+  const generatedAt = new Date().toISOString();
 
   for (const absolutePath of filteredScope.files) {
     const displayPath = toDisplayPath(
@@ -452,6 +480,25 @@ export function runCheckCommand(
 
   const projectAugmentedFiles = augmentProjectFacts(analyzedFiles, {
     scopeMode: resolvedScope.data.scope.mode,
+    availableTestPaths: new Set(
+      analysisScope.files
+        .map((absolutePath) =>
+          toDisplayPath(resolvedTarget.data.displayRoot, absolutePath),
+        )
+        .filter((path) => isTestPath(path)),
+    ),
+    availableChangedTestPaths: new Set(
+      analysisScope.files
+        .map((absolutePath) => ({
+          path: toDisplayPath(resolvedTarget.data.displayRoot, absolutePath),
+          changedRanges:
+            analysisScope.changedRangesByAbsolutePath.get(absolutePath) ?? [],
+        }))
+        .filter(
+          (file) => isTestPath(file.path) && file.changedRanges.length > 0,
+        )
+        .map((file) => file.path),
+    ),
   });
 
   for (const analyzedFile of projectAugmentedFiles) {
@@ -464,7 +511,9 @@ export function runCheckCommand(
 
       for (const match of evaluateRule(rule, analyzedFile)) {
         const buildResult = buildFinding(rule, analyzedFile, match, {
-          engineKind: 'critiq-cli',
+          engineKind: CHECK_ENGINE_KIND,
+          engineVersion: CHECK_ENGINE_VERSION,
+          generatedAt,
           rulePack: catalogPackageName,
         });
 
@@ -502,11 +551,14 @@ export function runCheckCommand(
 
   const aggregatedDiagnostics = aggregateDiagnostics(diagnostics);
   const sortedFindings = [...findings].sort(compareFindings);
-  const ruleSummaries = summarizeFindings(sortedFindings);
+  const reportFindings = dedupeReportFindings(
+    sortedFindings.map((finding) => compactFindingForReport(finding)),
+  );
+  const ruleSummaries = summarizeFindings(reportFindings);
   const exitCode =
     aggregatedDiagnostics.length > 0
       ? determineExitCode(aggregatedDiagnostics)
-      : sortedFindings.length > 0
+      : reportFindings.length > 0
         ? 1
         : 0;
   const overallRuleResults: CheckOverallRuleResult[] = activeRules
@@ -533,10 +585,16 @@ export function runCheckCommand(
               changedFileCount: filteredScope.files.length,
             }
           : resolvedScope.data.scope,
+      provenance: {
+        engineKind: CHECK_ENGINE_KIND,
+        engineVersion: CHECK_ENGINE_VERSION,
+        rulePack: catalogPackageName,
+        generatedAt,
+      },
       scannedFileCount: filteredScope.files.length,
       matchedRuleCount: activeRules.length,
-      findingCount: sortedFindings.length,
-      findings: sortedFindings,
+      findingCount: reportFindings.length,
+      findings: reportFindings,
       ruleSummaries,
       diagnostics: aggregatedDiagnostics,
     },

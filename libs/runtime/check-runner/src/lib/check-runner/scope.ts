@@ -30,6 +30,20 @@ const defaultIgnoredTestPatterns = [
   '**/*.test.tsx',
 ] as const;
 
+const defaultIgnoredPathPatterns = [
+  '**/.nx/**',
+  '**/.serverless/**',
+  '**/.yarn/cache/**',
+  '**/cdk.out/**',
+  '**/coverage/**',
+  '**/dist/**',
+  '**/node_modules/**',
+  '**/vendor/**',
+  '**/*.d.ts',
+  '**/*.generated.js',
+  '**/*.generated.ts',
+] as const;
+
 function isPathWithinDirectory(
   directoryPath: string,
   candidatePath: string,
@@ -380,6 +394,14 @@ export function filterIgnoredPaths(
     if (
       !includeTests &&
       defaultIgnoredTestPatterns.some((pattern) =>
+        minimatch(displayPath, pattern, { dot: true }),
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      defaultIgnoredPathPatterns.some((pattern) =>
         minimatch(displayPath, pattern, { dot: true }),
       )
     ) {

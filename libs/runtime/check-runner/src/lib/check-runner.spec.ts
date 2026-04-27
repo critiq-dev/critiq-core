@@ -172,6 +172,37 @@ const logicChangeWithoutTestsRule = [
   '    summary: Update the matching tests in the same diff.',
 ].join('\n');
 
+const missingTestsForCriticalLogicRule = [
+  'apiVersion: critiq.dev/v1alpha1',
+  'kind: Rule',
+  'metadata:',
+  '  id: ts.quality.missing-tests-for-critical-logic',
+  '  title: Missing tests for critical logic',
+  '  summary: Critical auth, payment, or similar business logic should have a matching test file.',
+  '  rationale: Important business logic needs direct regression coverage.',
+  '  tags:',
+  '    - quality',
+  '    - testing',
+  '  appliesTo: project',
+  'scope:',
+  '  languages:',
+  '    - typescript',
+  'match:',
+  '  fact:',
+  '    kind: quality.missing-tests-for-critical-logic',
+  '    bind: issue',
+  'emit:',
+  '  finding:',
+  '    category: quality.testing',
+  '    severity: medium',
+  '    confidence: 0.8',
+  '  message:',
+  '    title: Add tests for critical logic paths',
+  '    summary: "`${captures.issue.text}` looks like critical logic but no matching test file was found."',
+  '  remediation:',
+  '    summary: Add a focused unit or integration test that covers the critical behavior.',
+].join('\n');
+
 describe('check runner', () => {
   let tempDirectory: string;
 
@@ -246,6 +277,21 @@ describe('check runner', () => {
     expect(result.envelope.matchedRuleCount).toBe(1);
     expect(result.envelope.findingCount).toBe(1);
     expect(result.envelope.findings[0].rule.id).toBe('ts.logging.no-console-log');
+    expect(result.envelope.provenance).toEqual(
+      expect.objectContaining({
+        engineKind: 'critiq-cli',
+        engineVersion: '0.0.1',
+        rulePack: '@critiq/rules',
+      }),
+    );
+    expect(result.envelope.findings[0]).toEqual(
+      expect.not.objectContaining({
+        provenance: expect.anything(),
+      }),
+    );
+    expect(result.envelope.findings[0].fingerprints).toEqual({
+      primary: expect.any(String),
+    });
   });
 
   it('uses default settings when the repo config is missing', () => {
@@ -353,6 +399,126 @@ describe('check runner', () => {
     expect(
       result.envelope.findings.map((finding) => finding.locations.primary.path),
     ).toEqual(['src/modules/cycle-a.ts', 'src/modules/cycle-b.ts']);
+  });
+
+  it('matches sibling and index-based tests while skipping fixture-like directories', () => {
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/catalog.yaml',
+      [
+        'apiVersion: critiq.dev/v1alpha1',
+        'kind: RuleCatalog',
+        'rules:',
+        '  - id: ts.quality.missing-tests-for-critical-logic',
+        '    rulePath: ./rules/ts.quality.missing-tests-for-critical-logic.rule.yaml',
+        '    presets:',
+        '      - recommended',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/rules/ts.quality.missing-tests-for-critical-logic.rule.yaml',
+      missingTestsForCriticalLogicRule,
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/services/payment-service.ts',
+      [
+        'export async function transferPayment(accountId: string) {',
+        "  return `payment:${accountId}`;",
+        '}',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/services/payment-service.spec.ts',
+      [
+        "import { transferPayment } from './payment-service';",
+        '',
+        "it('transfers payments', async () => {",
+        "  await expect(transferPayment('acct-1')).resolves.toBe('payment:acct-1');",
+        '});',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/services/refund/index.ts',
+      [
+        'export async function issueRefund(refundId: string) {',
+        "  return `refund:${refundId}`;",
+        '}',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/services/refund.spec.ts',
+      [
+        "import { issueRefund } from './refund';",
+        '',
+        "it('issues refunds', async () => {",
+        "  await expect(issueRefund('refund-1')).resolves.toBe('refund:refund-1');",
+        '});',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/services/__data__/index.ts',
+      [
+        'export async function buildPaymentFixtures() {',
+        "  return ['payment:fixture'];",
+        '}',
+      ].join('\n'),
+    );
+
+    const result = runCheckCommand({
+      cwd: tempDirectory,
+      format: 'json',
+    });
+
+    expect(result.envelope.findingCount).toBe(0);
+  });
+
+  it('flags critical logic without a matching test file', () => {
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/catalog.yaml',
+      [
+        'apiVersion: critiq.dev/v1alpha1',
+        'kind: RuleCatalog',
+        'rules:',
+        '  - id: ts.quality.missing-tests-for-critical-logic',
+        '    rulePath: ./rules/ts.quality.missing-tests-for-critical-logic.rule.yaml',
+        '    presets:',
+        '      - recommended',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/rules/ts.quality.missing-tests-for-critical-logic.rule.yaml',
+      missingTestsForCriticalLogicRule,
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/services/payout-service.ts',
+      [
+        'export async function issuePayout(accountId: string) {',
+        "  return `payout:${accountId}`;",
+        '}',
+      ].join('\n'),
+    );
+
+    const result = runCheckCommand({
+      cwd: tempDirectory,
+      format: 'json',
+    });
+
+    expect(result.envelope.findingCount).toBe(1);
+    expect(result.envelope.findings[0].rule.id).toBe(
+      'ts.quality.missing-tests-for-critical-logic',
+    );
+    expect(result.envelope.findings[0].locations.primary.path).toBe(
+      'src/services/payout-service.ts',
+    );
   });
 
   it('correlates frontend-gated routes with unguarded backend handlers', () => {

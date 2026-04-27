@@ -1,6 +1,6 @@
 import type { FindingV0 } from '@critiq/core-finding-schema';
 
-import type { CheckRuleSummary } from './shared';
+import type { CheckReportFinding, CheckRuleSummary } from './shared';
 
 export function applySeverityOverride(
   finding: FindingV0,
@@ -32,7 +32,7 @@ export function compareFindings(left: FindingV0, right: FindingV0): number {
 }
 
 export function summarizeFindings(
-  findings: readonly FindingV0[],
+  findings: ReadonlyArray<Pick<CheckReportFinding, 'rule' | 'severity'>>,
 ): CheckRuleSummary[] {
   const summaries = new Map<string, CheckRuleSummary>();
 
@@ -56,4 +56,72 @@ export function summarizeFindings(
   return Array.from(summaries.values()).sort((left, right) =>
     left.ruleId.localeCompare(right.ruleId),
   );
+}
+
+export function compactFindingForReport(
+  finding: FindingV0,
+): CheckReportFinding {
+  const detailAttribute = finding.attributes?.['detail'];
+  const detail =
+    typeof detailAttribute === 'string' && detailAttribute.trim().length > 0
+      ? detailAttribute
+      : undefined;
+
+  return {
+    schemaVersion: finding.schemaVersion,
+    findingId: finding.findingId,
+    rule: finding.rule,
+    title: finding.title,
+    summary: finding.summary,
+    category: finding.category,
+    severity: finding.severity,
+    confidence: finding.confidence,
+    tags: finding.tags,
+    locations: finding.locations,
+    evidence: finding.evidence,
+    remediation: finding.remediation,
+    fingerprints: {
+      primary: finding.fingerprints.primary,
+    },
+    ...(detail
+      ? {
+          attributes: {
+            detail,
+          },
+        }
+      : {}),
+  };
+}
+
+export function dedupeReportFindings(
+  findings: readonly CheckReportFinding[],
+): CheckReportFinding[] {
+  const dedupedFindings: CheckReportFinding[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const finding of findings) {
+    const key = JSON.stringify({
+      schemaVersion: finding.schemaVersion,
+      rule: finding.rule,
+      title: finding.title,
+      summary: finding.summary,
+      category: finding.category,
+      severity: finding.severity,
+      confidence: finding.confidence,
+      tags: finding.tags,
+      locations: finding.locations,
+      evidence: finding.evidence,
+      remediation: finding.remediation,
+      attributes: finding.attributes,
+    });
+
+    if (seenKeys.has(key)) {
+      continue;
+    }
+
+    seenKeys.add(key);
+    dedupedFindings.push(finding);
+  }
+
+  return dedupedFindings;
 }

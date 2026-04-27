@@ -19,7 +19,8 @@
         "assets": [
           "apps/cli/main.d.ts",
           "apps/cli/src/assets",
-          "libs/core/finding-schema/schema/*.json"
+          "libs/core/finding-schema/schema/*.json",
+          "libs/core/rules-dsl/schema/*.json"
         ],
         "generatePackageJson": true,
         "esbuildOptions": {

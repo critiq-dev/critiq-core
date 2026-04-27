@@ -6,12 +6,12 @@ import {
   type Diagnostic,
 } from '@critiq/core-diagnostics';
 import { normalizeRuleDocument } from '@critiq/core-ir';
-import type { FindingV0 } from '@critiq/core-finding-schema';
 import {
   runCheckCommand,
   type CheckProgressUpdate,
   type CheckCommandEnvelope,
   type CheckOverallRuleResult,
+  type CheckReportFinding,
 } from '@critiq/check-runner';
 import {
   formatRuleSpecRunAsJson,
@@ -541,7 +541,7 @@ function createScanProgressRenderer(runtime: Required<CliRuntime>) {
 
 function renderFindingCodeFrame(
   sourceText: string,
-  location: FindingV0['locations']['primary'],
+  location: CheckReportFinding['locations']['primary'],
 ): string[] {
   const lines = sourceText.split(/\r?\n/);
   const lineNumberWidth = String(location.endLine + 1).length;
@@ -614,7 +614,7 @@ function renderCheckPretty(
   }
 
   if (envelope.findings.length > 0) {
-    const findingsByPath = new Map<string, FindingV0[]>();
+    const findingsByPath = new Map<string, CheckReportFinding[]>();
 
     for (const finding of envelope.findings) {
       const findingsForPath =
@@ -748,7 +748,16 @@ function determineExitCode(diagnostics: readonly Diagnostic[]): number {
 }
 
 function isSkippableDirectory(name: string): boolean {
-  return ['.git', '.nx', 'coverage', 'dist', 'node_modules'].includes(name);
+  return [
+    '.git',
+    '.nx',
+    '.serverless',
+    'cdk.out',
+    'coverage',
+    'dist',
+    'node_modules',
+    'vendor',
+  ].includes(name);
 }
 
 function walkFiles(rootDirectory: string): string[] {
@@ -770,7 +779,12 @@ function walkFiles(rootDirectory: string): string[] {
       const absolutePath = resolve(currentDirectory, entry.name);
 
       if (entry.isDirectory()) {
-        if (!isSkippableDirectory(entry.name)) {
+        if (
+          !(
+            isSkippableDirectory(entry.name) ||
+            (entry.name === 'cache' && currentDirectory.split(sep).at(-1) === '.yarn')
+          )
+        ) {
           queue.push(absolutePath);
         }
 

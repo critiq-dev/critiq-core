@@ -3808,14 +3808,125 @@ function isIdentifierNullGuardedAtNode(
       return true;
     }
 
+    if (
+      parent.type === 'LogicalExpression' &&
+      current === parent.right &&
+      parent.operator === '&&' &&
+      testGuardsIdentifier(parent.left, identifier, context.root.sourceText)
+    ) {
+      return true;
+    }
+
     if (isFunctionContainer(parent)) {
-      return false;
+      return isIdentifierGuardedByPriorExit(context, node, identifier);
     }
 
     current = parent;
   }
 
-  return false;
+  return isIdentifierGuardedByPriorExit(context, node, identifier);
+}
+
+function testRejectsIdentifier(
+  test: TSESTree.Expression,
+  identifier: string,
+  sourceText: string,
+): boolean {
+  const current = unwrapExpression(test);
+
+  if (!current || current.type === 'PrivateIdentifier') {
+    return false;
+  }
+
+  if (current.type === 'UnaryExpression' && current.operator === '!') {
+    return testGuardsIdentifier(current.argument, identifier, sourceText);
+  }
+
+  if (current.type !== 'BinaryExpression') {
+    return false;
+  }
+
+  if (!['==', '==='].includes(current.operator)) {
+    return false;
+  }
+
+  const leftText = expressionText(current.left, sourceText);
+  const rightText = expressionText(current.right, sourceText);
+
+  return (
+    (leftText === identifier && ['null', 'undefined'].includes(rightText ?? '')) ||
+    (rightText === identifier && ['null', 'undefined'].includes(leftText ?? ''))
+  );
+}
+
+function statementDefinitelyTerminates(
+  statement: TSESTree.Statement,
+): boolean {
+  switch (statement.type) {
+    case 'ReturnStatement':
+    case 'ThrowStatement':
+      return true;
+    case 'BlockStatement': {
+      const finalStatement = statement.body.at(-1);
+
+      return finalStatement ? statementDefinitelyTerminates(finalStatement) : false;
+    }
+    case 'IfStatement':
+      return Boolean(
+        statement.alternate &&
+          statementDefinitelyTerminates(statement.consequent) &&
+          statementDefinitelyTerminates(statement.alternate),
+      );
+    default:
+      return false;
+  }
+}
+
+function immediatePreviousStatement(
+  context: FunctionBuildContext,
+  node: TSESTree.Node,
+): TSESTree.Statement | undefined {
+  let current: TSESTree.Node | undefined = node;
+
+  while (current) {
+    const parent = context.root.parentNodes.get(current);
+
+    if (!parent || isFunctionContainer(parent)) {
+      return undefined;
+    }
+
+    if (parent.type === 'BlockStatement' || parent.type === 'SwitchCase') {
+      const statements =
+        parent.type === 'BlockStatement' ? parent.body : parent.consequent;
+      const index = statements.indexOf(current as TSESTree.Statement);
+
+      return index > 0 ? statements[index - 1] : undefined;
+    }
+
+    current = parent;
+  }
+
+  return undefined;
+}
+
+function isIdentifierGuardedByPriorExit(
+  context: FunctionBuildContext,
+  node: TSESTree.Node,
+  identifier: string,
+): boolean {
+  const previousStatement = immediatePreviousStatement(context, node);
+
+  return Boolean(
+    previousStatement &&
+      previousStatement.type === 'IfStatement' &&
+      !previousStatement.alternate &&
+      testRejectsIdentifier(
+        previousStatement.test,
+        identifier,
+        context.root.sourceText,
+      ) &&
+      statementDefinitelyTerminates(previousStatement.consequent),
+  );
 }
 
 function testGuardsKeyAccess(
@@ -3911,6 +4022,20 @@ function isKeyAccessGuardedAtNode(
       return true;
     }
 
+    if (
+      parent.type === 'LogicalExpression' &&
+      current === parent.right &&
+      parent.operator === '&&' &&
+      testGuardsKeyAccess(
+        parent.left,
+        collectionText,
+        keyText,
+        context.root.sourceText,
+      )
+    ) {
+      return true;
+    }
+
     if (isFunctionContainer(parent)) {
       return false;
     }
@@ -3919,6 +4044,19 @@ function isKeyAccessGuardedAtNode(
   }
 
   return false;
+}
+
+function isPlainIndexedAssignmentTarget(
+  context: FunctionBuildContext,
+  node: TSESTree.MemberExpression,
+): boolean {
+  const parent = context.root.parentNodes.get(node);
+
+  return (
+    parent?.type === 'AssignmentExpression' &&
+    parent.left === node &&
+    parent.operator === '='
+  );
 }
 
 function memberChainInfo(
@@ -4181,7 +4319,8 @@ function maybeEmitUncheckedMapKeyAccessFacts(
       if (
         candidate.type === 'MemberExpression' &&
         candidate.computed &&
-        !candidate.optional
+        !candidate.optional &&
+        !isPlainIndexedAssignmentTarget(context, candidate)
       ) {
         const collectionText = expressionText(candidate.object, context.root.sourceText);
         const keyText = expressionText(candidate.property, context.root.sourceText);
@@ -4479,10 +4618,10 @@ function maybeEmitDataFlowTaintFacts(
   maybeEmitMissingRequestTimeoutOrRetryFacts(context, node);
 }
 
-function dispatchDiscriminant(
+function dispatchComparison(
   test: TSESTree.Expression,
   sourceText: string,
-): string | undefined {
+): { discriminant: string; comparedValue: string } | undefined {
   if (test.type !== 'BinaryExpression') {
     return undefined;
   }
@@ -4498,7 +4637,82 @@ function dispatchDiscriminant(
     return undefined;
   }
 
-  return expressionText(leftLiteral ? test.right : test.left, sourceText);
+  const discriminant = expressionText(
+    leftLiteral ? test.right : test.left,
+    sourceText,
+  );
+  const comparedValue = expressionText(
+    leftLiteral ? test.left : test.right,
+    sourceText,
+  );
+
+  return discriminant && comparedValue
+    ? {
+        discriminant,
+        comparedValue,
+      }
+    : undefined;
+}
+
+function hasFollowingSiblingStatement(
+  context: FunctionBuildContext,
+  node: TSESTree.Node,
+): boolean {
+  const parent = context.root.parentNodes.get(node);
+
+  if (!parent) {
+    return false;
+  }
+
+  if (parent.type === 'BlockStatement' || parent.type === 'SwitchCase') {
+    const statements =
+      parent.type === 'BlockStatement' ? parent.body : parent.consequent;
+    const index = statements.indexOf(node as TSESTree.Statement);
+
+    return index >= 0 && index < statements.length - 1;
+  }
+
+  return false;
+}
+
+function isBooleanExhaustiveSwitch(node: TSESTree.SwitchStatement): boolean {
+  const caseValues = new Set(
+    node.cases
+      .map((caseNode) => caseNode.test)
+      .filter(
+        (test): test is TSESTree.Expression =>
+          Boolean(test),
+      )
+      .map((test) => expressionText(test, '')),
+  );
+
+  return caseValues.has('true') && caseValues.has('false');
+}
+
+function isEnumLikeSwitch(
+  node: TSESTree.SwitchStatement,
+  sourceText: string,
+): boolean {
+  const objectTexts = node.cases
+    .map((caseNode) => caseNode.test)
+    .filter(
+      (test): test is TSESTree.MemberExpression =>
+        Boolean(test) && unwrapExpression(test)?.type === 'MemberExpression',
+    )
+    .map((test) => {
+      const memberExpression = unwrapExpression(test) as TSESTree.MemberExpression;
+
+      return expressionText(memberExpression.object, sourceText);
+    })
+    .filter((value): value is string => Boolean(value));
+
+  return objectTexts.length > 0 && objectTexts.every((value) => value === objectTexts[0]);
+}
+
+function isBooleanExhaustiveConditionalDispatch(
+  comparedValues: readonly string[],
+): boolean {
+  return comparedValues.includes('true') && comparedValues.includes('false');
 }
 
 function maybeEmitMissingDefaultDispatchFact(
@@ -4507,6 +4721,14 @@ function maybeEmitMissingDefaultDispatchFact(
 ): void {
   if (node.type === 'SwitchStatement') {
     if (node.cases.some((caseNode) => caseNode.test === null)) {
+      return;
+    }
+
+    if (
+      hasFollowingSiblingStatement(context, node) ||
+      isBooleanExhaustiveSwitch(node) ||
+      isEnumLikeSwitch(node, context.root.sourceText)
+    ) {
       return;
     }
 
@@ -4536,18 +4758,20 @@ function maybeEmitMissingDefaultDispatchFact(
   }
 
   const discriminants: string[] = [];
+  const comparedValues: string[] = [];
   let current: TSESTree.IfStatement | undefined = node;
   let branchCount = 0;
   let hasElse = false;
 
   while (current) {
-    const discriminant = dispatchDiscriminant(current.test, context.root.sourceText);
+    const comparison = dispatchComparison(current.test, context.root.sourceText);
 
-    if (!discriminant) {
+    if (!comparison) {
       return;
     }
 
-    discriminants.push(discriminant);
+    discriminants.push(comparison.discriminant);
+    comparedValues.push(comparison.comparedValue);
     branchCount += 1;
 
     if (!current.alternate) {
@@ -4568,7 +4792,11 @@ function maybeEmitMissingDefaultDispatchFact(
     return;
   }
 
-  if (!discriminants.every((value) => value === discriminants[0])) {
+  if (
+    hasFollowingSiblingStatement(context, node) ||
+    isBooleanExhaustiveConditionalDispatch(comparedValues) ||
+    !discriminants.every((value) => value === discriminants[0])
+  ) {
     return;
   }
 

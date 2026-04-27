@@ -396,6 +396,88 @@ describe('analyzeTypeScriptFile', () => {
     expect(uncheckedKeyFacts).toHaveLength(1);
   });
 
+  it('suppresses guarded dereferences, keyed writes, and shared-fallback dispatch patterns', () => {
+    const result = analyzeTypeScriptFile(
+      'src/guarded-runtime.ts',
+      [
+        "enum CoverType {",
+        "  Comprehensive = 'Comprehensive',",
+        "  Stationary = 'Stationary',",
+        "  ThirdPartyOnly = 'ThirdPartyOnly',",
+        '}',
+        '',
+        'export function guardedReturn(flag: boolean) {',
+        "  const user = flag ? { name: 'Ada' } : null;",
+        '  if (!user) {',
+        "    return 'unknown';",
+        '  }',
+        '  return user.name;',
+        '}',
+        '',
+        'export function logicalGuard(flag: boolean) {',
+        "  const user = flag ? { name: 'Ada' } : null;",
+        '  return user && user.name;',
+        '}',
+        '',
+        'export function keyedWrite(values: Record<string, string>, key: string, value: string) {',
+        '  values[key] = value;',
+        '  return values;',
+        '}',
+        '',
+        'export function logicalHas(valueMap: Map<string, string>, key: string) {',
+        '  return valueMap.has(key) && valueMap.get(key);',
+        '}',
+        '',
+        'export function booleanDispatch(flag: boolean) {',
+        '  if (flag === true) {',
+        '    return 1;',
+        '  } else if (flag === false) {',
+        '    return 0;',
+        '  }',
+        '}',
+        '',
+        'export function switchFallback(status: string) {',
+        '  switch (status) {',
+        "    case 'open':",
+        '      return 1;',
+        "    case 'closed':",
+        '      return 2;',
+        '  }',
+        '  return 0;',
+        '}',
+        '',
+        'export function enumSwitch(coverType: CoverType) {',
+        '  switch (coverType) {',
+        '    case CoverType.Comprehensive:',
+        "      return 'comprehensive';",
+        '    case CoverType.Stationary:',
+        "      return 'stationary';",
+        '    case CoverType.ThirdPartyOnly:',
+        "      return 'damage to others';",
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const facts = result.data.semantics?.controlFlow?.facts ?? [];
+
+    expect(
+      facts.filter((fact) => fact.kind === 'data-flow.possible-null-dereference'),
+    ).toHaveLength(0);
+    expect(
+      facts.filter((fact) => fact.kind === 'data-flow.unchecked-map-key-access'),
+    ).toHaveLength(0);
+    expect(
+      facts.filter((fact) => fact.kind === 'control-flow.missing-default-dispatch'),
+    ).toHaveLength(0);
+  });
+
   it('emits structural threshold facts for the shipped metric rule set', () => {
     const result = analyzeTypeScriptFile(
       'src/structural.ts',
