@@ -18,6 +18,18 @@ import {
   type SourceAdapterRegistry,
 } from './shared';
 
+const defaultIgnoredTestPatterns = [
+  '**/__tests__/**',
+  '**/*.spec.js',
+  '**/*.spec.jsx',
+  '**/*.spec.ts',
+  '**/*.spec.tsx',
+  '**/*.test.js',
+  '**/*.test.jsx',
+  '**/*.test.ts',
+  '**/*.test.tsx',
+] as const;
+
 function isPathWithinDirectory(
   directoryPath: string,
   candidatePath: string,
@@ -359,10 +371,20 @@ export function filterIgnoredPaths(
   files: readonly string[],
   changedRangesByAbsolutePath: ReadonlyMap<string, DiffRange[]>,
   displayRoot: string,
+  includeTests: boolean,
   ignorePaths: readonly string[],
 ): { files: string[]; changedRangesByAbsolutePath: Map<string, DiffRange[]> } {
   const nextFiles = files.filter((absolutePath) => {
     const displayPath = toDisplayPath(displayRoot, absolutePath);
+
+    if (
+      !includeTests &&
+      defaultIgnoredTestPatterns.some((pattern) =>
+        minimatch(displayPath, pattern, { dot: true }),
+      )
+    ) {
+      return false;
+    }
 
     return !ignorePaths.some((pattern) =>
       minimatch(displayPath, pattern, { dot: true }),

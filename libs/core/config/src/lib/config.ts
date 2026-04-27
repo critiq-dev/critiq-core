@@ -59,6 +59,7 @@ export const critiqConfigSchema = z
     disableRules: z.array(z.string().min(1)).optional(),
     disableCategories: z.array(findingCategorySchema).optional(),
     disableLanguages: z.array(configLanguageSchema).optional(),
+    includeTests: z.boolean().optional(),
     ignorePaths: z.array(z.string().min(1)).optional(),
     severityOverrides: z
       .record(z.string().min(1), findingSeveritySchema)
@@ -77,6 +78,7 @@ export interface NormalizedCritiqConfig {
   disableRules: string[];
   disableCategories: FindingCategory[];
   disableLanguages: Array<'typescript' | 'javascript' | 'python' | 'go'>;
+  includeTests: boolean;
   ignorePaths: string[];
   severityOverrides: Record<string, FindingSeverity>;
 }
@@ -165,6 +167,7 @@ export function normalizeCritiqConfig(
     disableLanguages: Array.from(
       new Set((config.disableLanguages ?? []).map(normalizeLanguage)),
     ).sort(),
+    includeTests: config.includeTests ?? false,
     ignorePaths: normalizeStringArray(config.ignorePaths),
     severityOverrides: Object.fromEntries(
       Object.entries(config.severityOverrides ?? {}).sort(([left], [right]) =>

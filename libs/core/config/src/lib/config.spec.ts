@@ -47,6 +47,7 @@ describe('core config', () => {
       disableRules: [],
       disableCategories: [],
       disableLanguages: [],
+      includeTests: false,
       ignorePaths: [],
       severityOverrides: {},
     });
@@ -78,6 +79,7 @@ describe('core config', () => {
         disableRules: [],
         disableCategories: [],
         disableLanguages: ['javascript'],
+        includeTests: false,
         ignorePaths: ['**/dist/**'],
         severityOverrides: {},
       },
@@ -103,6 +105,28 @@ describe('core config', () => {
       disableRules: [],
       disableCategories: ['security.injection'],
       disableLanguages: ['go', 'python'],
+      includeTests: false,
+      ignorePaths: [],
+      severityOverrides: {},
+    });
+  });
+
+  it('accepts explicit test-file inclusion', () => {
+    expect(
+      normalizeCritiqConfig({
+        apiVersion: 'critiq.dev/v1alpha1',
+        kind: 'CritiqConfig',
+        includeTests: true,
+      }),
+    ).toEqual({
+      apiVersion: 'critiq.dev/v1alpha1',
+      kind: 'CritiqConfig',
+      catalogPackage: undefined,
+      preset: 'recommended',
+      disableRules: [],
+      disableCategories: [],
+      disableLanguages: [],
+      includeTests: true,
       ignorePaths: [],
       severityOverrides: {},
     });

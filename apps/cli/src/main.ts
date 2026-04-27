@@ -9,6 +9,7 @@ import { normalizeRuleDocument } from '@critiq/core-ir';
 import type { FindingV0 } from '@critiq/core-finding-schema';
 import {
   runCheckCommand,
+  type CheckProgressUpdate,
   type CheckCommandEnvelope,
   type CheckOverallRuleResult,
 } from '@critiq/check-runner';
@@ -38,6 +39,8 @@ interface CliRuntime {
   cwd?: string;
   writeStdout?: (message: string) => void;
   writeStderr?: (message: string) => void;
+  writeRaw?: (message: string) => void;
+  isInteractive?: boolean;
 }
 
 interface ParsedArguments {
@@ -153,6 +156,10 @@ const defaultRuntime: Required<CliRuntime> = {
   writeStderr: (message: string) => {
     process.stderr.write(`${message}\n`);
   },
+  writeRaw: (message: string) => {
+    process.stdout.write(message);
+  },
+  isInteractive: Boolean(process.stdout.isTTY),
 };
 
 function hasGlobMagic(value: string): boolean {
@@ -446,6 +453,92 @@ function colorize(
   return `${prefixes}${value}${ansi.reset}`;
 }
 
+const scanBanner = [     
+  `                                                               `,
+  `  ▄█████ ▄▄▄▄  ▄▄ ▄▄▄▄▄▄ ▄▄  ▄▄▄    ▄█████  ▄▄▄▄  ▄▄▄  ▄▄  ▄▄  `,
+  `  ██     ██▄█▄ ██   ██   ██ ██▀██   ▀▀▀▄▄▄ ██▀▀▀ ██▀██ ███▄██  `,
+  `  ▀█████ ██ ██ ██   ██   ██ ▀███▀   █████▀ ▀████ ██▀██ ██ ▀██  `,
+  `                               ▀▀                              `,                                  
+  ``,                                        
+  `Increase the confidence in the code you ship`, 
+  `Visit https://critiq.dev for more features and docs`,  
+
+];
+
+function renderProgressBar(completed: number, total: number, width = 28): string {
+  const safeTotal = Math.max(total, 1);
+  const clampedCompleted = Math.max(0, Math.min(completed, safeTotal));
+  const filledWidth = Math.round((clampedCompleted / safeTotal) * width);
+
+  return `[${'#'.repeat(filledWidth)}${'-'.repeat(width - filledWidth)}]`;
+}
+
+function progressStepLabel(step: CheckProgressUpdate['step']): string {
+  switch (step) {
+    case 'preparing':
+      return 'Preparing scan';
+    case 'scanning':
+      return 'Scanning files';
+    case 'finalizing':
+      return 'Finalizing results';
+  }
+}
+
+function renderScanProgress(update: CheckProgressUpdate): string {
+  const detail =
+    update.currentFilePath && update.step === 'scanning'
+      ? `Current: ${update.currentFilePath}`
+      : `Current: ${progressStepLabel(update.step)}`;
+
+  return [
+    ...scanBanner,
+    '',
+    'Critiq Scan',
+    `Step: ${progressStepLabel(update.step)}`,
+    `Progress: ${renderProgressBar(update.scannedFileCount, update.totalFileCount)} ${update.scannedFileCount}/${update.totalFileCount}`,
+    detail,
+  ].join('\n');
+}
+
+function createScanProgressRenderer(runtime: Required<CliRuntime>) {
+  let lineCount = 0;
+  let active = false;
+
+  return {
+    update(update: CheckProgressUpdate) {
+      if (!runtime.isInteractive) {
+        return;
+      }
+
+      const frame = `${renderScanProgress(update)}\n`;
+
+      if (!active) {
+        runtime.writeRaw('\u001b[?25l');
+        active = true;
+      } else if (lineCount > 0) {
+        runtime.writeRaw(`\u001b[${lineCount}F`);
+      }
+
+      runtime.writeRaw('\u001b[J');
+      runtime.writeRaw(frame);
+      lineCount = frame.split('\n').length - 1;
+    },
+    stop() {
+      if (!active) {
+        return;
+      }
+
+      if (lineCount > 0) {
+        runtime.writeRaw(`\u001b[${lineCount}F`);
+      }
+
+      runtime.writeRaw('\u001b[J\u001b[?25h');
+      active = false;
+      lineCount = 0;
+    },
+  };
+}
+
 function renderFindingCodeFrame(
   sourceText: string,
   location: FindingV0['locations']['primary'],
@@ -453,7 +546,15 @@ function renderFindingCodeFrame(
   const lines = sourceText.split(/\r?\n/);
   const lineNumberWidth = String(location.endLine + 1).length;
   const startLine = Math.max(location.startLine - 1, 1);
-  const endLine = Math.min(location.endLine + 1, lines.length);
+  const highlightedLineCount = location.endLine - location.startLine + 1;
+  const maxHighlightedLines = 3;
+  const truncated =
+    Number.isFinite(highlightedLineCount) &&
+    highlightedLineCount > maxHighlightedLines;
+  const renderedHighlightEndLine = truncated
+    ? location.startLine + maxHighlightedLines - 1
+    : location.endLine;
+  const endLine = Math.min(renderedHighlightEndLine + 1, lines.length);
   const frameLines: string[] = [];
 
   for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
@@ -477,6 +578,12 @@ function renderFindingCodeFrame(
         `      ${' '.repeat(lineNumberWidth)} | ${' '.repeat(caretStart - 1)}${'^'.repeat(caretWidth)}`,
       );
     }
+  }
+
+  if (truncated) {
+    frameLines.push(
+      `      ${' '.repeat(lineNumberWidth)} | ${colorize('dim', `... ${location.endLine - renderedHighlightEndLine} more line(s) omitted`)}`,
+    );
   }
 
   return frameLines;
@@ -1130,6 +1237,8 @@ function handleCheck(
   baseRef?: string,
   headRef?: string,
 ): number {
+  const progressRenderer =
+    format === 'pretty' ? createScanProgressRenderer(runtime) : null;
   const result = runCheckCommand({
     cwd: runtime.cwd,
     target,
@@ -1137,7 +1246,13 @@ function handleCheck(
     baseRef,
     headRef,
     catalogResolverBasePaths: [runtime.cwd],
+    onProgress: progressRenderer
+      ? (update) => {
+          progressRenderer.update(update);
+        }
+      : undefined,
   });
+  progressRenderer?.stop();
 
   if (format === 'json') {
     runtime.writeStdout(renderJson(result.envelope));
@@ -1296,6 +1411,18 @@ export function runCli(
     cwd: runtime.cwd ?? defaultRuntime.cwd,
     writeStdout: runtime.writeStdout ?? defaultRuntime.writeStdout,
     writeStderr: runtime.writeStderr ?? defaultRuntime.writeStderr,
+    writeRaw:
+      runtime.writeRaw ??
+      (runtime.writeStdout || runtime.writeStderr
+        ? (() => {})
+        : defaultRuntime.writeRaw),
+    isInteractive:
+      runtime.isInteractive ??
+      (runtime.writeRaw
+        ? true
+        : runtime.writeStdout || runtime.writeStderr
+          ? false
+          : defaultRuntime.isInteractive),
   };
 
   if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {

@@ -5,7 +5,10 @@ import {
   resolveCatalogPackage,
   resolveCatalogRulePaths,
 } from '@critiq/core-catalog';
-import { loadCritiqConfigForDirectory } from '@critiq/core-config';
+import {
+  loadCritiqConfigForDirectory,
+  type NormalizedCritiqConfig,
+} from '@critiq/core-config';
 import {
   aggregateDiagnostics,
   createDiagnostic,
@@ -126,6 +129,7 @@ function resolveCatalogPackageRuntime(
 export { createDefaultSourceAdapterRegistry } from './registry';
 export { createSourceAdapterRegistry } from './registry';
 export type {
+  CheckProgressUpdate,
   CheckCommandEnvelope,
   CheckOverallRuleResult,
   CheckRuleSummary,
@@ -169,27 +173,48 @@ export function runCheckCommand(
   const loadedConfig = loadCritiqConfigForDirectory(
     resolvedTarget.data.displayRoot,
   );
+  const defaultConfig: NormalizedCritiqConfig = {
+    apiVersion: 'critiq.dev/v1alpha1' as const,
+    kind: 'CritiqConfig' as const,
+    catalogPackage: undefined,
+    preset: 'recommended' as const,
+    disableRules: [],
+    disableCategories: [],
+    disableLanguages: [],
+    includeTests: false,
+    ignorePaths: [],
+    severityOverrides: {},
+  };
 
-  if (!loadedConfig.success) {
-    const { diagnostics } = loadedConfig as Extract<
-      typeof loadedConfig,
-      { success: false }
-    >;
-    return buildFailureResult(
-      {
-        format,
-        target,
-        catalogPackage: null,
-        preset: null,
-        diagnostics,
-      },
-      options.baseRef,
-      options.headRef,
-    );
+  let effectiveConfig: NormalizedCritiqConfig = defaultConfig;
+
+  if (loadedConfig.success) {
+    effectiveConfig = loadedConfig.data;
+  } else {
+    const diagnostics = (
+      loadedConfig as Extract<typeof loadedConfig, { success: false }>
+    ).diagnostics;
+
+    if (
+      diagnostics.length !== 1 ||
+      diagnostics[0]?.code !== 'config.file.not-found'
+    ) {
+      return buildFailureResult(
+        {
+          format,
+          target,
+          catalogPackage: null,
+          preset: null,
+          diagnostics,
+        },
+        options.baseRef,
+        options.headRef,
+      );
+    }
   }
 
   const catalogPackageName =
-    loadedConfig.data.catalogPackage ??
+    effectiveConfig.catalogPackage ??
     options.defaultCatalogPackage ??
     DEFAULT_CATALOG_PACKAGE_NAME;
   const resolvedCatalogPackage = resolveCatalogPackageRuntime(
@@ -208,7 +233,7 @@ export function runCheckCommand(
         format,
         target,
         catalogPackage: catalogPackageName,
-        preset: loadedConfig.data.preset,
+        preset: effectiveConfig.preset,
         diagnostics,
       },
       options.baseRef,
@@ -230,7 +255,7 @@ export function runCheckCommand(
         format,
         target,
         catalogPackage: catalogPackageName,
-        preset: loadedConfig.data.preset,
+        preset: effectiveConfig.preset,
         diagnostics,
       },
       options.baseRef,
@@ -241,7 +266,7 @@ export function runCheckCommand(
   const catalogRuleEntries = resolveCatalogRulePaths(
     loadedCatalog.data,
     resolvedCatalogPackage.data.packageRoot,
-    loadedConfig.data.preset,
+    effectiveConfig.preset,
   );
   const loadedRules = loadNormalizedRulesForCatalog(
     catalogRuleEntries.map((entry) => entry.rulePath),
@@ -253,7 +278,7 @@ export function runCheckCommand(
         format,
         target,
         catalogPackage: catalogPackageName,
-        preset: loadedConfig.data.preset,
+        preset: effectiveConfig.preset,
         matchedRuleCount: loadedRules.rules.length,
         diagnostics: loadedRules.diagnostics,
       },
@@ -279,7 +304,7 @@ export function runCheckCommand(
         format,
         target,
         catalogPackage: catalogPackageName,
-        preset: loadedConfig.data.preset,
+        preset: effectiveConfig.preset,
         matchedRuleCount: loadedRules.rules.length,
         diagnostics,
       },
@@ -292,13 +317,19 @@ export function runCheckCommand(
     resolvedScope.data.files,
     resolvedScope.data.changedRangesByAbsolutePath,
     resolvedTarget.data.displayRoot,
-    loadedConfig.data.ignorePaths,
+    effectiveConfig.includeTests,
+    effectiveConfig.ignorePaths,
   );
+  options.onProgress?.({
+    step: 'preparing',
+    scannedFileCount: 0,
+    totalFileCount: filteredScope.files.length,
+  });
   const detectedLanguages = detectRepositoryLanguages(filteredScope.files);
   const activeRules = filterNormalizedRulesForCatalog(
     loadedRules.rules,
     {
-      ...loadedConfig.data,
+      ...effectiveConfig,
       catalogPackage: catalogPackageName,
     },
     detectedLanguages,
@@ -330,8 +361,19 @@ export function runCheckCommand(
   const seenFingerprints = new Set<string>();
   const sourceTextsByPath = new Map<string, string>();
   const analyzedFiles: AnalyzedFile[] = [];
+  let processedFileCount = 0;
 
   for (const absolutePath of filteredScope.files) {
+    const displayPath = toDisplayPath(
+      resolvedTarget.data.displayRoot,
+      absolutePath,
+    );
+    options.onProgress?.({
+      step: 'scanning',
+      scannedFileCount: processedFileCount,
+      totalFileCount: filteredScope.files.length,
+      currentFilePath: displayPath,
+    });
     const textResult = readTextFileSafe(absolutePath);
 
     if (!textResult.success) {
@@ -340,13 +382,16 @@ export function runCheckCommand(
         { success: false }
       >;
       diagnostics.push(...textDiagnostics);
+      processedFileCount += 1;
+      options.onProgress?.({
+        step: 'scanning',
+        scannedFileCount: processedFileCount,
+        totalFileCount: filteredScope.files.length,
+        currentFilePath: displayPath,
+      });
       continue;
     }
 
-    const displayPath = toDisplayPath(
-      resolvedTarget.data.displayRoot,
-      absolutePath,
-    );
     sourceTextsByPath.set(displayPath, textResult.text);
 
     const adapter = registry.findAdapterForPath(displayPath);
@@ -358,6 +403,13 @@ export function runCheckCommand(
           `No source adapter is registered for \`${displayPath}\`.`,
         ),
       );
+      processedFileCount += 1;
+      options.onProgress?.({
+        step: 'scanning',
+        scannedFileCount: processedFileCount,
+        totalFileCount: filteredScope.files.length,
+        currentFilePath: displayPath,
+      });
       continue;
     }
 
@@ -369,6 +421,13 @@ export function runCheckCommand(
         { success: false }
       >;
       diagnostics.push(...analysisDiagnostics);
+      processedFileCount += 1;
+      options.onProgress?.({
+        step: 'scanning',
+        scannedFileCount: processedFileCount,
+        totalFileCount: filteredScope.files.length,
+        currentFilePath: displayPath,
+      });
       continue;
     }
 
@@ -376,7 +435,20 @@ export function runCheckCommand(
       ...analysis.data,
       changedRanges: filteredScope.changedRangesByAbsolutePath.get(absolutePath),
     });
+    processedFileCount += 1;
+    options.onProgress?.({
+      step: 'scanning',
+      scannedFileCount: processedFileCount,
+      totalFileCount: filteredScope.files.length,
+      currentFilePath: displayPath,
+    });
   }
+
+  options.onProgress?.({
+    step: 'finalizing',
+    scannedFileCount: processedFileCount,
+    totalFileCount: filteredScope.files.length,
+  });
 
   const projectAugmentedFiles = augmentProjectFacts(analyzedFiles, {
     scopeMode: resolvedScope.data.scope.mode,
@@ -421,7 +493,7 @@ export function runCheckCommand(
         findings.push(
           applySeverityOverride(
             buildResult.finding,
-            loadedConfig.data.severityOverrides[buildResult.finding.rule.id],
+            effectiveConfig.severityOverrides[buildResult.finding.rule.id],
           ),
         );
       }
@@ -453,7 +525,7 @@ export function runCheckCommand(
       exitCode,
       target,
       catalogPackage: catalogPackageName,
-      preset: loadedConfig.data.preset,
+      preset: effectiveConfig.preset,
       scope:
         resolvedScope.data.scope.mode === 'diff'
           ? {

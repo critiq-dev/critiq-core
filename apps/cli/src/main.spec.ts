@@ -315,23 +315,70 @@ describe('cli', () => {
     expect(envelope.findingCount).toBe(1);
   });
 
-  it('fails check when the repo config is missing', () => {
+  it('uses default settings when the repo config is missing', () => {
     writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
 
     const result = runCommand(['check', '.', '--format=json'], tempDirectory);
 
     expect(result.exitCode).toBe(1);
     const envelope = JSON.parse(result.stdout) as {
+      catalogPackage: string;
+      preset: string;
+      scannedFileCount: number;
+      matchedRuleCount: number;
+      findingCount: number;
+      diagnostics: Array<{ code: string }>;
+    };
+
+    expect(envelope.catalogPackage).toBe('@critiq/rules');
+    expect(envelope.preset).toBe('recommended');
+    expect(envelope.scannedFileCount).toBe(1);
+    expect(envelope.matchedRuleCount).toBe(34);
+    expect(envelope.findingCount).toBe(1);
+    expect(envelope.diagnostics).toEqual([]);
+  });
+
+  it('ignores unit test files by default', () => {
+    writeRuleFile(
+      tempDirectory,
+      'src/invalid.test.ts',
+      'console.log("hello from test");\n',
+    );
+
+    const result = runCommand(['check', '.', '--format=json'], tempDirectory);
+    const envelope = JSON.parse(result.stdout) as {
       scannedFileCount: number;
       findingCount: number;
       diagnostics: Array<{ code: string }>;
     };
 
+    expect(result.exitCode).toBe(0);
     expect(envelope.scannedFileCount).toBe(0);
     expect(envelope.findingCount).toBe(0);
-    expect(envelope.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
-      'config.file.not-found',
+    expect(envelope.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'catalog.repo.no-supported-languages',
+      }),
     ]);
+  });
+
+  it('includes unit test files when config opts in', () => {
+    writeCritiqConfig(tempDirectory, ['includeTests: true']);
+    writeRuleFile(
+      tempDirectory,
+      'src/invalid.test.ts',
+      'console.log("hello from test");\n',
+    );
+
+    const result = runCommand(['check', '.', '--format=json'], tempDirectory);
+    const envelope = JSON.parse(result.stdout) as {
+      scannedFileCount: number;
+      findingCount: number;
+    };
+
+    expect(result.exitCode).toBe(1);
+    expect(envelope.scannedFileCount).toBe(1);
+    expect(envelope.findingCount).toBe(1);
   });
 
   it('returns an error when diff mode is used outside a git repository', () => {
@@ -471,6 +518,101 @@ describe('cli', () => {
     expect(result.exitCode).toBe(0);
     expect(envelope.matchedRuleCount).toBe(31);
     expect(envelope.findingCount).toBe(0);
+  });
+
+  it('truncates multiline function frames in pretty output', () => {
+    writeCritiqConfig(tempDirectory);
+    writeRuleFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/catalog.yaml',
+      [
+        'apiVersion: critiq.dev/v1alpha1',
+        'kind: RuleCatalog',
+        'rules:',
+        '  - id: ts.quality.function-frame-truncation',
+        '    rulePath: ./rules/ts.quality.function-frame-truncation.rule.yaml',
+        '    presets:',
+        '      - recommended',
+      ].join('\n'),
+    );
+    writeRuleFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/rules/ts.quality.function-frame-truncation.rule.yaml',
+      [
+        'apiVersion: critiq.dev/v1alpha1',
+        'kind: Rule',
+        'metadata:',
+        '  id: ts.quality.function-frame-truncation',
+        '  title: Truncate function frames',
+        '  summary: Multi-line function matches should not dump the whole function.',
+        'scope:',
+        '  languages:',
+        '    - typescript',
+        'match:',
+        '  node:',
+        '    kind: FunctionDeclaration',
+        '    bind: fn',
+        'emit:',
+        '  finding:',
+        '    category: maintainability',
+        '    severity: low',
+        '    confidence: high',
+        '  message:',
+        '    title: Review function body',
+        '    summary: Keep the frame compact.',
+        '  remediation:',
+        '    summary: Trim the rendered frame.',
+      ].join('\n'),
+    );
+    writeRuleFile(
+      tempDirectory,
+      'src/invalid.ts',
+      [
+        'export function example() {',
+        '  const first = 1;',
+        '  const second = 2;',
+        '  const third = 3;',
+        '  return first + second + third;',
+        '}',
+      ].join('\n'),
+    );
+
+    const result = runCommand(['check'], tempDirectory);
+    const output = sanitizeOutput(result.stdout, tempDirectory);
+
+    expect(result.exitCode).toBe(1);
+    expect(output).toContain('more line(s) omitted');
+    expect(output).not.toContain('return first + second + third;');
+  });
+
+  it('renders an interactive scan banner and progress updates', () => {
+    writeCritiqConfig(tempDirectory);
+    writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
+
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    const raw: string[] = [];
+
+    const exitCode = runCli(['check'], {
+      cwd: tempDirectory,
+      isInteractive: true,
+      writeStdout: (message) => {
+        stdout.push(message);
+      },
+      writeStderr: (message) => {
+        stderr.push(message);
+      },
+      writeRaw: (message) => {
+        raw.push(message);
+      },
+    });
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toEqual([]);
+    expect(stdout.join('\n')).toContain('Rule Results');
+    expect(raw.join('')).toContain('Critiq Scan');
+    expect(raw.join('')).toContain('Progress: [');
+    expect(raw.join('')).toContain('Scanning files');
   });
 
   it('returns success with an info diagnostic when no supported languages are detected', () => {

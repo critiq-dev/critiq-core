@@ -248,6 +248,56 @@ describe('check runner', () => {
     expect(result.envelope.findings[0].rule.id).toBe('ts.logging.no-console-log');
   });
 
+  it('uses default settings when the repo config is missing', () => {
+    rmSync(join(tempDirectory, '.critiq'), { recursive: true, force: true });
+
+    const result = runCheckCommand({
+      cwd: tempDirectory,
+      format: 'json',
+    });
+
+    expect(result.envelope.catalogPackage).toBe('@critiq/rules');
+    expect(result.envelope.preset).toBe('recommended');
+    expect(result.envelope.matchedRuleCount).toBe(1);
+    expect(result.envelope.findingCount).toBe(1);
+    expect(result.envelope.diagnostics).toEqual([]);
+  });
+
+  it('ignores unit test files unless config opts in', () => {
+    rmSync(join(tempDirectory, 'src'), { recursive: true, force: true });
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/example.test.ts',
+      'console.log("hello");\n',
+    );
+
+    const defaultResult = runCheckCommand({
+      cwd: tempDirectory,
+      format: 'json',
+    });
+
+    expect(defaultResult.envelope.scannedFileCount).toBe(0);
+    expect(defaultResult.envelope.findingCount).toBe(0);
+
+    writeWorkspaceFile(
+      tempDirectory,
+      '.critiq/config.yaml',
+      [
+        'apiVersion: critiq.dev/v1alpha1',
+        'kind: CritiqConfig',
+        'includeTests: true',
+      ].join('\n'),
+    );
+
+    const optedInResult = runCheckCommand({
+      cwd: tempDirectory,
+      format: 'json',
+    });
+
+    expect(optedInResult.envelope.scannedFileCount).toBe(1);
+    expect(optedInResult.envelope.findingCount).toBe(1);
+  });
+
   it('adds repo-level project facts before evaluating cross-file rules', () => {
     writeWorkspaceFile(
       tempDirectory,

@@ -109,6 +109,14 @@ export interface RunCheckCommandOptions {
   catalogPackageRoots?: Record<string, string>;
   catalogResolverBasePaths?: readonly string[];
   adapterRegistry?: SourceAdapterRegistry;
+  onProgress?: (update: CheckProgressUpdate) => void;
+}
+
+export interface CheckProgressUpdate {
+  step: 'preparing' | 'scanning' | 'finalizing';
+  scannedFileCount: number;
+  totalFileCount: number;
+  currentFilePath?: string;
 }
 
 export interface RunCheckCommandResult {
