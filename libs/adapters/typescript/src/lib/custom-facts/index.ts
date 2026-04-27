@@ -1,6 +1,9 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
 import {
+  collectAdditionalPublicSecurityFacts,
+} from './additional-public-security';
+import {
   collectInsecureCookieJwtSessionFacts,
 } from './insecure-cookie-jwt-session';
 import { collectInsecureTransportFacts } from './insecure-transport';
@@ -16,6 +19,7 @@ export function collectAdditionalTypeScriptFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
   return [
+    ...collectAdditionalPublicSecurityFacts(context),
     ...collectInsecureCookieJwtSessionFacts(context),
     ...collectInsecureTransportFacts(context),
     ...collectOpenRedirectFacts(context),

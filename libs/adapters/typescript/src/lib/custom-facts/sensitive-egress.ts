@@ -27,16 +27,27 @@ const safeWrapperNames = new Set([
 const externalProcessorCallPatterns = [
   /^analytics\.(capture|group|identify|page|track)$/i,
   /^amplitude\.(identify|logEvent|track)$/i,
+  /^Bugsnag\.(leaveBreadcrumb|notify|start)$/i,
   /^cohere\.(chat|generate)$/i,
+  /^dataLayer\.push$/i,
+  /^DD_RUM\.(addAction|setUser)$/i,
+  /^gtag$/i,
+  /^Honeybadger\.(notify|notifyAsync|setContext)$/i,
   /^mixpanel\.(capture|group|identify|people\.(append|set)|track)$/i,
+  /^(newrelic|newRelic)\.(noticeError|setCustomAttribute|setPageViewName)$/i,
   /^openai\.(chat\.completions\.create|embeddings\.create|responses\.create)$/i,
+  /^openai\.createCompletion$/i,
   /^posthog\.(alias|capture|group|identify)$/i,
+  /^ReactGA\.event$/i,
   /^resend\./i,
+  /^Rollbar\.(critical|debug|error|info|warning)$/i,
   /^segment\.(group|identify|page|track)$/i,
   /^sendgrid\./i,
+  /^Sentry\.(addBreadcrumb|captureEvent|captureException|captureMessage|setContext|setExtra|setTag|setUser)$/i,
   /^slack(Webhook)?\.(postMessage|send|notify)$/i,
-  /^sentry\.(captureEvent|captureException|captureMessage|setContext|setUser)$/i,
+  /^sentry\.(captureEvent|captureException|captureMessage|setContext|setExtra|setTag|setUser)$/i,
   /^webhook\.(dispatch|post|send)$/i,
+  /^window\.dataLayer\.push$/i,
 ];
 
 function isCallExpression(node: TSESTree.Node): node is TSESTree.CallExpression {

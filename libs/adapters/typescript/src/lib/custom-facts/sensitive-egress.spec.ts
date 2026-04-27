@@ -81,6 +81,58 @@ describe('collectSensitiveEgressFacts', () => {
     );
   });
 
+  it('flags Google Tag Manager payloads that carry sensitive fields', () => {
+    const context = createContext([
+      'const user = { email: "ada@example.com", token: "abc" };',
+      'window.dataLayer.push({ email: user.email, token: user.token });',
+    ].join('\n'));
+
+    expect(collectSensitiveEgressFacts(context)).toEqual([
+      expect.objectContaining({
+        kind: 'security.sensitive-data-egress',
+        props: expect.objectContaining({
+          callee: 'window.dataLayer.push',
+          sensitiveSignals: expect.arrayContaining(['email', 'token']),
+        }),
+      }),
+    ]);
+  });
+
+  it('flags additional browser analytics and error-reporting SDK sinks', () => {
+    const context = createContext([
+      'const user = { email: "ada@example.com", token: "abc" };',
+      'gtag("event", "signup", { email: user.email });',
+      'ReactGA.event({ token: user.token });',
+      'Rollbar.error("oops", { email: user.email });',
+      'Honeybadger.setContext({ token: user.token });',
+    ].join('\n'));
+
+    expect(collectSensitiveEgressFacts(context)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          props: expect.objectContaining({
+            callee: 'gtag',
+          }),
+        }),
+        expect.objectContaining({
+          props: expect.objectContaining({
+            callee: 'ReactGA.event',
+          }),
+        }),
+        expect.objectContaining({
+          props: expect.objectContaining({
+            callee: 'Rollbar.error',
+          }),
+        }),
+        expect.objectContaining({
+          props: expect.objectContaining({
+            callee: 'Honeybadger.setContext',
+          }),
+        }),
+      ]),
+    );
+  });
+
   it('ignores safe redaction wrappers and local endpoints', () => {
     const context = createContext([
       'const user = { email: "ada@example.com" };',
@@ -96,4 +148,3 @@ describe('collectSensitiveEgressFacts', () => {
     expect(collectSensitiveEgressFacts(context)).toEqual([]);
   });
 });
-
