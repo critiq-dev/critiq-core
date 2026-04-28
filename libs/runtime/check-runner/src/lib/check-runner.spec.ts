@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 
 import {
   createDefaultSourceAdapterRegistry,
+  createSourceAdapterRegistry,
   runCheckCommand,
 } from './check-runner';
 
@@ -315,11 +316,18 @@ describe('check runner', () => {
     expect(registry.findAdapterForPath('src/example.ts')).toBeDefined();
     expect(registry.findAdapterForPath('src/example.go')).toBeDefined();
     expect(registry.findAdapterForPath('src/example.py')).toBeDefined();
-    expect(registry.findAdapterForPath('src/example.java')).toBeUndefined();
+    expect(registry.findAdapterForPath('src/example.java')).toBeDefined();
+    expect(registry.findAdapterForPath('src/example.php')).toBeDefined();
+    expect(registry.findAdapterForPath('src/example.rb')).toBeDefined();
+    expect(registry.findAdapterForPath('src/example.rs')).toBeDefined();
     expect(registry.supportedLanguages()).toEqual([
       'go',
+      'java',
       'javascript',
+      'php',
       'python',
+      'ruby',
+      'rust',
       'typescript',
     ]);
   });
@@ -431,9 +439,15 @@ describe('check runner', () => {
       ].join('\n'),
     );
 
+    const registryWithoutJava = createSourceAdapterRegistry(
+      createDefaultSourceAdapterRegistry().adapters.filter(
+        (adapter) => !adapter.supportedLanguages.includes('java'),
+      ),
+    );
     const result = runCheckCommand({
       cwd: tempDirectory,
       format: 'json',
+      adapterRegistry: registryWithoutJava,
     });
 
     expect(result.envelope.matchedRuleCount).toBe(0);

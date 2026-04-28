@@ -1,0 +1,25 @@
+{
+  "name": "php",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/adapters/php/src",
+  "projectType": "library",
+  "tags": ["scope:oss-core", "type:adapter"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/adapters/php",
+        "main": "libs/adapters/php/src/index.ts",
+        "tsConfig": "libs/adapters/php/tsconfig.lib.json",
+        "assets": ["libs/adapters/php/*.md"]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --pretty false --noEmit -p libs/adapters/php/tsconfig.lib.json"
+      }
+    }
+  }
+}

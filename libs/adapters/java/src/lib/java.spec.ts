@@ -1,0 +1,101 @@
+import { javaSourceAdapter } from './java';
+
+describe('javaSourceAdapter', () => {
+  it('analyzes valid Java source', () => {
+    const result = javaSourceAdapter.analyze(
+      'Main.java',
+      [
+        'class Main {',
+        '  void run() {',
+        '    System.out.println("ok");',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(result.data.language).toBe('java');
+    expect(result.data.nodes).toHaveLength(1);
+  });
+
+  it('reports malformed Java source', () => {
+    const result = javaSourceAdapter.analyze(
+      'Broken.java',
+      [
+        'class Broken {',
+        '  void run( {',
+        '    System.out.println("oops");',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(false);
+  });
+
+  it('emits phase-1 security facts', () => {
+    const result = javaSourceAdapter.analyze(
+      'Handler.java',
+      [
+        'class Handler {',
+        '  void handle(HttpServletRequest request, Statement statement, Logger logger) throws Exception {',
+        '    String apiSecret = "sk_live_12345678";',
+        '    String reportName = request.getParameter("report");',
+        '    Files.readString(reportName);',
+        '    Runtime.getRuntime().exec(reportName);',
+        '    String query = String.format("SELECT * FROM reports WHERE name = \'%s\'", reportName);',
+        '    statement.executeQuery(query);',
+        '    byte[] payload = request.getParameter("payload").getBytes();',
+        '    ObjectInputStream stream = new ObjectInputStream(payload);',
+        '    logger.info("token=" + request.getHeader("Authorization"));',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toEqual([
+      'security.hardcoded-credentials',
+      'security.request-path-file-read',
+      'security.command-execution-with-request-input',
+      'security.sql-interpolation',
+      'security.unsafe-deserialization',
+      'security.sensitive-data-in-logs-and-telemetry',
+    ]);
+  });
+
+  it('emits transport and crypto security facts', () => {
+    const result = javaSourceAdapter.analyze(
+      'Transport.java',
+      [
+        'class Transport {',
+        '  void fetch() throws Exception {',
+        '    HttpRequest.newBuilder(URI.create("http://api.example.com/users"));',
+        '    HttpClient.newBuilder().hostnameVerifier((host, session) -> true).build();',
+        '    MessageDigest.getInstance("MD5");',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toEqual([
+      'security.insecure-http-transport',
+      'security.tls-verification-disabled',
+      'security.weak-hash-algorithm',
+    ]);
+  });
+});

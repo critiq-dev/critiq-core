@@ -211,7 +211,9 @@ export function rangeContains(
 }
 
 export function isTestPath(path: string): boolean {
-  return /(?:^|\/)__tests__(?:\/|$)|\.(spec|test)\.[jt]sx?$/i.test(path);
+  return /(?:^|\/)(?:__tests__|spec|test|tests)(?:\/|$)|\.(spec|test)\.(?:[jt]sx?|java|php|py|rb|rs)$/i.test(
+    path,
+  );
 }
 
 function stripComments(text: string): string {

@@ -45,8 +45,20 @@
       "@critiq/adapter-go": [
         "libs/adapters/go/src/index.ts"
       ],
+      "@critiq/adapter-java": [
+        "libs/adapters/java/src/index.ts"
+      ],
+      "@critiq/adapter-php": [
+        "libs/adapters/php/src/index.ts"
+      ],
       "@critiq/adapter-python": [
         "libs/adapters/python/src/index.ts"
+      ],
+      "@critiq/adapter-ruby": [
+        "libs/adapters/ruby/src/index.ts"
+      ],
+      "@critiq/adapter-rust": [
+        "libs/adapters/rust/src/index.ts"
       ],
       "@critiq/adapter-shared": [
         "libs/adapters/shared/src/index.ts"

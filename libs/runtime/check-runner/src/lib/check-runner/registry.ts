@@ -1,5 +1,9 @@
 import { goSourceAdapter } from '@critiq/adapter-go';
+import { javaSourceAdapter } from '@critiq/adapter-java';
+import { phpSourceAdapter } from '@critiq/adapter-php';
 import { pythonSourceAdapter } from '@critiq/adapter-python';
+import { rubySourceAdapter } from '@critiq/adapter-ruby';
+import { rustSourceAdapter } from '@critiq/adapter-rust';
 import { typescriptSourceAdapter } from '@critiq/adapter-typescript';
 import type { CanonicalLanguage } from '@critiq/core-ir';
 import { extname } from 'node:path';
@@ -55,7 +59,11 @@ export function createSourceAdapterRegistry(
 export function createDefaultSourceAdapterRegistry(): SourceAdapterRegistry {
   return createSourceAdapterRegistry([
     goSourceAdapter,
+    javaSourceAdapter,
+    phpSourceAdapter,
     pythonSourceAdapter,
+    rubySourceAdapter,
+    rustSourceAdapter,
     typescriptSourceAdapter,
   ]);
 }
