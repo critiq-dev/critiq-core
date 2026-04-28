@@ -17,7 +17,10 @@ export function augmentProjectFacts(
   analyzedFiles: readonly AnalyzedFile[],
   options: ProjectAnalysisOptions,
 ): AnalyzedFile[] {
-  const contexts = createFileContexts(analyzedFiles);
+  const projectAnalysisEligibleFiles = analyzedFiles.filter(
+    (file) => file.language === 'javascript' || file.language === 'typescript',
+  );
+  const contexts = createFileContexts(projectAnalysisEligibleFiles);
 
   emitMissingAuthorizationFacts(contexts);
   emitMissingOwnershipFacts(contexts);

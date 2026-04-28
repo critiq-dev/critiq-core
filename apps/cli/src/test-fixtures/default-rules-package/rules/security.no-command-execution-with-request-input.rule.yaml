@@ -1,7 +1,7 @@
 apiVersion: critiq.dev/v1alpha1
 kind: Rule
 metadata:
-  id: ts.security.no-command-execution-with-request-input
+  id: security.no-command-execution-with-request-input
   title: Command execution using untrusted input
   summary: Command execution helpers must not receive request-controlled input.
   rationale: Request-controlled shell commands can become remote code execution vulnerabilities.

@@ -12,11 +12,22 @@ import { createHash } from 'node:crypto';
 /**
  * Represents a canonical normalized language identifier.
  */
-export type NormalizedLanguage =
+export type CanonicalLanguage =
   | 'typescript'
   | 'javascript'
   | 'python'
   | 'go'
+  | 'java'
+  | 'php'
+  | 'ruby'
+  | 'rust';
+
+/**
+ * Represents a canonical normalized language identifier plus the catalog-wide
+ * `all` selector.
+ */
+export type NormalizedLanguage =
+  | CanonicalLanguage
   | 'all';
 
 /**
@@ -145,6 +156,22 @@ function normalizeLanguage(language: string): NormalizedLanguage {
 
   if (language === 'go') {
     return 'go';
+  }
+
+  if (language === 'java') {
+    return 'java';
+  }
+
+  if (language === 'php') {
+    return 'php';
+  }
+
+  if (language === 'ruby') {
+    return 'ruby';
+  }
+
+  if (language === 'rust') {
+    return 'rust';
   }
 
   return 'all';

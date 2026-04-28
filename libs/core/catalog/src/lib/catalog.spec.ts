@@ -28,8 +28,8 @@ const validCatalog = [
   '    rulePath: ./rules/no-debugger.rule.yaml',
   '    presets:',
   '      - strict',
-  '  - id: ts.security.no-sql-interpolation',
-  '    rulePath: ./rules/ts.security.no-sql-interpolation.rule.yaml',
+  '  - id: security.no-sql-interpolation',
+  '    rulePath: ./rules/security.no-sql-interpolation.rule.yaml',
   '    presets:',
   '      - recommended',
   '      - strict',
@@ -63,6 +63,15 @@ const typescriptRule: NormalizedRule = {
     },
   },
   ruleHash: 'hash-1',
+};
+
+const javaRule: NormalizedRule = {
+  ...typescriptRule,
+  ruleId: 'java.security.path-traversal',
+  scope: {
+    ...typescriptRule.scope,
+    languages: ['java'],
+  },
 };
 
 describe('core catalog', () => {
@@ -115,15 +124,15 @@ describe('core catalog', () => {
         rulePath: '/pkg/rules/no-console.rule.yaml',
       },
       {
-        id: 'ts.security.no-sql-interpolation',
-        rulePath: '/pkg/rules/ts.security.no-sql-interpolation.rule.yaml',
+        id: 'security.no-sql-interpolation',
+        rulePath: '/pkg/rules/security.no-sql-interpolation.rule.yaml',
       },
     ]);
     expect(resolveCatalogRulePaths(loaded.data, '/pkg', 'strict')).toHaveLength(3);
     expect(resolveCatalogRulePaths(loaded.data, '/pkg', 'security')).toEqual([
       {
-        id: 'ts.security.no-sql-interpolation',
-        rulePath: '/pkg/rules/ts.security.no-sql-interpolation.rule.yaml',
+        id: 'security.no-sql-interpolation',
+        rulePath: '/pkg/rules/security.no-sql-interpolation.rule.yaml',
       },
     ]);
   });
@@ -134,9 +143,24 @@ describe('core catalog', () => {
         '/repo/src/app.ts',
         '/repo/src/ui.tsx',
         '/repo/src/index.js',
+        '/repo/src/app.py',
+        '/repo/src/service.go',
+        '/repo/src/Main.java',
+        '/repo/src/index.php',
+        '/repo/src/service.rb',
+        '/repo/src/lib.rs',
         '/repo/README.md',
       ]),
-    ).toEqual(['javascript', 'typescript']);
+    ).toEqual([
+      'go',
+      'java',
+      'javascript',
+      'php',
+      'python',
+      'ruby',
+      'rust',
+      'typescript',
+    ]);
   });
 
   it('filters normalized rules by config and detected languages', () => {
@@ -182,7 +206,7 @@ describe('core catalog', () => {
   it('treats disabled top-level categories as prefixes', () => {
     const securityRule: NormalizedRule = {
       ...typescriptRule,
-      ruleId: 'ts.security.no-sql-interpolation',
+      ruleId: 'security.no-sql-interpolation',
       emit: {
         ...typescriptRule.emit,
         finding: {
@@ -208,6 +232,27 @@ describe('core catalog', () => {
           severityOverrides: {},
         },
         ['typescript'],
+      ),
+    ).toEqual([]);
+  });
+
+  it('does not activate rules when the runtime provides no scannable languages', () => {
+    expect(
+      filterNormalizedRulesForCatalog(
+        [javaRule],
+        {
+          apiVersion: 'critiq.dev/v1alpha1',
+          kind: 'CritiqConfig',
+          catalogPackage: '@critiq/rules',
+          preset: 'security',
+          disableRules: [],
+          disableCategories: [],
+          disableLanguages: [],
+          includeTests: false,
+          ignorePaths: [],
+          severityOverrides: {},
+        },
+        [],
       ),
     ).toEqual([]);
   });

@@ -186,8 +186,8 @@ rules:
     rulePath: ./rules/ts.performance.unnecessary-rerenders-from-state-misuse.rule.yaml
     presets:
       - experimental
-  - id: ts.security.no-sql-interpolation
-    rulePath: ./rules/ts.security.no-sql-interpolation.rule.yaml
+  - id: security.no-sql-interpolation
+    rulePath: ./rules/security.no-sql-interpolation.rule.yaml
     presets:
       - recommended
       - strict
@@ -198,14 +198,14 @@ rules:
       - recommended
       - strict
       - security
-  - id: ts.security.no-request-path-file-read
-    rulePath: ./rules/ts.security.no-request-path-file-read.rule.yaml
+  - id: security.no-request-path-file-read
+    rulePath: ./rules/security.no-request-path-file-read.rule.yaml
     presets:
       - recommended
       - strict
       - security
-  - id: ts.security.no-command-execution-with-request-input
-    rulePath: ./rules/ts.security.no-command-execution-with-request-input.rule.yaml
+  - id: security.no-command-execution-with-request-input
+    rulePath: ./rules/security.no-command-execution-with-request-input.rule.yaml
     presets:
       - recommended
       - strict
@@ -216,8 +216,8 @@ rules:
       - recommended
       - strict
       - security
-  - id: ts.security.no-hardcoded-credentials
-    rulePath: ./rules/ts.security.no-hardcoded-credentials.rule.yaml
+  - id: security.no-hardcoded-credentials
+    rulePath: ./rules/security.no-hardcoded-credentials.rule.yaml
     presets:
       - recommended
       - strict
@@ -247,8 +247,8 @@ rules:
     presets:
       - strict
       - security
-  - id: ts.security.unsafe-deserialization
-    rulePath: ./rules/ts.security.unsafe-deserialization.rule.yaml
+  - id: security.unsafe-deserialization
+    rulePath: ./rules/security.unsafe-deserialization.rule.yaml
     presets:
       - recommended
       - strict

@@ -31,6 +31,10 @@ const configLanguageSchema = z.enum([
   'js',
   'python',
   'go',
+  'java',
+  'php',
+  'ruby',
+  'rust',
 ]);
 
 export const CRITIQ_CONFIG_API_VERSION = configApiVersion;
@@ -77,7 +81,16 @@ export interface NormalizedCritiqConfig {
   preset: CritiqPreset;
   disableRules: string[];
   disableCategories: FindingCategory[];
-  disableLanguages: Array<'typescript' | 'javascript' | 'python' | 'go'>;
+  disableLanguages: Array<
+    | 'typescript'
+    | 'javascript'
+    | 'python'
+    | 'go'
+    | 'java'
+    | 'php'
+    | 'ruby'
+    | 'rust'
+  >;
   includeTests: boolean;
   ignorePaths: string[];
   severityOverrides: Record<string, FindingSeverity>;
@@ -110,7 +123,15 @@ function normalizeStringArray(values: readonly string[] | undefined): string[] {
 
 function normalizeLanguage(
   language: CritiqConfigLanguage,
-): 'typescript' | 'javascript' | 'python' | 'go' {
+):
+  | 'typescript'
+  | 'javascript'
+  | 'python'
+  | 'go'
+  | 'java'
+  | 'php'
+  | 'ruby'
+  | 'rust' {
   if (language === 'ts' || language === 'typescript') {
     return 'typescript';
   }

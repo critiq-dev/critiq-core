@@ -333,7 +333,7 @@ export function runCheckCommand(
     );
   }
 
-  const filteredScope = filterIgnoredPaths(
+  const catalogScope = filterIgnoredPaths(
     resolvedScope.data.files,
     resolvedScope.data.changedRangesByAbsolutePath,
     resolvedTarget.data.displayRoot,
@@ -350,17 +350,26 @@ export function runCheckCommand(
   options.onProgress?.({
     step: 'preparing',
     scannedFileCount: 0,
-    totalFileCount: filteredScope.files.length,
+    totalFileCount: catalogScope.files.filter((path) =>
+      Boolean(registry.findAdapterForPath(path)),
+    ).length,
   });
-  const detectedLanguages = detectRepositoryLanguages(filteredScope.files);
+  const detectedLanguages = detectRepositoryLanguages(catalogScope.files);
+  const scannableLanguages = detectedLanguages.filter((language) =>
+    registry.hasAdapterForLanguage(language),
+  );
   const activeRules = filterNormalizedRulesForCatalog(
     loadedRules.rules,
     {
       ...effectiveConfig,
       catalogPackage: catalogPackageName,
     },
-    detectedLanguages,
+    scannableLanguages,
   );
+  const filteredScope = {
+    files: catalogScope.files.filter((path) => Boolean(registry.findAdapterForPath(path))),
+    changedRangesByAbsolutePath: catalogScope.changedRangesByAbsolutePath,
+  };
   const informationalDiagnostics: Diagnostic[] = [];
 
   if (detectedLanguages.length === 0) {
@@ -370,6 +379,23 @@ export function runCheckCommand(
         severity: 'info',
         message:
           'No supported source files were detected after applying ignore paths.',
+      }),
+    );
+  } else if (scannableLanguages.length < detectedLanguages.length) {
+    const unsupportedLanguages = detectedLanguages.filter(
+      (language) => !registry.hasAdapterForLanguage(language),
+    );
+
+    informationalDiagnostics.push(
+      createDiagnostic({
+        code: 'catalog.repo.no-adapter-for-language',
+        severity: 'info',
+        message: `Repository languages were detected without registered adapters: ${unsupportedLanguages.join(
+          ', ',
+        )}.`,
+        details: {
+          languages: unsupportedLanguages,
+        },
       }),
     );
   } else if (activeRules.length === 0) {

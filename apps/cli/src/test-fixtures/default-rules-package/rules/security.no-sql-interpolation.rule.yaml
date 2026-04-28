@@ -1,7 +1,7 @@
 apiVersion: critiq.dev/v1alpha1
 kind: Rule
 metadata:
-  id: ts.security.no-sql-interpolation
+  id: security.no-sql-interpolation
   title: SQL query built via string concatenation
   summary: Database queries must not interpolate untrusted values directly into SQL.
   rationale: Interpolated SQL strings can allow attackers to change query structure.

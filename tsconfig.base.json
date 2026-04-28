@@ -42,6 +42,15 @@
       "@critiq/check-runner": [
         "libs/runtime/check-runner/src/index.ts"
       ],
+      "@critiq/adapter-go": [
+        "libs/adapters/go/src/index.ts"
+      ],
+      "@critiq/adapter-python": [
+        "libs/adapters/python/src/index.ts"
+      ],
+      "@critiq/adapter-shared": [
+        "libs/adapters/shared/src/index.ts"
+      ],
       "@critiq/adapter-typescript": [
         "libs/adapters/typescript/src/index.ts"
       ],

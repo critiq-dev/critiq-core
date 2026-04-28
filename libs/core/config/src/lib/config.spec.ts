@@ -111,6 +111,45 @@ describe('core config', () => {
     });
   });
 
+  it('normalizes all supported disableLanguages values', () => {
+    expect(
+      normalizeCritiqConfig({
+        apiVersion: 'critiq.dev/v1alpha1',
+        kind: 'CritiqConfig',
+        disableLanguages: [
+          'ts',
+          'js',
+          'go',
+          'python',
+          'java',
+          'php',
+          'ruby',
+          'rust',
+        ],
+      }),
+    ).toEqual({
+      apiVersion: 'critiq.dev/v1alpha1',
+      kind: 'CritiqConfig',
+      catalogPackage: undefined,
+      preset: 'recommended',
+      disableRules: [],
+      disableCategories: [],
+      disableLanguages: [
+        'go',
+        'java',
+        'javascript',
+        'php',
+        'python',
+        'ruby',
+        'rust',
+        'typescript',
+      ],
+      includeTests: false,
+      ignorePaths: [],
+      severityOverrides: {},
+    });
+  });
+
   it('accepts explicit test-file inclusion', () => {
     expect(
       normalizeCritiqConfig({

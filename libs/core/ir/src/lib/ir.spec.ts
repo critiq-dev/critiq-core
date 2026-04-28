@@ -231,13 +231,54 @@ describe('normalizeRuleDocument', () => {
     expect(first.ruleHash).toBe(second.ruleHash);
   });
 
+  it('normalizes the expanded canonical language set', () => {
+    const result = normalize(
+      [
+        'apiVersion: critiq.dev/v1alpha1',
+        'kind: Rule',
+        'metadata:',
+        '  id: ts.security.polyglot-language-coverage',
+        '  title: Polyglot coverage',
+        '  summary: Expanded language support remains normalized.',
+        'scope:',
+        '  languages:',
+        '    - go',
+        '    - java',
+        '    - php',
+        '    - python',
+        '    - ruby',
+        '    - rust',
+        'match:',
+        '  fact:',
+        '    kind: security.request-path-file-read',
+        'emit:',
+        '  finding:',
+        '    category: security.filesystem',
+        '    severity: high',
+        '    confidence: 0.85',
+        '  message:',
+        '    title: Polyglot coverage',
+        '    summary: Coverage remains normalized.',
+      ].join('\n'),
+    );
+
+    expect(result.rule.scope.languages).toEqual([
+      'go',
+      'java',
+      'php',
+      'python',
+      'ruby',
+      'rust',
+    ]);
+  });
+
   it('preserves OSS taxonomy metadata and numeric confidence', () => {
     const result = normalize(
       [
         'apiVersion: critiq.dev/v1alpha1',
         'kind: Rule',
         'metadata:',
-        '  id: ts.security.no-request-path-file-read',
+        '  id: security.no-request-path-file-read',
         '  title: Path traversal via user input',
         '  summary: File reads must not use request-controlled paths directly.',
         '  stability: stable',
@@ -261,7 +302,7 @@ describe('normalizeRuleDocument', () => {
     );
 
     expect(result.rule).toMatchObject({
-      ruleId: 'ts.security.no-request-path-file-read',
+      ruleId: 'security.no-request-path-file-read',
       stability: 'stable',
       appliesTo: 'block',
       scope: {

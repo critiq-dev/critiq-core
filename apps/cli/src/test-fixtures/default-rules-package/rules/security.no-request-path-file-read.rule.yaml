@@ -1,7 +1,7 @@
 apiVersion: critiq.dev/v1alpha1
 kind: Rule
 metadata:
-  id: ts.security.no-request-path-file-read
+  id: security.no-request-path-file-read
   title: Path traversal via user input
   summary: File access calls must not use request-controlled paths directly.
   rationale: User-controlled paths can escape the intended directory and expose sensitive files.

@@ -57,7 +57,11 @@ export type RepositoryLanguage =
   | 'typescript'
   | 'javascript'
   | 'python'
-  | 'go';
+  | 'go'
+  | 'java'
+  | 'php'
+  | 'ruby'
+  | 'rust';
 
 export interface ResolvedCatalogPackage {
   packageName: string;
@@ -315,6 +319,22 @@ export function detectRepositoryLanguages(
 
     if (extension === '.go') {
       detected.add('go');
+    }
+
+    if (extension === '.java') {
+      detected.add('java');
+    }
+
+    if (extension === '.php') {
+      detected.add('php');
+    }
+
+    if (extension === '.rb') {
+      detected.add('ruby');
+    }
+
+    if (extension === '.rs') {
+      detected.add('rust');
     }
   }
 

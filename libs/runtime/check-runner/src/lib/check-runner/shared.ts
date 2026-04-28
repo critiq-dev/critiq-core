@@ -8,7 +8,11 @@ import type {
   FindingSeverity,
   FindingV0,
 } from '@critiq/core-finding-schema';
-import { normalizeRuleDocument, type NormalizedRule } from '@critiq/core-ir';
+import {
+  normalizeRuleDocument,
+  type CanonicalLanguage,
+  type NormalizedRule,
+} from '@critiq/core-ir';
 import {
   loadRuleFile,
   validateLoadedRuleDocumentContract,
@@ -38,13 +42,16 @@ export type SourceAdapterAnalysisResult =
 export interface SourceAdapter {
   packageName: string;
   supportedExtensions: readonly string[];
+  supportedLanguages: readonly CanonicalLanguage[];
   analyze(path: string, text: string): SourceAdapterAnalysisResult;
 }
 
 export interface SourceAdapterRegistry {
   adapters: readonly SourceAdapter[];
   findAdapterForPath(path: string): SourceAdapter | undefined;
+  hasAdapterForLanguage(language: CanonicalLanguage): boolean;
   supportedExtensions(): string[];
+  supportedLanguages(): CanonicalLanguage[];
 }
 
 export interface CheckRuleSummary {

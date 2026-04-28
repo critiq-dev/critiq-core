@@ -131,7 +131,7 @@ describe('rule semantic validation', () => {
         'apiVersion: critiq.dev/v1alpha1',
         'kind: Rule',
         'metadata:',
-        '  id: ts.security.no-sql-interpolation',
+        '  id: security.no-sql-interpolation',
         '  title: SQL query built via string concatenation',
         '  summary: SQL statements must not interpolate untrusted input.',
         '  stability: stable',

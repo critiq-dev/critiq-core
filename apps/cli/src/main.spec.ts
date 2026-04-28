@@ -1,10 +1,4 @@
-import {
-  cpSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -15,7 +9,11 @@ function createTempWorkspace(): string {
   return mkdtempSync(join(tmpdir(), 'critiq-cli-'));
 }
 
-function writeRuleFile(rootDirectory: string, relativePath: string, content: string): void {
+function writeRuleFile(
+  rootDirectory: string,
+  relativePath: string,
+  content: string,
+): void {
   mkdirSync(dirname(join(rootDirectory, relativePath)), { recursive: true });
   writeFileSync(join(rootDirectory, relativePath), content, 'utf8');
 }
@@ -214,7 +212,7 @@ describe('cli', () => {
     expect(envelope.preset).toBe('recommended');
     expect(envelope.scope).toEqual({ mode: 'repo' });
     expect(envelope.scannedFileCount).toBe(1);
-    expect(envelope.matchedRuleCount).toBe(30);
+    expect(envelope.matchedRuleCount).toBe(31);
     expect(envelope.findingCount).toBe(0);
     expect(envelope.findings).toEqual([]);
     expect(envelope.ruleSummaries).toEqual([]);
@@ -307,8 +305,8 @@ describe('cli', () => {
     expect(output).toContain('> 1 | console.log("hello");');
     expect(output).toContain('| ^^^^^^^^^^^^^^^^^^^^');
     expect(output).toContain('at src/invalid.ts:1:1');
-    expect(output).toContain('Checked 1 file(s) against 30 rule(s)');
-    expect(output).toContain('Rules:       1 failed, 29 passed, 30 total');
+    expect(output).toContain('Checked 1 file(s) against 31 rule(s)');
+    expect(output).toContain('Rules:       1 failed, 30 passed, 31 total');
     expect(output).toContain('Files:       1 failed, 0 passed, 1 total');
     expect(output).toContain('Findings:    1 total');
   });
@@ -327,7 +325,7 @@ describe('cli', () => {
     };
 
     expect(envelope.catalogPackage).toBe('@critiq/rules');
-    expect(envelope.matchedRuleCount).toBe(30);
+    expect(envelope.matchedRuleCount).toBe(31);
     expect(envelope.findingCount).toBe(1);
   });
 
@@ -349,7 +347,7 @@ describe('cli', () => {
     expect(envelope.catalogPackage).toBe('@critiq/rules');
     expect(envelope.preset).toBe('recommended');
     expect(envelope.scannedFileCount).toBe(1);
-    expect(envelope.matchedRuleCount).toBe(30);
+    expect(envelope.matchedRuleCount).toBe(31);
     expect(envelope.findingCount).toBe(1);
     expect(envelope.diagnostics).toEqual([]);
   });
@@ -407,7 +405,9 @@ describe('cli', () => {
     );
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('Diff mode requires the target path to be inside a git repository.');
+    expect(result.stderr).toContain(
+      'Diff mode requires the target path to be inside a git repository.',
+    );
   });
 
   it('checks only changed supported files in diff mode', () => {
@@ -434,9 +434,9 @@ describe('cli', () => {
     expect(envelope.scope.mode).toBe('diff');
     expect(envelope.scope.changedFileCount).toBe(1);
     expect(envelope.scannedFileCount).toBe(1);
-    expect(envelope.findings.map((finding) => finding.locations.primary.path)).toEqual([
-      'src/changed.ts',
-    ]);
+    expect(
+      envelope.findings.map((finding) => finding.locations.primary.path),
+    ).toEqual(['src/changed.ts']);
   });
 
   it('returns success when a diff contains no changed supported files', () => {
@@ -479,13 +479,20 @@ describe('cli', () => {
     const envelope = JSON.parse(result.stdout) as {
       matchedRuleCount: number;
       findingCount: number;
-      findings: Array<{ rule: { id: string }; locations: { primary: { path: string } } }>;
+      findings: Array<{
+        rule: { id: string };
+        locations: { primary: { path: string } };
+      }>;
     };
 
     expect(envelope.matchedRuleCount).toBe(49);
     expect(envelope.findingCount).toBe(1);
-    expect(envelope.findings[0].rule.id).toBe('ts.random.no-math-random-in-core');
-    expect(envelope.findings[0].locations.primary.path).toBe('src/core/random.ts');
+    expect(envelope.findings[0].rule.id).toBe(
+      'ts.random.no-math-random-in-core',
+    );
+    expect(envelope.findings[0].locations.primary.path).toBe(
+      'src/core/random.ts',
+    );
   });
 
   it('applies severity overrides without changing finding fingerprints', () => {
@@ -532,7 +539,7 @@ describe('cli', () => {
     };
 
     expect(result.exitCode).toBe(0);
-    expect(envelope.matchedRuleCount).toBe(27);
+    expect(envelope.matchedRuleCount).toBe(28);
     expect(envelope.findingCount).toBe(0);
   });
 
@@ -724,7 +731,11 @@ Exit code: 1"
     ) as {
       command: string;
       matchedFileCount: number;
-      results: Array<{ path: string; success: boolean; diagnostics: unknown[] }>;
+      results: Array<{
+        path: string;
+        success: boolean;
+        diagnostics: unknown[];
+      }>;
       diagnostics: Array<{ code: string }>;
       exitCode: number;
     };
@@ -754,13 +765,17 @@ Exit code: 1"
     );
 
     expect(result.exitCode).toBe(0);
-    const output = sanitizeOutput(result.stdout, tempDirectory).split('${').join('$<');
+    const output = sanitizeOutput(result.stdout, tempDirectory)
+      .split('${')
+      .join('$<');
 
     expect(output).toContain('Parsed Summary');
     expect(output).toContain('Normalization: success');
     expect(output).toContain('"ruleId": "ts.logging.no-console-log"');
     expect(output).toContain('"raw": "Avoid `$<captures.call.text}`"');
-    expect(output).toContain('"ruleHash": "caf39ee108746bb25e8a8cfccc8cfee70a0e161e44ef5ebd8617ce8f9f37cd47"');
+    expect(output).toContain(
+      '"ruleHash": "caf39ee108746bb25e8a8cfccc8cfee70a0e161e44ef5ebd8617ce8f9f37cd47"',
+    );
   });
 
   it('renders json explain output', () => {
@@ -836,7 +851,11 @@ Exit code: 1"
         specPath: string;
         success: boolean;
         result: {
-          fixtureResults: Array<{ name: string; success: boolean; emittedFindings: unknown[] }>;
+          fixtureResults: Array<{
+            name: string;
+            success: boolean;
+            emittedFindings: unknown[];
+          }>;
         };
       }>;
     };

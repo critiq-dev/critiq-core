@@ -396,6 +396,54 @@ describe('analyzeTypeScriptFile', () => {
     expect(uncheckedKeyFacts).toHaveLength(1);
   });
 
+  it('emits shared phase-1 polyglot security facts for TypeScript input', () => {
+    const result = analyzeTypeScriptFile(
+      'src/security.ts',
+      [
+        'const apiSecret = "sk_live_12345678";',
+        '',
+        'export function readReport(req: { query: Record<string, string> }) {',
+        '  return fs.readFileSync(req.query.report);',
+        '}',
+        '',
+        'export function runCommand(req: { body: { cmd: string } }) {',
+        '  return exec(req.body.cmd);',
+        '}',
+        '',
+        'export function runQuery(db: { query(sql: string): unknown }, email: string) {',
+        '  return db.query(`select * from users where email = ${email}`);',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(result.data.semantics?.controlFlow?.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'security.hardcoded-credentials',
+          appliesTo: 'file',
+        }),
+        expect.objectContaining({
+          kind: 'security.request-path-file-read',
+          appliesTo: 'block',
+        }),
+        expect.objectContaining({
+          kind: 'security.command-execution-with-request-input',
+          appliesTo: 'block',
+        }),
+        expect.objectContaining({
+          kind: 'security.sql-interpolation',
+          appliesTo: 'block',
+        }),
+      ]),
+    );
+  });
+
   it('suppresses guarded dereferences, keyed writes, and shared-fallback dispatch patterns', () => {
     const result = analyzeTypeScriptFile(
       'src/guarded-runtime.ts',

@@ -11,6 +11,8 @@
     }
   },
   "dependencies": {
+    "@critiq/adapter-go": "0.0.1",
+    "@critiq/adapter-python": "0.0.1",
     "@critiq/adapter-typescript": "0.0.1",
     "@critiq/core-catalog": "0.0.1",
     "@critiq/core-config": "0.0.1",

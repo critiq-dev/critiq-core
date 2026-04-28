@@ -23,6 +23,7 @@ export type TypeScriptAnalysisResult =
 export const typescriptSourceAdapter = {
   packageName: '@critiq/adapter-typescript',
   supportedExtensions: ['.js', '.jsx', '.ts', '.tsx'],
+  supportedLanguages: ['javascript', 'typescript'],
   analyze: analyzeTypeScriptFile,
 } as const;
 

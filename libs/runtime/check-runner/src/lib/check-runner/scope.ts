@@ -20,14 +20,31 @@ import {
 
 const defaultIgnoredTestPatterns = [
   '**/__tests__/**',
+  '**/spec/**',
+  '**/src/test/**',
+  '**/test/**',
+  '**/tests/**',
   '**/*.spec.js',
   '**/*.spec.jsx',
+  '**/*.spec.java',
+  '**/*.spec.php',
+  '**/*.spec.rb',
   '**/*.spec.ts',
   '**/*.spec.tsx',
+  '**/*Spec.java',
+  '**/*Test.java',
+  '**/*Test.php',
+  '**/*Tests.java',
+  '**/*_spec.rb',
+  '**/*_test.go',
+  '**/*_test.py',
+  '**/*_test.rb',
   '**/*.test.js',
   '**/*.test.jsx',
+  '**/*.test.py',
   '**/*.test.ts',
   '**/*.test.tsx',
+  '**/test_*.py',
 ] as const;
 
 const defaultIgnoredPathPatterns = [
@@ -40,8 +57,11 @@ const defaultIgnoredPathPatterns = [
   '**/node_modules/**',
   '**/vendor/**',
   '**/*.d.ts',
+  '**/*.generated.go',
+  '**/*.generated.py',
   '**/*.generated.js',
   '**/*.generated.ts',
+  '**/*_generated.go',
 ] as const;
 
 function isPathWithinDirectory(
@@ -261,12 +281,8 @@ export function resolveCheckScope(
 
   if (!baseRef && !headRef) {
     const files = target.isDirectory
-      ? walkFiles(target.absolutePath).filter((path) =>
-          Boolean(registry.findAdapterForPath(path)),
-        )
-      : registry.findAdapterForPath(target.absolutePath)
-        ? [target.absolutePath]
-        : [];
+      ? walkFiles(target.absolutePath)
+      : [target.absolutePath];
 
     return {
       success: true,

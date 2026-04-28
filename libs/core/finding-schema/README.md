@@ -23,7 +23,7 @@ import { validateFinding } from '@critiq/core-finding-schema';
 const result = validateFinding({
   schemaVersion: 'finding/v0',
   findingId: '6d86f84f-3f5c-4bc3-9f5d-8e24d441f8d7',
-  rule: { id: 'ts.security.no-sql-interpolation' },
+  rule: { id: 'security.no-sql-interpolation' },
   title: 'SQL query built via string concatenation',
   summary: 'Use query placeholders instead of string interpolation.',
   category: 'security.injection',

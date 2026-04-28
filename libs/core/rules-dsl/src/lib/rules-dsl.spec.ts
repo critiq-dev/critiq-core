@@ -125,7 +125,7 @@ describe('ruleDocumentV0Alpha1Schema', () => {
       ...minimalRule,
       metadata: {
         ...minimalRule.metadata,
-        id: 'ts.security.no-sql-interpolation',
+        id: 'security.no-sql-interpolation',
         stability: 'stable',
         appliesTo: 'block',
       },
@@ -140,6 +140,17 @@ describe('ruleDocumentV0Alpha1Schema', () => {
           severity: 'critical',
           confidence: 0.95,
         },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts the expanded polyglot language tokens at the contract layer', () => {
+    const result = validateRuleDocument({
+      ...minimalRule,
+      scope: {
+        languages: ['go', 'java', 'php', 'python', 'ruby', 'rust'],
       },
     });
 

@@ -203,6 +203,55 @@ const missingTestsForCriticalLogicRule = [
   '    summary: Add a focused unit or integration test that covers the critical behavior.',
 ].join('\n');
 
+const crossLanguageCommandExecutionRule = [
+  'apiVersion: critiq.dev/v1alpha1',
+  'kind: Rule',
+  'metadata:',
+  '  id: security.no-command-execution-with-request-input',
+  '  title: Command execution using untrusted input',
+  '  summary: Command execution helpers must not receive request-controlled input.',
+  'scope:',
+  '  languages:',
+  '    - go',
+  '    - python',
+  'match:',
+  '  fact:',
+  '    kind: security.command-execution-with-request-input',
+  '    bind: execCall',
+  'emit:',
+  '  finding:',
+  '    category: security.injection',
+  '    severity: critical',
+  '    confidence: 0.9',
+  '  message:',
+  '    title: Avoid request-controlled command execution',
+  '    summary: "`${captures.execCall.text}` executes a command using untrusted input."',
+].join('\n');
+
+const javaOnlyRule = [
+  'apiVersion: critiq.dev/v1alpha1',
+  'kind: Rule',
+  'metadata:',
+  '  id: java.security.path-traversal',
+  '  title: Java-only placeholder rule',
+  '  summary: Placeholder rule for adapter availability tests.',
+  'scope:',
+  '  languages:',
+  '    - java',
+  'match:',
+  '  fact:',
+  '    kind: security.request-path-file-read',
+  '    bind: issue',
+  'emit:',
+  '  finding:',
+  '    category: security.filesystem',
+  '    severity: high',
+  '    confidence: 0.85',
+  '  message:',
+  '    title: Java placeholder',
+  '    summary: Placeholder.',
+].join('\n');
+
 describe('check runner', () => {
   let tempDirectory: string;
 
@@ -264,7 +313,15 @@ describe('check runner', () => {
     const registry = createDefaultSourceAdapterRegistry();
 
     expect(registry.findAdapterForPath('src/example.ts')).toBeDefined();
-    expect(registry.findAdapterForPath('src/example.py')).toBeUndefined();
+    expect(registry.findAdapterForPath('src/example.go')).toBeDefined();
+    expect(registry.findAdapterForPath('src/example.py')).toBeDefined();
+    expect(registry.findAdapterForPath('src/example.java')).toBeUndefined();
+    expect(registry.supportedLanguages()).toEqual([
+      'go',
+      'javascript',
+      'python',
+      'typescript',
+    ]);
   });
 
   it('runs the catalog-backed check workflow through the adapter registry', () => {
@@ -342,6 +399,129 @@ describe('check runner', () => {
 
     expect(optedInResult.envelope.scannedFileCount).toBe(1);
     expect(optedInResult.envelope.findingCount).toBe(1);
+  });
+
+  it('keeps detected but unsupported languages visible without activating their rules', () => {
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/catalog.yaml',
+      [
+        'apiVersion: critiq.dev/v1alpha1',
+        'kind: RuleCatalog',
+        'rules:',
+        '  - id: java.security.path-traversal',
+        '    rulePath: ./rules/java.security.path-traversal.rule.yaml',
+        '    presets:',
+        '      - recommended',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/rules/java.security.path-traversal.rule.yaml',
+      javaOnlyRule,
+    );
+    rmSync(join(tempDirectory, 'src'), { recursive: true, force: true });
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/Main.java',
+      [
+        'class Main {',
+        '  public static void main(String[] args) {}',
+        '}',
+      ].join('\n'),
+    );
+
+    const result = runCheckCommand({
+      cwd: tempDirectory,
+      format: 'json',
+    });
+
+    expect(result.envelope.matchedRuleCount).toBe(0);
+    expect(result.envelope.findingCount).toBe(0);
+    expect(result.envelope.scannedFileCount).toBe(0);
+    expect(result.envelope.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'catalog.repo.no-adapter-for-language',
+          details: {
+            languages: ['java'],
+          },
+        }),
+      ]),
+    );
+  });
+
+  it('ignores Go and Python test files unless config opts in', () => {
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/catalog.yaml',
+      [
+        'apiVersion: critiq.dev/v1alpha1',
+        'kind: RuleCatalog',
+        'rules:',
+        '  - id: security.no-command-execution-with-request-input',
+        '    rulePath: ./rules/security.no-command-execution-with-request-input.rule.yaml',
+        '    presets:',
+        '      - recommended',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'node_modules/@critiq/rules/rules/security.no-command-execution-with-request-input.rule.yaml',
+      crossLanguageCommandExecutionRule,
+    );
+    rmSync(join(tempDirectory, 'src'), { recursive: true, force: true });
+    writeWorkspaceFile(
+      tempDirectory,
+      'src/runner_test.go',
+      [
+        'package service',
+        '',
+        'import "os/exec"',
+        '',
+        'func handleCommand(r Request) {',
+        '  command := r.URL.Query().Get("cmd")',
+        '  _, _ = exec.Command("sh", "-c", command).Output()',
+        '}',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'tests/test_runner.py',
+      [
+        'import subprocess',
+        '',
+        'def run_job():',
+        '    command = request.args.get("cmd")',
+        '    subprocess.run(command, shell=True)',
+      ].join('\n'),
+    );
+
+    const defaultResult = runCheckCommand({
+      cwd: tempDirectory,
+      format: 'json',
+    });
+
+    expect(defaultResult.envelope.scannedFileCount).toBe(0);
+    expect(defaultResult.envelope.findingCount).toBe(0);
+
+    writeWorkspaceFile(
+      tempDirectory,
+      '.critiq/config.yaml',
+      [
+        'apiVersion: critiq.dev/v1alpha1',
+        'kind: CritiqConfig',
+        'includeTests: true',
+      ].join('\n'),
+    );
+
+    const optedInResult = runCheckCommand({
+      cwd: tempDirectory,
+      format: 'json',
+    });
+
+    expect(optedInResult.envelope.scannedFileCount).toBe(2);
+    expect(optedInResult.envelope.findingCount).toBe(2);
   });
 
   it('adds repo-level project facts before evaluating cross-file rules', () => {

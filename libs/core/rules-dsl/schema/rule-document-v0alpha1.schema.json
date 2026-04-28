@@ -74,6 +74,10 @@
               "js",
               "python",
               "go",
+              "java",
+              "php",
+              "ruby",
+              "rust",
               "all"
             ]
           }

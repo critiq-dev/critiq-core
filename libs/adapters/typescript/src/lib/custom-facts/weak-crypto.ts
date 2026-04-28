@@ -12,7 +12,7 @@ import {
   type TypeScriptFactDetectorContext,
 } from './shared';
 
-export const WEAK_HASH_RULE_ID = 'ts.security.weak-hash-algorithm';
+export const WEAK_HASH_RULE_ID = 'security.weak-hash-algorithm';
 export const WEAK_CIPHER_RULE_ID = 'ts.security.weak-cipher-or-mode';
 export const PREDICTABLE_TOKEN_RULE_ID =
   'ts.security.predictable-token-generation';

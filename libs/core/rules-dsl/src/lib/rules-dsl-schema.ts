@@ -33,6 +33,10 @@ export const ruleLanguageSchema = z.enum([
   'js',
   'python',
   'go',
+  'java',
+  'php',
+  'ruby',
+  'rust',
   'all',
 ]);
 

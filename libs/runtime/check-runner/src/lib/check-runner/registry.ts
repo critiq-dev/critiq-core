@@ -1,4 +1,7 @@
+import { goSourceAdapter } from '@critiq/adapter-go';
+import { pythonSourceAdapter } from '@critiq/adapter-python';
 import { typescriptSourceAdapter } from '@critiq/adapter-typescript';
+import type { CanonicalLanguage } from '@critiq/core-ir';
 import { extname } from 'node:path';
 
 import {
@@ -13,6 +16,9 @@ export function createSourceAdapterRegistry(
   const normalizedAdapters = [...adapters].map((adapter) => ({
     ...adapter,
     supportedExtensions: adapter.supportedExtensions.map(normalizeExtension),
+    supportedLanguages: [...new Set(adapter.supportedLanguages)].sort(
+      (left, right) => left.localeCompare(right),
+    ) as CanonicalLanguage[],
   }));
 
   return {
@@ -24,6 +30,11 @@ export function createSourceAdapterRegistry(
         adapter.supportedExtensions.includes(extension),
       );
     },
+    hasAdapterForLanguage(language: CanonicalLanguage) {
+      return normalizedAdapters.some((adapter) =>
+        adapter.supportedLanguages.includes(language),
+      );
+    },
     supportedExtensions() {
       return Array.from(
         new Set(
@@ -31,9 +42,20 @@ export function createSourceAdapterRegistry(
         ),
       ).sort((left, right) => left.localeCompare(right));
     },
+    supportedLanguages() {
+      return Array.from(
+        new Set(
+          normalizedAdapters.flatMap((adapter) => adapter.supportedLanguages),
+        ),
+      ).sort((left, right) => left.localeCompare(right)) as CanonicalLanguage[];
+    },
   };
 }
 
 export function createDefaultSourceAdapterRegistry(): SourceAdapterRegistry {
-  return createSourceAdapterRegistry([typescriptSourceAdapter]);
+  return createSourceAdapterRegistry([
+    goSourceAdapter,
+    pythonSourceAdapter,
+    typescriptSourceAdapter,
+  ]);
 }
