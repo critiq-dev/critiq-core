@@ -52,6 +52,7 @@ preset: recommended
 disableRules: []
 disableCategories: []
 disableLanguages: []
+includeTests: false
 ignorePaths: []
 severityOverrides: {}
 ```
@@ -96,6 +97,12 @@ code rather than validate or test the rule pack itself. `check` reads
 `.critiq/config.yaml`, resolves the configured catalog package, applies preset
 selection and subtractive overrides, auto-detects repository languages from
 supported source files, and evaluates the active rules.
+
+Today that means:
+
+- deepest support for TypeScript and JavaScript
+- early phase-1 adapter coverage for Go, Java, PHP, Python, Ruby, and Rust
+- tests excluded from `check` by default unless `includeTests: true`
 
 Examples:
 
@@ -184,7 +191,7 @@ critiq rules explain .critiq/rules/no-console.rule.yaml
 ## Exit Codes
 
 - `0`: success
-- `1`: user/input errors or validation diagnostics
+- `1`: findings or non-internal command failures
 - `2`: internal/runtime errors
 
 ## Typical Developer Workflow

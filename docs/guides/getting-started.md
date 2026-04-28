@@ -1,15 +1,14 @@
 # Getting Started
 
-This guide is the fastest path from clone to a working mental model of the
-repository.
+This guide gets you from clone to your first confidence check with
+`critiq-core`.
 
-## Who This Guide Is For
+Use it if you want to:
 
-Use this if:
-
-- you are new to Critiq Core
-- you want to run the repo locally before reading all the references
-- you want to understand the normal author workflow
+- understand what the workspace actually ships
+- run the OSS confidence workflow locally before adopting it elsewhere
+- contribute to the runtime, adapters, or CLI with the current architecture in
+  mind
 
 ## 1. Install
 
@@ -26,33 +25,36 @@ npm install
 
 ## 2. Verify The Workspace
 
-Run the standard gate once so you know the workspace is healthy:
+Run the standard workspace gate once:
 
 ```bash
 npm run verify
 ```
 
-Optional but useful:
+Optional, but helpful when you are learning the workspace:
 
 ```bash
 npm run nx -- graph
 ```
 
-## 3. Build The CLI
+## 3. Build The Packaged CLI
 
 ```bash
 npm run nx -- run cli:prune
 ```
 
-The built entrypoint is:
+Use `cli:prune` when you want the packaged runtime in `dist/`. The built
+entrypoint is:
 
 ```bash
 node dist/apps/cli/main.js
 ```
 
-## 4. Run The Default OSS Catalog
+## 4. Commit A Critiq Config
 
-Run the default public catalog against this repository:
+`critiq check` can fall back to the default OSS catalog and the
+`recommended` preset, but real adoption is clearer when the repository commits
+its runtime policy in `.critiq/config.yaml`:
 
 ```bash
 mkdir -p .critiq
@@ -62,72 +64,100 @@ kind: CritiqConfig
 catalog:
   package: "@critiq/rules"
 preset: recommended
+disableRules: []
+disableCategories: []
+disableLanguages: []
+includeTests: false
+ignorePaths: []
+severityOverrides: {}
 EOF
+```
+
+Notes:
+
+- `catalog.package` is optional and defaults to `@critiq/rules` in the OSS
+  runtime.
+- tests are excluded from `check` by default; set `includeTests: true` if you
+  want them in scan scope
+
+## 5. Run A Repository Scan
+
+Run the configured OSS catalog against this repository:
+
+```bash
 node dist/apps/cli/main.js check .
 ```
 
-If you also cloned the sibling `critiq-rules` repo, validate the starter pack:
+This is the fastest way to see the full confidence path in action:
+
+- config loading
+- catalog resolution
+- preset and language filtering
+- source analysis through registered adapters
+- repo-level augmentation
+- canonical finding output
+
+## 6. Run A Diff-Scoped Scan
+
+When you want the scan to focus on changed files, provide both refs:
 
 ```bash
-node dist/apps/cli/main.js rules validate "../critiq-rules/examples/starter-pack/rules/*.rule.yaml"
+node dist/apps/cli/main.js check . --base origin/main --head HEAD
 ```
 
-Explain one starter rule:
+Use this shape in pull request automation and pre-merge checks.
+
+## 7. Try The Rule Authoring Loop
+
+If you keep local rules in `.critiq/rules/`, the basic workflow is:
 
 ```bash
-node dist/apps/cli/main.js rules explain ../critiq-rules/examples/starter-pack/rules/ts.logging.no-console-log.rule.yaml
+node dist/apps/cli/main.js rules validate ".critiq/rules/*.rule.yaml"
+node dist/apps/cli/main.js rules explain .critiq/rules/no-console.rule.yaml
+node dist/apps/cli/main.js rules test ".critiq/rules/*.spec.yaml"
 ```
 
-Run the fixture-based tests:
+If you cloned the sibling `critiq-rules` repository, point those same commands
+at its example packs instead.
 
-```bash
-node dist/apps/cli/main.js rules test "../critiq-rules/examples/starter-pack/rules/*.spec.yaml"
-```
+## 8. Understand The Runtime Surface
 
-This shows the whole local author loop:
+The most important packages to learn first are:
 
-- rule loading
-- validation
-- normalization
-- explanation
-- fixture-based execution
-
-## 5. Learn The Main Packages
-
-You do not need to read every package in depth. Start here:
-
+- `apps/cli`
+  The published `critiq` command surface.
+- `libs/runtime/check-runner`
+  The reusable repository scan runtime behind `critiq check`.
+- `libs/core/config`
+  The repository-level config contract.
+- `libs/core/catalog`
+  Catalog loading, preset filtering, and repository-language detection.
 - `libs/core/rules-dsl`
-  How rules are authored, loaded, and validated.
+  Rule authoring, YAML loading, and semantic validation.
 - `libs/core/ir`
-  How valid rules normalize into deterministic IR.
+  Canonical normalized rule form and rule hashing.
 - `libs/core/rules-engine`
-  How normalized rules evaluate against analyzed files and become findings.
+  Deterministic evaluation and finding construction.
 - `tools/testing/harness`
-  How `RuleSpec` executes fixtures.
-- `libs/adapters/typescript`
-  How real `.ts/.js/.tsx/.jsx` files become the observation model.
+  Fixture-backed `RuleSpec` execution.
 
-## 6. Pick Your Next Path
+## 9. Pick Your Next Doc
 
-### I want to author rules
+If you want to run the CLI in a consumer repo:
 
-Read:
+- [../reference/cli.md](../reference/cli.md)
+
+If you want to author rules:
 
 - [write-your-first-rule.md](./write-your-first-rule.md)
-- [rule-dsl-v0alpha1.md](../reference/rule-dsl-v0alpha1.md)
-- [rule-spec.md](../reference/rule-spec.md)
+- [../reference/rule-dsl-v0alpha1.md](../reference/rule-dsl-v0alpha1.md)
+- [../reference/rule-spec.md](../reference/rule-spec.md)
 
-### I want to contribute runtime code
+If you want to understand boundaries and package ownership:
 
-Read:
+- [../architecture/ecosystem.md](../architecture/ecosystem.md)
+- [../architecture/repo-map.md](../architecture/repo-map.md)
+
+If you want to contribute to the workspace itself:
 
 - [../../CONTRIBUTING.md](../../CONTRIBUTING.md)
-- [../architecture/repo-map.md](../architecture/repo-map.md)
-- [../architecture/ecosystem.md](../architecture/ecosystem.md)
-
-### I want to understand compatibility and release expectations
-
-Read:
-
-- [../reference/versioning-policy.md](../reference/versioning-policy.md)
-- [../reference/release-process.md](../reference/release-process.md)

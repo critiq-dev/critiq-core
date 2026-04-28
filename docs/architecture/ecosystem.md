@@ -1,86 +1,117 @@
 # Critiq Ecosystem
 
-This document explains how this repository fits into the broader `critiq.dev`
-system.
+This document explains where `critiq-core` sits in the broader Critiq
+ecosystem and why we keep the boundary explicit.
 
-## Mental Model
+## The Layers
 
-Think of Critiq as three layers:
+Think about Critiq as three layers:
 
-1. **Authored rule layer**
-   Rules, RuleSpec files, examples, and local author workflows.
-2. **Open runtime layer**
-   Contracts, validation, normalization, evaluation, findings, adapters, CLI,
-   and test harness.
-3. **Hosted product layer**
-   Product UX, persistence, tenancy, remote execution, account features, and
-   hosted orchestration.
+1. authored rule packs and catalogs
+2. the open confidence core
+3. the hosted and Pro product layer
 
-This repository owns layers 1 and 2.
+`critiq-core` owns the second layer and supports local workflows around the
+first.
 
-## What Lives Here
+## What `critiq-core` Owns
 
-This repo provides the stable building blocks that both local tooling and the
-hosted product should share:
+This repository is the public, inspectable runtime that developers can adapt
+for their own repositories and automation.
 
-- the public rule DSL
-- the canonical finding schema
-- diagnostics and source spans
-- YAML loading with source mapping
-- semantic validation
-- normalized internal rule IR
-- the deterministic rules engine
-- the example TypeScript/JavaScript adapter
-- the local CLI
-- the RuleSpec harness
-- the starter example pack
+It owns:
 
-## What Does Not Live Here
+- the public rule DSL contract
+- YAML loading and source-aware diagnostics
+- semantic validation for rules
+- canonical normalized rule IR and hashing
+- deterministic rule evaluation
+- canonical finding contracts and JSON Schema artifacts
+- repository-level config loading
+- catalog package resolution and preset filtering
+- the reusable `check` runtime
+- the published `critiq` CLI
+- fixture-backed `RuleSpec` execution
+- first-party adapters, including the TypeScript reference adapter and early
+  polyglot adapters
 
-These concerns are intentionally out of scope for this repository:
+## What Lives Adjacent To This Repo
 
-- account management
-- billing or tenant ownership
-- hosted rule storage
-- browser application state
-- remote execution scheduling
-- product-specific dashboards and review flows
-- service-side orchestration that does not belong in the OSS runtime
+Some important pieces are intentionally separate:
+
+- `critiq-rules`
+  The maintained OSS rule catalog and starter examples consumed by
+  `critiq check`.
+- consumer repositories
+  The application code, local rules, and CI pipelines that adopt Critiq.
+- the hosted Critiq product and future Pro layer
+  Orchestration, collaboration, governance, and broader confidence workflows
+  built on top of the OSS core.
+
+## What Does Not Belong Here
+
+We intentionally keep these concerns out of `critiq-core`:
+
+- account and tenant management
+- billing or commercial packaging logic
+- hosted review queues and browser application state
+- organization-wide dashboards and historical reporting
+- remote execution schedulers that do not need to live in the OSS runtime
+- product-only governance workflows and collaboration features
 
 ## Why The Split Matters
 
-The boundary exists so that:
+We want the confidence engine itself to remain public.
 
-- authored rules do not depend on hosted-only behavior
-- emitted findings have a stable contract
-- adapters and rules can be tested locally
-- hosted product code composes the OSS runtime instead of forking it
-- contributors can inspect and extend deterministic behavior without needing the
-  full product stack
+That boundary matters because it lets developers:
+
+- inspect why a finding exists instead of trusting hidden review behavior
+- adapt the runtime without copying product code
+- test rules locally before rolling them into CI
+- keep findings, diagnostics, and rule contracts stable across environments
+- build their own workflows on top of the same deterministic engine
+
+It also keeps us honest as package owners. If confidence depends on secret
+runtime behavior, the OSS layer is not really portable.
+
+## How Pro Fits
+
+Critiq Core is the open source confidence foundation.
+
+The hosted Critiq product and future Pro offerings are where we expect broader
+pipeline confidence to compound: orchestration, collaboration, policy
+governance, review memory, team visibility, and confidence signals that span
+more than a single local run.
+
+The important point is that those layers should build on the open contracts in
+this repository rather than replace them with a different engine.
 
 ## Typical Flows
 
-### Local Author Flow
+### Local Developer Flow
 
-1. Write or edit a `.rule.yaml`.
-2. Run `validate`.
-3. Run `explain`.
-4. Add or update a `.spec.yaml`.
-5. Run `test`.
+1. add or update `.critiq/config.yaml`
+2. run `critiq check` against a repository or diff
+3. author or adapt local rules when the default catalog is not enough
+4. validate, explain, and test those rules with `critiq rules ...`
 
-### Hosted Product Flow
+### Team CI Flow
 
-1. Accept or retrieve authored rules.
-2. Reuse the shared contracts and validation pipeline from this repo.
-3. Analyze source files through adapters.
-4. Evaluate rules and emit findings.
-5. Present results in hosted product UX.
+1. commit the Critiq config to the repository
+2. run `critiq check` in pull request automation
+3. optionally validate and test local rule packs in the same workflow
+4. use JSON output as an artifact or downstream machine input
 
-The hosted flow should reuse the OSS contracts instead of redefining them.
+### Product And Pro Flow
 
-## Where To Start In This Repo
+1. reuse the OSS contracts and runtime behavior from `critiq-core`
+2. orchestrate review across repositories, teams, and pipelines
+3. add governance, collaboration, and organizational confidence layers on top
 
-- New user: [README.md](../../README.md)
-- Contributor: [CONTRIBUTING.md](../../CONTRIBUTING.md)
-- Architecture: [repo-map.md](./repo-map.md)
-- Rule author: [write-your-first-rule.md](../guides/write-your-first-rule.md)
+## Where To Start Next
+
+- New user: [../../README.md](../../README.md)
+- First run: [../guides/getting-started.md](../guides/getting-started.md)
+- CLI details: [../reference/cli.md](../reference/cli.md)
+- Package ownership: [./repo-map.md](./repo-map.md)
+- Contributor workflow: [../../CONTRIBUTING.md](../../CONTRIBUTING.md)

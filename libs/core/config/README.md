@@ -27,6 +27,7 @@ preset: recommended
 disableRules: []
 disableCategories: []
 disableLanguages: []
+includeTests: false
 ignorePaths: []
 severityOverrides: {}
 ```
@@ -40,6 +41,9 @@ Supported presets:
 
 `disableCategories` accepts either top-level categories such as `security` or
 dot-delimited subcategories such as `security.injection`.
+
+Tests are excluded from `critiq check` by default. Set `includeTests: true`
+when you want them included in scan scope.
 
 `catalog.package` is optional at the config layer. The OSS CLI and
 `@critiq/check-runner` currently default to `@critiq/rules` when it is omitted.
