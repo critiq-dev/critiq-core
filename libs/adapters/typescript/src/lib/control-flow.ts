@@ -8,6 +8,11 @@ import type {
 } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
+import {
+  authTokenLikeNameTokens,
+  tokenizeIdentifierLikeText,
+} from './auth-vocabulary';
+
 interface NodeLike {
   type: string;
   loc: {
@@ -261,14 +266,6 @@ const externalInputPathSegments = new Set([
   'search',
   'searchparams',
   'session',
-]);
-const tokenLikeTokens = new Set([
-  'auth',
-  'authorization',
-  'cookie',
-  'jwt',
-  'session',
-  'token',
 ]);
 const optionalReturningMethodNames = new Set([
   'find',
@@ -1762,11 +1759,7 @@ function collectStatementSurfaceExpensiveComputationCandidates(
 function normalizedNameTokens(
   name: string,
 ): string[] {
-  return name
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .split(/[^A-Za-z0-9]+|\s+/)
-    .map((token) => token.trim().toLowerCase())
-    .filter((token) => token.length > 0);
+  return tokenizeIdentifierLikeText(name);
 }
 
 function isConfigLikeName(name: string): boolean {
@@ -3368,7 +3361,9 @@ function isTokenLikePath(
   segments: readonly string[],
 ): boolean {
   return segments.some((segment) =>
-    normalizedNameTokens(segment).some((token) => tokenLikeTokens.has(token)),
+    normalizedNameTokens(segment).some((token) =>
+      authTokenLikeNameTokens.has(token),
+    ),
   );
 }
 
@@ -3453,7 +3448,9 @@ function isTokenLikeExpression(
 
     return (
       Boolean(aliasState?.tokenLike) ||
-      normalizedNameTokens(current.name).some((token) => tokenLikeTokens.has(token))
+      normalizedNameTokens(current.name).some((token) =>
+        authTokenLikeNameTokens.has(token),
+      )
     );
   }
 

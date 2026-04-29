@@ -6,7 +6,11 @@ import {
   walkAst,
   type TypeScriptFactDetectorContext,
 } from '../shared';
-import { requestSourcePattern, sensitiveWritePattern } from './constants';
+import {
+  isPrivilegedIdentityFieldText,
+  isSensitiveAuthJwtClaimText,
+} from '../../auth-vocabulary';
+import { requestSourcePattern } from './constants';
 import { getLiteralString, normalizeText } from './utils';
 
 export type FunctionLikeNode =
@@ -303,7 +307,7 @@ export function collectSensitiveSignals(
     }
 
     if (candidate.type === 'Literal' && typeof candidate.value === 'string') {
-      if (sensitiveWritePattern.test(candidate.value)) {
+      if (isSensitiveAuthJwtClaimText(candidate.value)) {
         signals.add(candidate.value);
       }
       return;
@@ -312,7 +316,7 @@ export function collectSensitiveSignals(
     if (candidate.type === 'MemberExpression') {
       const text = getNodeText(candidate, sourceText);
 
-      if (looksSensitiveIdentifier(text)) {
+      if (looksSensitiveIdentifier(text) || isPrivilegedIdentityFieldText(text)) {
         signals.add(text ?? 'sensitive');
       }
     }

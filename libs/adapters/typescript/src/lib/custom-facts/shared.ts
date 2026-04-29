@@ -1,6 +1,8 @@
 import type { ObservedFact, ObservedRange } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
+import { isSensitiveIdentifierText } from '../auth-vocabulary';
+
 interface NodeLike {
   loc: {
     start: {
@@ -214,12 +216,5 @@ export function getObjectProperty(
 }
 
 export function looksSensitiveIdentifier(text: string | undefined): boolean {
-  if (!text) {
-    return false;
-  }
-
-  return /\b(address|auth|card|cookie|credit|dob|email|jwt|pass(word)?|phone|secret|session|ssn|token)\b/i.test(
-    text,
-  );
+  return isSensitiveIdentifierText(text);
 }
-

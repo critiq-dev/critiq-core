@@ -2,6 +2,12 @@ import type { ObservedFact } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
 import {
+  isAuthCookieName,
+  isAuthLikeText,
+  isAuthStorageKey,
+  isSensitiveAuthJwtClaimText,
+} from '../auth-vocabulary';
+import {
   createObservedFact,
   getCalleeText,
   getNodeText,
@@ -21,9 +27,14 @@ export const BROWSER_TOKEN_STORAGE_RULE_ID =
   'ts.security.browser-token-storage';
 
 const COOKIE_SINKS = new Set([
+  'cookie.serialize',
+  'cookies().set',
   'cookies.set',
+  'NextResponse.cookies.set',
   'reply.setCookie',
+  'reply.cookie',
   'res.cookie',
+  'response.cookies.set',
   'serialize',
   'setCookie',
 ]);
@@ -43,12 +54,6 @@ const STORAGE_SINKS = new Set([
   'window.localStorage.setItem',
   'window.sessionStorage.setItem',
 ]);
-
-const sensitiveClaimKeyPattern =
-  /^(address|auth|card|cookie|credit|dob|email|jwt|password|permissions?|phone|role|secret|session|ssn|token)$/i;
-
-const sensitiveStorageKeyPattern =
-  /^(access|auth|credential|jwt|refresh|session|token)$/i;
 
 function collectObjectBindings(
   context: TypeScriptFactDetectorContext,
@@ -91,10 +96,6 @@ function resolveObjectExpression(
   }
 
   return undefined;
-}
-
-function isSensitiveCookieName(name: string | undefined): boolean {
-  return typeof name === 'string' && /^(auth|cookie|jwt|session|token)/i.test(name);
 }
 
 function getPropertyNames(objectExpression: TSESTree.ObjectExpression): string[] {
@@ -152,6 +153,46 @@ function hasSafeSameSiteFlag(
   return sameSiteValue?.toLowerCase() !== 'none';
 }
 
+function getCookieCallDetails(
+  node: TSESTree.CallExpression,
+  bindings: Map<string, TSESTree.ObjectExpression>,
+  sourceText: string,
+): {
+  nameText: string | undefined;
+  options: TSESTree.ObjectExpression | undefined;
+  valueText: string | undefined;
+} {
+  const firstArgument = node.arguments[0] as TSESTree.Expression | undefined;
+  const objectStyleCookie = resolveObjectExpression(firstArgument, bindings);
+
+  if (objectStyleCookie) {
+    const nameProperty = getObjectProperty(objectStyleCookie, 'name');
+    const valueProperty = getObjectProperty(objectStyleCookie, 'value');
+
+    return {
+      nameText:
+        getStringLiteralValue(nameProperty?.value as TSESTree.Expression) ??
+        getNodeText(nameProperty?.value, sourceText),
+      options: objectStyleCookie,
+      valueText: getNodeText(valueProperty?.value, sourceText),
+    };
+  }
+
+  const optionsExpression = node.arguments[node.arguments.length - 1] as
+    | TSESTree.Expression
+    | undefined;
+
+  return {
+    nameText:
+      getStringLiteralValue(firstArgument) ?? getNodeText(firstArgument, sourceText),
+    options: resolveObjectExpression(optionsExpression, bindings),
+    valueText: getNodeText(
+      node.arguments[1] as TSESTree.Expression,
+      sourceText,
+    ),
+  };
+}
+
 function detectCookieFacts(
   context: TypeScriptFactDetectorContext,
   bindings: Map<string, TSESTree.ObjectExpression>,
@@ -169,26 +210,22 @@ function detectCookieFacts(
       return;
     }
 
-    const nameText =
-      getStringLiteralValue(node.arguments[0] as TSESTree.Expression) ??
-      getNodeText(node.arguments[0] as TSESTree.Expression, context.sourceText);
-    const valueText = getNodeText(
-      node.arguments[1] as TSESTree.Expression,
+    const { nameText, options, valueText } = getCookieCallDetails(
+      node,
+      bindings,
       context.sourceText,
     );
 
     if (
-      !isSensitiveCookieName(nameText) &&
+      !isAuthCookieName(nameText) &&
+      !isAuthLikeText(nameText) &&
+      !isAuthLikeText(valueText) &&
       !looksSensitiveIdentifier(nameText) &&
       !looksSensitiveIdentifier(valueText)
     ) {
       return;
     }
 
-    const optionsExpression = node.arguments[node.arguments.length - 1] as
-      | TSESTree.Expression
-      | undefined;
-    const options = resolveObjectExpression(optionsExpression, bindings);
     const missingFlags: string[] = [];
 
     if (!isCookieBooleanFlagSafe(options, 'httpOnly')) {
@@ -256,7 +293,7 @@ function detectJwtFacts(
     }
 
     const sensitiveClaims = getPropertyNames(payloadObject).filter((name) =>
-      sensitiveClaimKeyPattern.test(name),
+      isSensitiveAuthJwtClaimText(name),
     );
 
     if (sensitiveClaims.length === 0) {
@@ -305,10 +342,8 @@ function detectBrowserStorageFacts(
     );
 
     if (
-      !sensitiveStorageKeyPattern.test(storageKey ?? '') &&
-      !/(access|auth|credential|jwt|refresh|session|token)/i.test(
-        storageValue ?? '',
-      ) &&
+      !isAuthStorageKey(storageKey) &&
+      !isAuthLikeText(storageValue) &&
       !looksSensitiveIdentifier(storageKey) &&
       !looksSensitiveIdentifier(storageValue)
     ) {

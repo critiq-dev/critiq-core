@@ -1,12 +1,12 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
+import { isAuthLikeText } from '../auth-vocabulary';
 import {
   createObservedFact,
   getCalleeText,
   getNodeText,
   getStringLiteralValue,
-  looksSensitiveIdentifier,
   walkAst,
   type TypeScriptFactDetector,
   type TypeScriptFactDetectorContext,
@@ -82,9 +82,7 @@ function isTokenLikeTarget(text: string | undefined): boolean {
     return false;
   }
 
-  return (
-    predictableTokenTargetPattern.test(text) || looksSensitiveIdentifier(text)
-  );
+  return predictableTokenTargetPattern.test(text) || isAuthLikeText(text);
 }
 
 function collectPredictableSources(text: string): string[] {

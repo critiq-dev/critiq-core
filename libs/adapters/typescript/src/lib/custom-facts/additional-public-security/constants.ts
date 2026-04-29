@@ -1,3 +1,8 @@
+import {
+  authSessionCallNames,
+  authStrategyNames,
+} from '../../auth-vocabulary';
+
 export const FACT_KINDS = {
   datadogBrowserTrackUserInteractions:
     'security.datadog-browser-track-user-interactions',
@@ -46,23 +51,9 @@ export const requestSourcePattern =
 export const sensitiveComparePattern =
   /(?:password|passphrase|hash|secret|token|api[_-]?key|auth[_-]?token)/i;
 
-export const sensitiveWritePattern =
-  /\b(?:address|auth|card|cookie|credit|dob|email|jwt|pass(word)?|phone|secret|session|ssn|token|user)\b/i;
-
-export const sessionCallNames = new Set(['cookieSession', 'session']);
+export const sessionCallNames = authSessionCallNames;
 export const responseSinkNames = new Set(['res.end', 'res.send', 'res.write']);
-export const strategyNames = new Set([
-  'BearerStrategy',
-  'CognitoStrategy',
-  'FacebookStrategy',
-  'GoogleOauthStrategy',
-  'GoogleStrategy',
-  'HTTPBearerStrategy',
-  'JwtStrategy',
-  'LocalStrategy',
-  'Strategy',
-  'TwitterStrategy',
-]);
+export const strategyNames = authStrategyNames;
 export const renderSinkNames = new Set(['res.render']);
 export const fileReadSinkNames = new Set([
   'createReadStream',

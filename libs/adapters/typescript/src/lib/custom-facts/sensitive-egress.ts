@@ -2,13 +2,16 @@ import type { ObservedFact } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
 import {
+  isPrivilegedIdentityFieldText,
+  isSensitiveIdentifierText,
+} from '../auth-vocabulary';
+import {
   createObservedFact,
   getCalleeText,
   getNodeText,
   getObjectProperty,
   getStringLiteralValue,
   isNode,
-  looksSensitiveIdentifier,
   type TypeScriptFactDetector,
   type TypeScriptFactDetectorContext,
 } from './shared';
@@ -79,7 +82,11 @@ function isIdentifierSensitive(text: string | undefined): boolean {
     return false;
   }
 
-  return looksSensitiveIdentifier(text) || /\b(email|phone|address|dob|ssn|token|jwt|secret|password|card|billing|support|profile)\b/i.test(text);
+  return (
+    isSensitiveIdentifierText(text) ||
+    isPrivilegedIdentityFieldText(text) ||
+    /\b(billing|profile|support)\b/i.test(text)
+  );
 }
 
 function isLocalOrInternalHost(hostname: string): boolean {

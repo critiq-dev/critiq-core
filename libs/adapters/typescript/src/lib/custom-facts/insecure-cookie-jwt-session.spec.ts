@@ -93,6 +93,7 @@ describe('collectInsecureCookieJwtSessionFacts', () => {
         'res.cookie("theme", "dark", { httpOnly: true, secure: true, sameSite: "lax" });',
         'jwt.sign({ sub: user.id, iat: now, exp: later }, "secret");',
         'localStorage.setItem("theme", "dark");',
+        'sessionStorage.setItem("wizardStep", "2");',
       ].join('\n'),
     );
 
@@ -119,5 +120,45 @@ describe('collectInsecureCookieJwtSessionFacts', () => {
         }),
       }),
     ]);
+  });
+
+  it('flags Next cookie setters and privileged jwt claims but ignores harmless cookie state', () => {
+    const facts = analyze(
+      [
+        'NextResponse.cookies.set({',
+        '  name: "sessionToken",',
+        '  value: accessToken,',
+        '  secure: true,',
+        '});',
+        'cookies().set("theme", "dark", { httpOnly: true, secure: true, sameSite: "lax" });',
+        'const claims = {',
+        '  sub: user.id,',
+        '  ownerId: account.ownerId,',
+        '  permissions: user.permissions,',
+        '};',
+        'jwt.sign(claims, "secret");',
+      ].join('\n'),
+    );
+
+    expect(facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: INSECURE_AUTH_COOKIE_FLAGS_RULE_ID,
+          props: expect.objectContaining({
+            cookieName: 'sessionToken',
+            missingFlags: expect.arrayContaining(['httpOnly', 'sameSite']),
+          }),
+        }),
+        expect.objectContaining({
+          kind: JWT_SENSITIVE_CLAIMS_RULE_ID,
+          props: expect.objectContaining({
+            sensitiveClaims: expect.arrayContaining(['ownerId', 'permissions']),
+          }),
+        }),
+      ]),
+    );
+    expect(
+      facts.filter((fact) => fact.kind === INSECURE_AUTH_COOKIE_FLAGS_RULE_ID),
+    ).toHaveLength(1);
   });
 });

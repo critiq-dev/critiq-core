@@ -1,6 +1,7 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
+import { isAuthSecretPropertyName } from '../../auth-vocabulary';
 import {
   createObservedFact,
   getCalleeText,
@@ -24,6 +25,110 @@ import {
   objectPropertyNames,
 } from './utils';
 
+function getTemplateLiteralString(
+  node: TSESTree.TemplateLiteral,
+): string | undefined {
+  if (node.expressions.length > 0) {
+    return undefined;
+  }
+
+  return node.quasis.map((quasi) => quasi.value.cooked ?? '').join('');
+}
+
+function extractInlineSecretText(
+  node: TSESTree.Expression | TSESTree.PrivateIdentifier | null | undefined,
+  sourceText: string,
+): string | undefined {
+  if (!node || node.type === 'PrivateIdentifier') {
+    return undefined;
+  }
+
+  if (node.type === 'Literal' && typeof node.value === 'string') {
+    return node.value;
+  }
+
+  if (node.type === 'TemplateLiteral') {
+    return getTemplateLiteralString(node);
+  }
+
+  if (node.type !== 'CallExpression') {
+    return undefined;
+  }
+
+  const calleeText = getCalleeText(node.callee, sourceText);
+  const firstArgument = node.arguments[0];
+
+  if (!firstArgument || firstArgument.type === 'SpreadElement') {
+    return undefined;
+  }
+
+  if (calleeText === 'Buffer.from') {
+    return extractInlineSecretText(firstArgument, sourceText);
+  }
+
+  if (
+    calleeText?.endsWith('.encode') &&
+    getNodeText(node.callee, sourceText)?.includes('TextEncoder')
+  ) {
+    return extractInlineSecretText(firstArgument, sourceText);
+  }
+
+  return undefined;
+}
+
+function hasInlineSecretExpression(
+  node: TSESTree.Expression | TSESTree.PrivateIdentifier | null | undefined,
+  sourceText: string,
+): boolean {
+  const secretValue = extractInlineSecretText(node, sourceText);
+
+  return typeof secretValue === 'string' && secretValue.length >= 8;
+}
+
+function findAuthSecretProperty(
+  config: TSESTree.ObjectExpression,
+  sourceText: string,
+): string | undefined {
+  for (const property of config.properties) {
+    if (property.type !== 'Property') {
+      continue;
+    }
+
+    const propertyName = getNodeText(property.key, sourceText);
+
+    if (!isAuthSecretPropertyName(propertyName)) {
+      continue;
+    }
+
+    if (property.value.type === 'ArrayExpression') {
+      const hasInlineSecret = property.value.elements.some((element) => {
+        if (!element || element.type === 'SpreadElement') {
+          return false;
+        }
+
+        return hasInlineSecretExpression(element, sourceText);
+      });
+
+      if (hasInlineSecret) {
+        return propertyName;
+      }
+
+      continue;
+    }
+
+    if (
+      hasInlineSecretExpression(
+        property.value as TSESTree.Expression | TSESTree.PrivateIdentifier,
+        sourceText,
+      )
+    ) {
+      return propertyName;
+    }
+  }
+
+  return undefined;
+}
+
 export function collectHardcodedAuthSecretFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
@@ -32,18 +137,22 @@ export function collectHardcodedAuthSecretFacts(
   walkAst(context.program, (node) => {
     if (node.type === 'CallExpression') {
       const calleeText = getCalleeText(node.callee, context.sourceText);
-      const secondArgument = getLiteralString(
-        node.arguments[1] as TSESTree.Expression,
-      );
-      const firstArgument = getLiteralString(
-        node.arguments[0] as TSESTree.Expression,
-      );
       const configArgument = node.arguments[0];
+      const firstArgument =
+        configArgument && configArgument.type !== 'SpreadElement'
+          ? configArgument
+          : undefined;
+      const secondArgument =
+        node.arguments[1] && node.arguments[1].type !== 'SpreadElement'
+          ? node.arguments[1]
+          : undefined;
 
       if (
         calleeText === 'jwt.sign' &&
-        typeof secondArgument === 'string' &&
-        secondArgument.length >= 8
+        hasInlineSecretExpression(
+          secondArgument as TSESTree.Expression | undefined,
+          context.sourceText,
+        )
       ) {
         facts.push(
           createObservedFact({
@@ -63,8 +172,10 @@ export function collectHardcodedAuthSecretFacts(
       if (
         calleeText?.endsWith('.sign') &&
         normalizeText(calleeText).includes('SignJWT') &&
-        typeof firstArgument === 'string' &&
-        firstArgument.length >= 8
+        hasInlineSecretExpression(
+          firstArgument as TSESTree.Expression | undefined,
+          context.sourceText,
+        )
       ) {
         facts.push(
           createObservedFact({
@@ -82,19 +193,20 @@ export function collectHardcodedAuthSecretFacts(
       }
 
       if (
-        (calleeText === 'session' ||
+        (calleeText === 'cookieSession' ||
+          calleeText === 'session' ||
           calleeText === 'expressjwt' ||
           calleeText === 'expressJwt') &&
         configArgument &&
         configArgument.type !== 'SpreadElement' &&
         configArgument.type === 'ObjectExpression'
       ) {
-        const secretProperty = getObjectProperty(configArgument, 'secret');
-        const secretValue = getLiteralString(
-          secretProperty?.value as TSESTree.Expression | undefined,
+        const secretProperty = findAuthSecretProperty(
+          configArgument,
+          context.sourceText,
         );
 
-        if (secretValue && secretValue.length >= 8) {
+        if (secretProperty) {
           facts.push(
             createObservedFact({
               appliesTo: 'block',
@@ -103,7 +215,7 @@ export function collectHardcodedAuthSecretFacts(
               nodeIds: context.nodeIds,
               props: {
                 sink: calleeText,
-                secretProperty: 'secret',
+                secretProperty,
               },
               text: calleeText,
             }),
@@ -128,16 +240,9 @@ export function collectHardcodedAuthSecretFacts(
       return;
     }
 
-    for (const name of ['clientSecret', 'consumerSecret', 'secretOrKey']) {
-      const property = getObjectProperty(config, name);
-      const value = getLiteralString(
-        property?.value as TSESTree.Expression | undefined,
-      );
+    const secretProperty = findAuthSecretProperty(config, context.sourceText);
 
-      if (!value || value.length < 8) {
-        continue;
-      }
-
+    if (secretProperty) {
       facts.push(
         createObservedFact({
           appliesTo: 'block',
@@ -146,13 +251,11 @@ export function collectHardcodedAuthSecretFacts(
           nodeIds: context.nodeIds,
           props: {
             sink: node.callee.name,
-            secretProperty: name,
+            secretProperty,
           },
           text: node.callee.name,
         }),
       );
-
-      return;
     }
   });
 
