@@ -112,6 +112,60 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     );
   });
 
+  it('flags unsafe DOM HTML sinks but ignores trusted sanitizers and fixed HTML', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'const escaped = escapeHtml(req.query.title);',
+        'const sanitized = DOMPurify.sanitize(req.body.html);',
+        'container.innerHTML = html;',
+        'container.innerHTML = sanitized;',
+        'container.outerHTML = html;',
+        'container.outerHTML = "<div>fixed</div>";',
+        'document.write(html);',
+        'document.writeln(`<div>${escaped}</div>`);',
+        'container.insertAdjacentHTML("beforeend", html);',
+        'container.insertAdjacentHTML("beforeend", `<div>${escaped}</div>`);',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.no-innerhtml-assignment'),
+    ).toHaveLength(1);
+    expect(
+      facts.filter((fact) => fact.kind === 'security.dangerous-insert-html'),
+    ).toHaveLength(3);
+  });
+
+  it('flags dangerouslySetInnerHTML and Handlebars noEscape while preserving safe variants', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'const markup = { __html: htmlContent };',
+        'const safeMarkup = { __html: DOMPurify.sanitize(htmlContent) };',
+        'const handlebars = Handlebars.create();',
+        'export function View() {',
+        '  return (',
+        '    <section>',
+        '      <div dangerouslySetInnerHTML={markup} />',
+        '      <div dangerouslySetInnerHTML={{ __html: htmlContent }} />',
+        '      <div dangerouslySetInnerHTML={safeMarkup} />',
+        '    </section>',
+        '  );',
+        '}',
+        'handlebars.compile(templateStr, { noEscape: true });',
+        'Handlebars.compile(templateStr, { noEscape: false });',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === 'security.dangerously-set-inner-html',
+      ),
+    ).toHaveLength(2);
+    expect(
+      facts.filter((fact) => fact.kind === 'security.handlebars-no-escape'),
+    ).toHaveLength(1);
+  });
+
   it('flags hardcoded auth secrets, sensitive exceptions and file writes, permissive modes, and observable timing checks', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([
@@ -259,6 +313,33 @@ describe('collectAdditionalPublicSecurityFacts', () => {
         }),
       ]),
     );
+  });
+
+  it('flags unsafe response writers but ignores escaped response payloads and fixed render locals', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'const escaped = escapeHtml(req.query.title);',
+        'const safeHtml = `<h1>${escaped}</h1>`;',
+        'function handler(req, res) {',
+        '  const chunk = req.params.chunk;',
+        '  res.send(req.body.html);',
+        '  res.write(`<h1>${req.query.title}</h1>`);',
+        '  res.end(chunk);',
+        '  res.send(safeHtml);',
+        '  res.end(DOMPurify.sanitize(req.body.html));',
+        '  res.render("profile", { title: req.query.title });',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.unsanitized-http-response'),
+    ).toHaveLength(3);
+    expect(
+      facts.filter(
+        (fact) => fact.kind === 'security.user-controlled-view-render',
+      ),
+    ).toHaveLength(0);
   });
 
   it('ignores safe handlers and hardened express configuration', () => {

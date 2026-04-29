@@ -15,8 +15,8 @@ import {
   resolveFunctionLike,
   type FunctionLikeNode,
 } from './analysis';
-import { FACT_KINDS, responseSinkNames } from './constants';
-import { getLiteralString, isHtmlLikeText } from './utils';
+import { FACT_KINDS } from './constants';
+import { getLiteralString } from './utils';
 
 export function collectHeaderMisuseFacts(
   context: TypeScriptFactDetectorContext,
@@ -321,113 +321,12 @@ export function collectModuleLoadFacts(
   return facts;
 }
 
-export function collectHttpResponseFacts(
+export function collectWebsocketFacts(
   context: TypeScriptFactDetectorContext,
-  taintedNames: ReadonlySet<string>,
 ): ObservedFact[] {
   const facts: ObservedFact[] = [];
 
   walkAst(context.program, (node) => {
-    if (node.type !== 'CallExpression') {
-      return;
-    }
-
-    const calleeText = getCalleeText(node.callee, context.sourceText);
-    const payload = node.arguments[0];
-
-    if (
-      !calleeText ||
-      !responseSinkNames.has(calleeText) ||
-      !payload ||
-      payload.type === 'SpreadElement' ||
-      payload.type === 'ArrayExpression' ||
-      payload.type === 'ObjectExpression' ||
-      !isRequestDerivedExpression(payload, taintedNames, context.sourceText)
-    ) {
-      return;
-    }
-
-    facts.push(
-      createObservedFact({
-        appliesTo: 'block',
-        kind: FACT_KINDS.unsanitizedHttpResponse,
-        node,
-        nodeIds: context.nodeIds,
-        props: {
-          sink: calleeText,
-        },
-        text: calleeText,
-      }),
-    );
-  });
-
-  return facts;
-}
-
-export function collectHtmlAndWebsocketFacts(
-  context: TypeScriptFactDetectorContext,
-  taintedNames: ReadonlySet<string>,
-): ObservedFact[] {
-  const facts: ObservedFact[] = [];
-
-  walkAst(context.program, (node) => {
-    if (node.type === 'TemplateLiteral') {
-      const literalText = node.quasis.map((quasi) => quasi.value.raw).join('');
-
-      if (
-        isHtmlLikeText(literalText) &&
-        node.expressions.some((expression) =>
-          isRequestDerivedExpression(
-            expression,
-            taintedNames,
-            context.sourceText,
-          ),
-        )
-      ) {
-        facts.push(
-          createObservedFact({
-            appliesTo: 'block',
-            kind: FACT_KINDS.rawHtmlUsingUserInput,
-            node,
-            nodeIds: context.nodeIds,
-            text: excerptFor(node, context.sourceText),
-          }),
-        );
-      }
-
-      return;
-    }
-
-    if (node.type === 'CallExpression') {
-      const calleeText = getCalleeText(node.callee, context.sourceText);
-
-      if (calleeText && /(?:^|\.)(replace|replaceAll)$/u.test(calleeText)) {
-        const matchLiteral = getLiteralString(
-          node.arguments[0] as TSESTree.Expression,
-        );
-        const replacementLiteral = getLiteralString(
-          node.arguments[1] as TSESTree.Expression,
-        );
-
-        if (
-          ['"', "'", '&', '<', '>'].includes(matchLiteral ?? '') &&
-          /&(lt|gt|apos|quot|amp);/iu.test(replacementLiteral ?? '')
-        ) {
-          facts.push(
-            createObservedFact({
-              appliesTo: 'block',
-              kind: FACT_KINDS.manualHtmlSanitization,
-              node,
-              nodeIds: context.nodeIds,
-              text: calleeText,
-            }),
-          );
-        }
-      }
-
-      return;
-    }
-
     if (node.type !== 'NewExpression') {
       return;
     }

@@ -18,12 +18,15 @@ import {
   collectObservableTimingFacts,
 } from './additional-public-security/data';
 import {
+  collectHtmlOutputFacts,
+  collectHttpResponseFacts,
+} from './additional-public-security/html';
+import {
   collectBrowserOriginFacts,
   collectFormatStringFacts,
   collectHeaderMisuseFacts,
-  collectHtmlAndWebsocketFacts,
-  collectHttpResponseFacts,
   collectModuleLoadFacts,
+  collectWebsocketFacts,
 } from './additional-public-security/transport';
 import { type TypeScriptFactDetector } from './shared';
 
@@ -43,7 +46,8 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
     ...collectBrowserOriginFacts(context, functionBindings),
     ...collectModuleLoadFacts(context, taintedNames),
     ...collectHttpResponseFacts(context, taintedNames),
-    ...collectHtmlAndWebsocketFacts(context, taintedNames),
+    ...collectHtmlOutputFacts(context, taintedNames),
+    ...collectWebsocketFacts(context),
     ...collectHardcodedAuthSecretFacts(context),
     ...collectFileAndExceptionFacts(context),
     ...collectFilePermissionFacts(context),

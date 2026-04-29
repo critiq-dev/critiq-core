@@ -42,6 +42,63 @@ export function normalizeText(text: string | undefined): string {
   return text?.replace(/\s+/gu, ' ').trim() ?? '';
 }
 
+export function getStaticPropertyName(
+  node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
+): string | undefined {
+  if (!node) {
+    return undefined;
+  }
+
+  if (node.type === 'Identifier') {
+    return node.name;
+  }
+
+  if (node.type === 'Literal' && typeof node.value === 'string') {
+    return node.value;
+  }
+
+  return undefined;
+}
+
+export function getMemberPropertyName(
+  memberExpression: TSESTree.MemberExpression,
+): string | undefined {
+  if (memberExpression.computed) {
+    return getStaticPropertyName(memberExpression.property);
+  }
+
+  return memberExpression.property.type === 'Identifier'
+    ? memberExpression.property.name
+    : getStaticPropertyName(memberExpression.property);
+}
+
+export function unwrapExpression(
+  node:
+    | TSESTree.Expression
+    | TSESTree.PrivateIdentifier
+    | TSESTree.JSXEmptyExpression
+    | null
+    | undefined,
+): TSESTree.Expression | undefined {
+  if (!node || node.type === 'JSXEmptyExpression') {
+    return undefined;
+  }
+
+  if (node.type === 'TSAsExpression' || node.type === 'TSTypeAssertion') {
+    return unwrapExpression(node.expression);
+  }
+
+  if (node.type === 'ChainExpression') {
+    return unwrapExpression(node.expression);
+  }
+
+  if (node.type === 'PrivateIdentifier') {
+    return undefined;
+  }
+
+  return node;
+}
+
 export function objectPropertyNames(
   objectExpression: TSESTree.ObjectExpression,
 ): Set<string> {

@@ -1,8 +1,11 @@
 export const FACT_KINDS = {
   datadogBrowserTrackUserInteractions:
     'security.datadog-browser-track-user-interactions',
+  dangerousInsertHtml: 'security.dangerous-insert-html',
+  dangerouslySetInnerHtml: 'security.dangerously-set-inner-html',
   dynamodbQueryInjection: 'security.dynamodb-query-injection',
   hardcodedAuthSecret: 'security.hardcoded-auth-secret',
+  handlebarsNoEscape: 'security.handlebars-no-escape',
   importUsingUserInput: 'security.import-using-user-input',
   insecureAllowOrigin: 'security.insecure-allow-origin',
   insecureCookie: 'security.express-insecure-cookie',
@@ -12,6 +15,7 @@ export const FACT_KINDS = {
   jwtNotRevoked: 'security.jwt-not-revoked',
   manualHtmlSanitization: 'security.manual-html-sanitization',
   messageHandlerOriginMissing: 'security.missing-message-origin-check',
+  noInnerHtmlAssignment: 'security.no-innerhtml-assignment',
   nosqlInjection: 'security.express-nosql-injection',
   observableTimingDiscrepancy: 'security.observable-timing-discrepancy',
   permissiveFilePermissions: 'security.permissive-file-permissions',
@@ -43,7 +47,7 @@ export const sensitiveWritePattern =
   /\b(?:address|auth|card|cookie|credit|dob|email|jwt|pass(word)?|phone|secret|session|ssn|token|user)\b/i;
 
 export const sessionCallNames = new Set(['cookieSession', 'session']);
-export const responseSinkNames = new Set(['res.send', 'res.write']);
+export const responseSinkNames = new Set(['res.end', 'res.send', 'res.write']);
 export const strategyNames = new Set([
   'BearerStrategy',
   'CognitoStrategy',
