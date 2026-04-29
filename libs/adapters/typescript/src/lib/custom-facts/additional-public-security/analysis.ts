@@ -12,14 +12,20 @@ import {
 } from '../../auth-vocabulary';
 import { requestSourcePattern } from './constants';
 import { getLiteralString, normalizeText } from './utils';
+import {
+  createTrustBoundaryValidationState,
+  isTrustBoundaryExpressionValidated,
+  isValidationLikeCall,
+  noteValidatedTrustBoundaryExpression,
+  type TrustBoundaryValidationState,
+} from '../../trust-boundary';
+
+export { isValidationLikeCall, type TrustBoundaryValidationState } from '../../trust-boundary';
 
 export type FunctionLikeNode =
   | TSESTree.ArrowFunctionExpression
   | TSESTree.FunctionDeclaration
   | TSESTree.FunctionExpression;
-
-const validationWrapperPattern =
-  /^(?:allowlist|assert|check|sanitize|validate|verify)/iu;
 
 function looksLikeUploadSource(text: string): boolean {
   return (
@@ -27,31 +33,6 @@ function looksLikeUploadSource(text: string): boolean {
     (/\bfile(?:\?\.|\.)originalname\b/u.test(text) ||
       /\b(?:req|request|ctx|context|event)(?:\?\.|\.)files?\b/u.test(text))
   );
-}
-
-function leafCalleeName(text: string | undefined): string | undefined {
-  if (!text) {
-    return undefined;
-  }
-
-  return text
-    .split('.')
-    .at(-1)
-    ?.replace(/\?$/u, '')
-    .replace(/^#/u, '');
-}
-
-export function isValidationLikeCall(
-  node: TSESTree.CallExpression | null | undefined,
-  sourceText: string,
-): boolean {
-  if (!node) {
-    return false;
-  }
-
-  const calleeName = leafCalleeName(getNodeText(node.callee, sourceText));
-
-  return Boolean(calleeName && validationWrapperPattern.test(calleeName));
 }
 
 function isDerivedExpression(
@@ -277,6 +258,39 @@ export function collectUploadDerivedNames(
   context: TypeScriptFactDetectorContext,
 ): Set<string> {
   return collectDerivedNames(context, isUploadDerivedExpression);
+}
+
+export function collectValidatedTrustBoundaryState(
+  context: TypeScriptFactDetectorContext,
+): TrustBoundaryValidationState {
+  const state = createTrustBoundaryValidationState();
+
+  walkAst(context.program, (node) => {
+    if (
+      node.type !== 'CallExpression' ||
+      !isValidationLikeCall(node, context.sourceText)
+    ) {
+      return;
+    }
+
+    node.arguments.forEach((argument) =>
+      noteValidatedTrustBoundaryExpression(
+        state,
+        argument,
+        context.sourceText,
+      ),
+    );
+  });
+
+  return state;
+}
+
+export function isValidatedTrustBoundaryExpression(
+  node: TSESTree.Expression | TSESTree.PrivateIdentifier | null | undefined,
+  state: TrustBoundaryValidationState,
+  sourceText: string,
+): boolean {
+  return isTrustBoundaryExpressionValidated(node, state, sourceText);
 }
 
 export function collectSensitiveSignals(

@@ -2,6 +2,10 @@ import {
   authSessionCallNames,
   authStrategyNames,
 } from '../../auth-vocabulary';
+import {
+  trustBoundaryRequestSourcePattern,
+  trustBoundaryViewRenderSinkCallees,
+} from '../../trust-boundary';
 
 export const FACT_KINDS = {
   datadogBrowserTrackUserInteractions:
@@ -45,8 +49,7 @@ export const FACT_KINDS = {
   unsanitizedHttpResponse: 'security.unsanitized-http-response',
 } as const;
 
-export const requestSourcePattern =
-  /(?:\b(?:req|request|ctx|context|event)\b(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*|\b(?:query|params|body|headers|cookies|payload|session|searchParams|formData)\b(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*)/u;
+export const requestSourcePattern = trustBoundaryRequestSourcePattern;
 
 export const sensitiveComparePattern =
   /(?:password|passphrase|hash|secret|token|api[_-]?key|auth[_-]?token)/i;
@@ -54,7 +57,7 @@ export const sensitiveComparePattern =
 export const sessionCallNames = authSessionCallNames;
 export const responseSinkNames = new Set(['res.end', 'res.send', 'res.write']);
 export const strategyNames = authStrategyNames;
-export const renderSinkNames = new Set(['res.render']);
+export const renderSinkNames = trustBoundaryViewRenderSinkCallees;
 export const fileReadSinkNames = new Set([
   'createReadStream',
   'fs.createReadStream',

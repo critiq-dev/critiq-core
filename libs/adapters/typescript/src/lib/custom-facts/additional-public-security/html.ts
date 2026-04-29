@@ -17,13 +17,10 @@ import {
   isHtmlLikeText,
   unwrapExpression,
 } from './utils';
+import { trustBoundaryTemplateCompilerCallees } from '../../trust-boundary';
 
 const dangerousHtmlInsertionMethods = new Set(['insertAdjacentHTML']);
 const dangerousDocumentMethods = new Set(['write', 'writeln']);
-const handlebarsCompileSinks = new Set([
-  'Handlebars.compile',
-  'handlebars.compile',
-]);
 const trustedHtmlCalleeNames = new Set([
   '_.escape',
   'DOMPurify.sanitize',
@@ -396,7 +393,7 @@ export function collectHtmlOutputFacts(
         return;
       }
 
-      if (handlebarsCompileSinks.has(calleeText ?? '')) {
+      if (calleeText && trustBoundaryTemplateCompilerCallees.has(calleeText)) {
         const options = unwrapExpression(
           node.arguments[1] as TSESTree.Expression | undefined,
         );

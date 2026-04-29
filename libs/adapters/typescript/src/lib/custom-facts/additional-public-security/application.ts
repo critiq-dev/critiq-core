@@ -10,7 +10,11 @@ import {
   walkAst,
   type TypeScriptFactDetectorContext,
 } from '../shared';
-import { isRequestDerivedExpression } from './analysis';
+import {
+  isRequestDerivedExpression,
+  isValidatedTrustBoundaryExpression,
+  type TrustBoundaryValidationState,
+} from './analysis';
 import {
   FACT_KINDS,
   renderSinkNames,
@@ -313,6 +317,7 @@ export function collectDatadogBrowserFacts(
 export function collectRenderFacts(
   context: TypeScriptFactDetectorContext,
   taintedNames: ReadonlySet<string>,
+  validatedTrustBoundaries: TrustBoundaryValidationState,
 ): ObservedFact[] {
   const facts: ObservedFact[] = [];
 
@@ -329,7 +334,12 @@ export function collectRenderFacts(
       if (
         viewName &&
         viewName.type !== 'SpreadElement' &&
-        isRequestDerivedExpression(viewName, taintedNames, context.sourceText)
+        isRequestDerivedExpression(viewName, taintedNames, context.sourceText) &&
+        !isValidatedTrustBoundaryExpression(
+          viewName,
+          validatedTrustBoundaries,
+          context.sourceText,
+        )
       ) {
         facts.push(
           createObservedFact({

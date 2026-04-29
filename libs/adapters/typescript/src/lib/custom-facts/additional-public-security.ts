@@ -3,6 +3,7 @@ import {
   collectExpressModelBindings,
   collectRequestDerivedNames,
   collectUploadDerivedNames,
+  collectValidatedTrustBoundaryState,
   resolveFunctionBindings,
 } from './additional-public-security/analysis';
 import {
@@ -36,6 +37,7 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
 ) => {
   const taintedNames = collectRequestDerivedNames(context);
   const uploadDerivedNames = collectUploadDerivedNames(context);
+  const validatedTrustBoundaries = collectValidatedTrustBoundaryState(context);
   const functionBindings = resolveFunctionBindings(context);
   const modelNames = collectExpressModelBindings(context);
   const dynamodbClientNames = collectDynamodbClientBindings(context);
@@ -47,14 +49,22 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
     ...collectDynamodbQueryFacts(context, taintedNames, dynamodbClientNames),
     ...collectFormatStringFacts(context, taintedNames),
     ...collectBrowserOriginFacts(context, functionBindings),
-    ...collectModuleLoadFacts(context, taintedNames),
+    ...collectModuleLoadFacts(
+      context,
+      taintedNames,
+      validatedTrustBoundaries,
+    ),
     ...collectHttpResponseFacts(context, taintedNames),
     ...collectHtmlOutputFacts(context, taintedNames),
     ...collectWebsocketFacts(context),
     ...collectHardcodedAuthSecretFacts(context),
     ...collectFileAndExceptionFacts(context),
     ...collectObservableTimingFacts(context),
-    ...collectRenderFacts(context, taintedNames),
+    ...collectRenderFacts(
+      context,
+      taintedNames,
+      validatedTrustBoundaries,
+    ),
     ...collectDatadogBrowserFacts(context),
     ...collectExpressHardeningFacts(context),
   ];

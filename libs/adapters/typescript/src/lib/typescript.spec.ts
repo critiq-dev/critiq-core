@@ -292,6 +292,8 @@ describe('analyzeTypeScriptFile', () => {
       'src/data-flow.ts',
       [
         'declare function decode(token: string): unknown;',
+        'declare function validatePattern(value: string | undefined): void;',
+        'declare function validatePayload(value: unknown): void;',
         'declare const app: { get(path: string, handler: () => void): void };',
         '',
         'type Request = {',
@@ -335,8 +337,20 @@ describe('analyzeTypeScriptFile', () => {
         '  return new RegExp(pattern);',
         '}',
         '',
+        'export function validatedInput(req: Request) {',
+        '  const pattern = req.query.pattern;',
+        '  validatePattern(pattern);',
+        '  return new RegExp(pattern ?? "");',
+        '}',
+        '',
         'export function unsafeParse(req: Request) {',
         '  const raw = req.body.payload;',
+        '  return JSON.parse(raw);',
+        '}',
+        '',
+        'export function validatedParse(req: Request) {',
+        '  const raw = req.body.payload;',
+        '  validatePayload(raw);',
         '  return JSON.parse(raw);',
         '}',
         '',
@@ -392,8 +406,16 @@ describe('analyzeTypeScriptFile', () => {
     const uncheckedKeyFacts = result.data.semantics?.controlFlow?.facts.filter(
       (fact) => fact.kind === 'data-flow.unchecked-map-key-access',
     );
+    const unvalidatedInputFacts = result.data.semantics?.controlFlow?.facts.filter(
+      (fact) => fact.kind === 'security.unvalidated-external-input',
+    );
+    const unsafeDeserializationFacts = result.data.semantics?.controlFlow?.facts.filter(
+      (fact) => fact.kind === 'security.unsafe-deserialization',
+    );
 
     expect(uncheckedKeyFacts).toHaveLength(1);
+    expect(unvalidatedInputFacts).toHaveLength(1);
+    expect(unsafeDeserializationFacts).toHaveLength(1);
   });
 
   it('emits shared phase-1 polyglot security facts for TypeScript input', () => {

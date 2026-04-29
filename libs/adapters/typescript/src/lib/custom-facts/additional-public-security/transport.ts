@@ -16,11 +16,14 @@ import {
 import {
   hasOriginCheck,
   isRequestDerivedExpression,
+  isValidatedTrustBoundaryExpression,
   resolveFunctionLike,
+  type TrustBoundaryValidationState,
   type FunctionLikeNode,
 } from './analysis';
 import { FACT_KINDS } from './constants';
 import { getLiteralString } from './utils';
+import { trustBoundaryModuleLoaderCallees } from '../../trust-boundary';
 
 export function collectHeaderMisuseFacts(
   context: TypeScriptFactDetectorContext,
@@ -276,6 +279,7 @@ export function collectBrowserOriginFacts(
 export function collectModuleLoadFacts(
   context: TypeScriptFactDetectorContext,
   taintedNames: ReadonlySet<string>,
+  validatedTrustBoundaries: TrustBoundaryValidationState,
 ): ObservedFact[] {
   const facts: ObservedFact[] = [];
 
@@ -285,10 +289,16 @@ export function collectModuleLoadFacts(
       const argument = node.arguments[0];
 
       if (
-        calleeText === 'require' &&
+        calleeText &&
+        trustBoundaryModuleLoaderCallees.has(calleeText) &&
         argument &&
         argument.type !== 'SpreadElement' &&
-        isRequestDerivedExpression(argument, taintedNames, context.sourceText)
+        isRequestDerivedExpression(argument, taintedNames, context.sourceText) &&
+        !isValidatedTrustBoundaryExpression(
+          argument,
+          validatedTrustBoundaries,
+          context.sourceText,
+        )
       ) {
         facts.push(
           createObservedFact({
@@ -306,7 +316,12 @@ export function collectModuleLoadFacts(
 
     if (
       node.type !== 'ImportExpression' ||
-      !isRequestDerivedExpression(node.source, taintedNames, context.sourceText)
+      !isRequestDerivedExpression(node.source, taintedNames, context.sourceText) ||
+      isValidatedTrustBoundaryExpression(
+        node.source,
+        validatedTrustBoundaries,
+        context.sourceText,
+      )
     ) {
       return;
     }

@@ -51,8 +51,12 @@ describe('collectAdditionalPublicSecurityFacts', () => {
   it('flags module loading and HTTP responses driven by request input', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([
+        'declare function allowlistModuleName(value): void;',
         'async function handler(req, res) {',
+        '  const safeModule = req.query.safePlugin;',
+        '  allowlistModuleName(safeModule);',
         '  require(req.query.plugin);',
+        '  require(safeModule);',
         '  await import(req.params.moduleName);',
         '  res.send(req.body.html);',
         '  res.write(req.query.chunk);',
@@ -76,6 +80,9 @@ describe('collectAdditionalPublicSecurityFacts', () => {
         }),
       ]),
     );
+    expect(
+      facts.filter((fact) => fact.kind === 'security.import-using-user-input'),
+    ).toHaveLength(2);
   });
 
   it('flags missing origin checks, wildcard postMessage, raw HTML, and insecure websockets', () => {
@@ -155,6 +162,7 @@ describe('collectAdditionalPublicSecurityFacts', () => {
   it('flags dangerouslySetInnerHTML and Handlebars noEscape while preserving safe variants', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([
+        'declare function validateTemplateMarkup(value: string): string;',
         'const markup = { __html: htmlContent };',
         'const safeMarkup = { __html: DOMPurify.sanitize(htmlContent) };',
         'const handlebars = Handlebars.create();',
@@ -169,6 +177,7 @@ describe('collectAdditionalPublicSecurityFacts', () => {
         '}',
         'handlebars.compile(templateStr, { noEscape: true });',
         'Handlebars.compile(templateStr, { noEscape: false });',
+        'Handlebars.compile(validateTemplateMarkup(templateStr), { noEscape: false });',
       ].join('\n')),
     );
 
@@ -285,8 +294,12 @@ describe('collectAdditionalPublicSecurityFacts', () => {
         'app.use(express.static("public"));',
         'cookieSession({ secure: false, httpOnly: false });',
         'serveIndex("public");',
+        'function allowlistView(value) { return value; }',
         'function handler(req, res) {',
+        '  const safePage = req.body.safePage;',
+        '  allowlistView(safePage);',
         '  res.render(req.body.page);',
+        '  res.render(safePage);',
         '  res.sendFile(req.params.name);',
         '}',
       ].join('\n')),
@@ -326,6 +339,9 @@ describe('collectAdditionalPublicSecurityFacts', () => {
         }),
       ]),
     );
+    expect(
+      facts.filter((fact) => fact.kind === 'security.user-controlled-view-render'),
+    ).toHaveLength(1);
   });
 
   it('flags request and upload controlled filesystem reads, writes, upload filenames, and permissive modes', () => {

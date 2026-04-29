@@ -12,6 +12,17 @@ import {
   authTokenLikeNameTokens,
   tokenizeIdentifierLikeText,
 } from './auth-vocabulary';
+import {
+  collectReferencedIdentifiers,
+  createTrustBoundaryValidationState,
+  isTrustBoundaryExpressionValidated,
+  isTrustBoundaryExternalInputPath,
+  isValidationLikeCalleeText,
+  noteValidatedTrustBoundaryExpression,
+  trustBoundarySensitiveConstructorCallees,
+  trustBoundaryUnsafeDeserializationCallees,
+  type TrustBoundaryValidationState,
+} from './trust-boundary';
 
 interface NodeLike {
   type: string;
@@ -144,7 +155,7 @@ interface BindingFlowState {
 
 interface FunctionDataFlowState {
   bindings: Map<string, BindingFlowState>;
-  validatedIdentifiers: Set<string>;
+  validatedTrustBoundaries: TrustBoundaryValidationState;
   tokenValidatedIdentifiers: Set<string>;
 }
 
@@ -242,38 +253,11 @@ const functionStatementThreshold = 18;
 const functionComplexityThreshold = 10;
 const deepNestingThreshold = 4;
 const nestedLoopThreshold = 2;
-const externalInputRootNames = new Set([
-  'ctx',
-  'context',
-  'event',
-  'location',
-  'req',
-  'request',
-  'window',
-]);
-const externalInputPathSegments = new Set([
-  'authorization',
-  'body',
-  'cookie',
-  'cookies',
-  'header',
-  'headers',
-  'input',
-  'param',
-  'params',
-  'payload',
-  'query',
-  'search',
-  'searchparams',
-  'session',
-]);
 const optionalReturningMethodNames = new Set([
   'find',
   'get',
   'match',
 ]);
-const validationCalleePattern =
-  /(^|\.)(assert[A-Z_]|assert$|check[A-Z_]|check$|sanitize[A-Z_]|sanitize$|safeParse$|validate[A-Z_]|validate$|verify[A-Z_]|verify$)/;
 const tokenRiskyCalleePattern =
   /(^|\.)(decode|deserialize|findSession|getSession|getUserFromToken|loadSession|lookupSession|parseJwt|readSession)$/;
 const tokenValidationCalleePattern =
@@ -3342,21 +3326,6 @@ function memberPathSegments(
     : undefined;
 }
 
-function isExternalInputPath(
-  segments: readonly string[],
-): boolean {
-  if (segments.length < 2) {
-    return false;
-  }
-
-  return (
-    externalInputRootNames.has(segments[0]!.toLowerCase()) &&
-    segments.some((segment, index) =>
-      index > 0 && externalInputPathSegments.has(segment.toLowerCase()),
-    )
-  );
-}
-
 function isTokenLikePath(
   segments: readonly string[],
 ): boolean {
@@ -3425,7 +3394,7 @@ function isExternalInputExpression(
   const segments = memberPathSegments(current, sourceText);
 
   return Boolean(
-    (segments && isExternalInputPath(segments)) ||
+    (segments && isTrustBoundaryExternalInputPath(segments)) ||
       (segments &&
         segments.length > 0 &&
         Boolean(bindings.get(segments[0]!)?.externalInput)),
@@ -3544,7 +3513,9 @@ function bindingFlowStateForExpression(
     return mergeBindingFlowStates(
       bindingFlowStateForExpression(current.object, bindings, sourceText),
       {
-        externalInput: Boolean(pathSegments && isExternalInputPath(pathSegments)),
+        externalInput: Boolean(
+          pathSegments && isTrustBoundaryExternalInputPath(pathSegments),
+        ),
         maybeNull: current.optional,
         optional: current.optional,
         tokenLike: Boolean(pathSegments && isTokenLikePath(pathSegments)),
@@ -3565,13 +3536,9 @@ function bindingFlowStateForExpression(
   const firstArgument = expressionArgumentAt(current, 0);
 
   const requestInputCall = isRequestInputCallExpression(current, bindings, sourceText);
-  const unsafeDeserializationCall =
-    calleeText === 'JSON.parse' ||
-    calleeText === 'deserialize' ||
-    calleeText === 'jsyaml.load' ||
-    calleeText === 'qs.parse' ||
-    calleeText === 'yaml.load' ||
-    calleeText === 'yaml.safeLoad';
+  const unsafeDeserializationCall = Boolean(
+    calleeText && trustBoundaryUnsafeDeserializationCallees.has(calleeText),
+  );
 
   return mergeBindingFlowStates(
     requestInputCall
@@ -3618,26 +3585,12 @@ function bindingFlowStateForExpression(
   );
 }
 
-function collectReferencedIdentifiers(
-  node: TSESTree.Node,
-): Set<string> {
-  const names = new Set<string>();
-
-  visitSubtree(node, (candidate) => {
-    if (candidate.type === 'Identifier') {
-      names.add(candidate.name);
-    }
-  });
-
-  return names;
-}
-
 function collectFunctionDataFlowState(
   context: FunctionBuildContext,
   node: FunctionContainerNode,
 ): FunctionDataFlowState {
   const bindings = new Map<string, BindingFlowState>();
-  const validatedIdentifiers = new Set<string>();
+  const validatedTrustBoundaries = createTrustBoundaryValidationState();
   const tokenValidatedIdentifiers = new Set<string>();
 
   visitSubtree(
@@ -3680,7 +3633,7 @@ function collectFunctionDataFlowState(
 
       const calleeText = calleeTextFor(candidate, context.root.sourceText);
 
-      if (!calleeText || !validationCalleePattern.test(calleeText)) {
+      if (!calleeText || !isValidationLikeCalleeText(calleeText)) {
         return;
       }
 
@@ -3689,8 +3642,10 @@ function collectFunctionDataFlowState(
           return;
         }
 
-        collectReferencedIdentifiers(argument).forEach((name) =>
-          validatedIdentifiers.add(name),
+        noteValidatedTrustBoundaryExpression(
+          validatedTrustBoundaries,
+          argument,
+          context.root.sourceText,
         );
 
         if (
@@ -3711,7 +3666,7 @@ function collectFunctionDataFlowState(
   return {
     bindings,
     tokenValidatedIdentifiers,
-    validatedIdentifiers,
+    validatedTrustBoundaries,
   };
 }
 
@@ -4478,7 +4433,7 @@ function maybeEmitUnvalidatedExternalInputFacts(
       if (
         !calleeText ||
         !firstArgument ||
-        !['RegExp', 'URL'].includes(calleeText) ||
+        !trustBoundarySensitiveConstructorCallees.has(calleeText) ||
         !isExternalInputExpression(
           firstArgument,
           dataFlowState.bindings,
@@ -4488,11 +4443,11 @@ function maybeEmitUnvalidatedExternalInputFacts(
         return;
       }
 
-      const referencedIdentifiers = collectReferencedIdentifiers(firstArgument);
-
       if (
-        [...referencedIdentifiers].some((name) =>
-          dataFlowState.validatedIdentifiers.has(name),
+        isTrustBoundaryExpressionValidated(
+          firstArgument,
+          dataFlowState.validatedTrustBoundaries,
+          context.root.sourceText,
         )
       ) {
         return;
@@ -4531,17 +4486,20 @@ function maybeEmitUnsafeDeserializationFacts(
       if (
         !calleeText ||
         !sourceArgument ||
-        ![
-          'JSON.parse',
-          'deserialize',
-          'jsyaml.load',
-          'qs.parse',
-          'yaml.load',
-          'yaml.safeLoad',
-        ].includes(calleeText) ||
+        !trustBoundaryUnsafeDeserializationCallees.has(calleeText) ||
         !isExternalInputExpression(
           sourceArgument,
           dataFlowState.bindings,
+          context.root.sourceText,
+        )
+      ) {
+        return;
+      }
+
+      if (
+        isTrustBoundaryExpressionValidated(
+          sourceArgument,
+          dataFlowState.validatedTrustBoundaries,
           context.root.sourceText,
         )
       ) {
