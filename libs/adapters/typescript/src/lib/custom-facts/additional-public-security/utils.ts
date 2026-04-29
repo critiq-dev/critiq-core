@@ -1,45 +1,40 @@
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
-import { getObjectProperty } from '../shared';
+import {
+  getNumericLiteralValue,
+  getObjectProperty,
+  getStringLiteralValue,
+  normalizeText as normalizeSharedText,
+} from '../shared';
 
 export function getLiteralString(
   node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
 ): string | undefined {
-  if (!node || node.type !== 'Literal' || typeof node.value !== 'string') {
-    return undefined;
-  }
-
-  return node.value;
+  return getStringLiteralValue(
+    node as
+      | TSESTree.Expression
+      | TSESTree.PrivateIdentifier
+      | TSESTree.CallExpressionArgument
+      | null
+      | undefined,
+  );
 }
 
 export function getLiteralNumber(
   node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
 ): number | undefined {
-  if (!node) {
-    return undefined;
-  }
-
-  if (node.type === 'Literal' && typeof node.value === 'number') {
-    return node.value;
-  }
-
-  if (node.type === 'Literal' && typeof node.value === 'string') {
-    const literal = node.value.trim();
-
-    if (/^0o[0-7]+$/iu.test(literal)) {
-      return Number.parseInt(literal.slice(2), 8);
-    }
-
-    if (/^0[0-7]+$/u.test(literal)) {
-      return Number.parseInt(literal, 8);
-    }
-  }
-
-  return undefined;
+  return getNumericLiteralValue(
+    node as
+      | TSESTree.Expression
+      | TSESTree.PrivateIdentifier
+      | TSESTree.CallExpressionArgument
+      | null
+      | undefined,
+  );
 }
 
 export function normalizeText(text: string | undefined): string {
-  return text?.replace(/\s+/gu, ' ').trim() ?? '';
+  return normalizeSharedText(text);
 }
 
 export function getStaticPropertyName(

@@ -170,7 +170,6 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([
         'import jwt from "jsonwebtoken";',
-        'import argon2 from "argon2";',
         'import { writeFileSync, chmodSync } from "node:fs";',
         '',
         'jwt.sign({ sub: user.id }, "supersecretvalue");',
@@ -185,7 +184,6 @@ describe('collectAdditionalPublicSecurityFacts', () => {
         'if (apiToken === suppliedToken) {',
         '  return true;',
         '}',
-        'argon2.hash(password, { type: argon2.argon2i });',
       ].join('\n')),
     );
 
@@ -203,9 +201,6 @@ describe('collectAdditionalPublicSecurityFacts', () => {
         }),
         expect.objectContaining({
           kind: 'security.observable-timing-discrepancy',
-        }),
-        expect.objectContaining({
-          kind: 'security.insecure-password-hash-configuration',
         }),
       ]),
     );

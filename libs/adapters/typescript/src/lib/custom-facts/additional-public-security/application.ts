@@ -14,7 +14,6 @@ import { isRequestDerivedExpression } from './analysis';
 import {
   FACT_KINDS,
   renderSinkNames,
-  sensitiveComparePattern,
   sessionCallNames,
   strategyNames,
 } from './constants';
@@ -552,38 +551,6 @@ export function collectExpressHardeningFacts(
       }
     }
 
-    if (
-      calleeText === 'argon2.hash' &&
-      node.arguments[0] &&
-      node.arguments[0].type !== 'SpreadElement' &&
-      sensitiveComparePattern.test(
-        normalizeText(getNodeText(node.arguments[0], context.sourceText)),
-      )
-    ) {
-      const options = node.arguments[1];
-
-      if (options && options.type === 'ObjectExpression') {
-        const typeProperty = getObjectProperty(options, 'type');
-        const typeText = normalizeText(
-          getNodeText(typeProperty?.value, context.sourceText),
-        );
-
-        if (typeText === 'argon2.argon2i' || typeText === 'argon2.argon2d') {
-          facts.push(
-            createObservedFact({
-              appliesTo: 'block',
-              kind: FACT_KINDS.insecurePasswordHashConfig,
-              node,
-              nodeIds: context.nodeIds,
-              props: {
-                algorithm: typeText,
-              },
-              text: 'argon2.hash',
-            }),
-          );
-        }
-      }
-    }
   });
 
   if (

@@ -1,7 +1,10 @@
 import type { ObservedFact, ObservedRange } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
-import { isSensitiveIdentifierText } from '../auth-vocabulary';
+import {
+  isSensitiveIdentifierText,
+  tokenizeIdentifierLikeText,
+} from '../auth-vocabulary';
 
 interface NodeLike {
   loc: {
@@ -36,6 +39,14 @@ export interface CreateObservedFactOptions {
 export type TypeScriptFactDetector = (
   context: TypeScriptFactDetectorContext,
 ) => ObservedFact[];
+
+export type FunctionLikeNode =
+  | TSESTree.ArrowFunctionExpression
+  | TSESTree.FunctionDeclaration
+  | TSESTree.FunctionExpression;
+
+const compatibilityMarkerPattern =
+  /\b(?:compat(?:ibility)?|interop|legacy|migration)\b/i;
 
 export function toObservedRange(node: NodeLike): ObservedRange {
   return {
@@ -99,6 +110,34 @@ export function walkAst(
 
     if (isNode(value)) {
       walkAst(value, visitor);
+    }
+  }
+}
+
+export function walkAstWithAncestors(
+  node: TSESTree.Node,
+  visitor: (node: TSESTree.Node, ancestors: readonly TSESTree.Node[]) => void,
+  ancestors: readonly TSESTree.Node[] = [],
+): void {
+  visitor(node, ancestors);
+
+  for (const value of Object.values(node)) {
+    if (!value) {
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (isNode(entry)) {
+          walkAstWithAncestors(entry, visitor, [...ancestors, node]);
+        }
+      }
+
+      continue;
+    }
+
+    if (isNode(value)) {
+      walkAstWithAncestors(value, visitor, [...ancestors, node]);
     }
   }
 }
@@ -167,6 +206,55 @@ export function getStringLiteralValue(
   return node.value;
 }
 
+export function getNumericLiteralValue(
+  node:
+    | TSESTree.Expression
+    | TSESTree.PrivateIdentifier
+    | TSESTree.CallExpressionArgument
+    | null
+    | undefined,
+): number | undefined {
+  if (!node || node.type === 'PrivateIdentifier') {
+    return undefined;
+  }
+
+  if (node.type === 'Literal' && typeof node.value === 'number') {
+    return node.value;
+  }
+
+  if (node.type !== 'Literal' || typeof node.value !== 'string') {
+    return undefined;
+  }
+
+  const literal = node.value.trim();
+
+  if (/^0o[0-7]+$/iu.test(literal)) {
+    return Number.parseInt(literal.slice(2), 8);
+  }
+
+  if (/^0x[0-9a-f]+$/iu.test(literal)) {
+    return Number.parseInt(literal.slice(2), 16);
+  }
+
+  if (/^0b[01]+$/iu.test(literal)) {
+    return Number.parseInt(literal.slice(2), 2);
+  }
+
+  if (/^0[0-7]+$/u.test(literal)) {
+    return Number.parseInt(literal, 8);
+  }
+
+  if (/^-?\d+(?:\.\d+)?$/u.test(literal)) {
+    return Number(literal);
+  }
+
+  return undefined;
+}
+
+export function normalizeText(text: string | undefined): string {
+  return text?.replace(/\s+/gu, ' ').trim() ?? '';
+}
+
 export function isBooleanLiteral(
   node: TSESTree.Expression | TSESTree.PrivateIdentifier | null | undefined,
   value: boolean,
@@ -213,6 +301,163 @@ export function getObjectProperty(
     (property): property is TSESTree.Property =>
       property.type === 'Property' && isPropertyNamed(property.key, name),
   );
+}
+
+export function isFunctionLike(
+  node: TSESTree.Node | null | undefined,
+): node is FunctionLikeNode {
+  return Boolean(
+    node &&
+      (node.type === 'ArrowFunctionExpression' ||
+        node.type === 'FunctionDeclaration' ||
+        node.type === 'FunctionExpression'),
+  );
+}
+
+export function walkFunctionBodySkippingNestedFunctions(
+  root: FunctionLikeNode,
+  visitor: (node: TSESTree.Node) => void,
+): void {
+  const visit = (node: TSESTree.Node): void => {
+    if (isFunctionLike(node) && node !== root) {
+      return;
+    }
+
+    visitor(node);
+
+    for (const value of Object.values(node)) {
+      if (!value) {
+        continue;
+      }
+
+      if (Array.isArray(value)) {
+        for (const entry of value) {
+          if (isNode(entry)) {
+            visit(entry);
+          }
+        }
+
+        continue;
+      }
+
+      if (isNode(value)) {
+        visit(value);
+      }
+    }
+  };
+
+  if (root.body.type === 'BlockStatement') {
+    for (const statement of root.body.body) {
+      visit(statement);
+    }
+
+    return;
+  }
+
+  visit(root.body);
+}
+
+export function isCompatibilityMarkerText(
+  text: string | undefined,
+): boolean {
+  return (
+    typeof text === 'string' &&
+    (compatibilityMarkerPattern.test(text) ||
+      tokenizeIdentifierLikeText(text).some((token) =>
+        ['compat', 'compatibility', 'interop', 'legacy', 'migration'].includes(
+          token,
+        ),
+      ))
+  );
+}
+
+function collectNamedCompatibilityTexts(
+  ancestors: readonly TSESTree.Node[],
+  sourceText: string,
+): string[] {
+  const texts: string[] = [];
+
+  for (const ancestor of ancestors) {
+    if (ancestor.type === 'FunctionDeclaration' && ancestor.id) {
+      texts.push(ancestor.id.name);
+      continue;
+    }
+
+    if (
+      ancestor.type === 'VariableDeclarator' &&
+      ancestor.id.type === 'Identifier' &&
+      isFunctionLike(ancestor.init)
+    ) {
+      texts.push(ancestor.id.name);
+      continue;
+    }
+
+    if (
+      ancestor.type === 'Property' &&
+      isFunctionLike(ancestor.value)
+    ) {
+      texts.push(getNodeText(ancestor.key, sourceText) ?? '');
+    }
+  }
+
+  return texts;
+}
+
+function getProgramComments(
+  program: TSESTree.Program,
+): readonly TSESTree.Comment[] {
+  return (program as TSESTree.Program & { comments?: TSESTree.Comment[] })
+    .comments ?? [];
+}
+
+export function hasCompatibilityMarkerNearNode(options: {
+  ancestors?: readonly TSESTree.Node[];
+  node: TSESTree.Node;
+  program: TSESTree.Program;
+  sourceText: string;
+}): boolean {
+  const { ancestors = [], node, program, sourceText } = options;
+
+  if (isCompatibilityMarkerText(getNodeText(node, sourceText))) {
+    return true;
+  }
+
+  if (
+    collectNamedCompatibilityTexts(ancestors, sourceText).some(
+      isCompatibilityMarkerText,
+    )
+  ) {
+    return true;
+  }
+
+  const comments = getProgramComments(program);
+  const nodeStartOffset = node.range[0];
+  const nodeEndOffset = node.range[1];
+  const nodeStartLine = node.loc.start.line;
+  const nodeEndLine = node.loc.end.line;
+
+  return comments.some((comment) => {
+    if (!isCompatibilityMarkerText(comment.value)) {
+      return false;
+    }
+
+    if (
+      comment.loc.start.line <= nodeEndLine + 1 &&
+      comment.loc.end.line >= nodeStartLine - 2
+    ) {
+      return true;
+    }
+
+    if (comment.range[1] <= nodeStartOffset) {
+      return nodeStartOffset - comment.range[1] <= 160;
+    }
+
+    if (comment.range[0] >= nodeStartOffset) {
+      return comment.range[0] - nodeEndOffset <= 80;
+    }
+
+    return false;
+  });
 }
 
 export function looksSensitiveIdentifier(text: string | undefined): boolean {

@@ -283,7 +283,7 @@ export function analyzeTypeScriptFile(
 ): TypeScriptAnalysisResult {
   try {
     const program = parse(text, {
-      comment: false,
+      comment: true,
       errorOnUnknownASTType: false,
       jsx: supportsJsx(path),
       loc: true,

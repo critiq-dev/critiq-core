@@ -448,6 +448,32 @@ describe('analyzeTypeScriptFile', () => {
     );
   });
 
+  it('suppresses weak crypto findings for explicit compatibility shims', () => {
+    const result = analyzeTypeScriptFile(
+      'src/crypto-compat.ts',
+      [
+        'import { createHash } from "node:crypto";',
+        '',
+        '// legacy compatibility shim for upstream digest interop',
+        'export function legacyDigestCompat(payload: string) {',
+        '  return createHash("md5").update(payload).digest("hex");',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.filter(
+        (fact) => fact.kind === 'security.weak-hash-algorithm',
+      ),
+    ).toEqual([]);
+  });
+
   it('suppresses guarded dereferences, keyed writes, and shared-fallback dispatch patterns', () => {
     const result = analyzeTypeScriptFile(
       'src/guarded-runtime.ts',
