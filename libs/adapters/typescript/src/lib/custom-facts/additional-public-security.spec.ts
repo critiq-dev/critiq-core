@@ -48,6 +48,23 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     );
   });
 
+  it('does not flag fixed log format strings when later arguments are tainted', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'function handler(req) {',
+        '  const query = req.query.search;',
+        '  console.error("search failed", { query });',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === 'security.format-string-using-user-input',
+      ),
+    ).toHaveLength(0);
+  });
+
   it('flags module loading and HTTP responses driven by request input', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([

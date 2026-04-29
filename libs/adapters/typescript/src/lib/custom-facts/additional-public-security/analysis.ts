@@ -53,6 +53,12 @@ function isDerivedExpression(
     return false;
   }
 
+  // Plain literals can mention words like "search" or "query" without
+  // representing trust-boundary data.
+  if (node.type === 'Literal') {
+    return false;
+  }
+
   const text = normalizeText(getNodeText(node, sourceText));
 
   if (text.length > 0 && matchesSourceText(text)) {
