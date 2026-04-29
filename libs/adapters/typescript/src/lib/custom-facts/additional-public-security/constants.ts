@@ -46,6 +46,8 @@ export const FACT_KINDS = {
     'security.express-static-assets-after-session',
   expressMissingHelmet: 'security.express-missing-helmet',
   expressReduceFingerprint: 'security.express-reduce-fingerprint',
+  informationLeakage: 'security.information-leakage',
+  debugModeEnabled: 'security.debug-mode-enabled',
   unsanitizedHttpResponse: 'security.unsanitized-http-response',
 } as const;
 

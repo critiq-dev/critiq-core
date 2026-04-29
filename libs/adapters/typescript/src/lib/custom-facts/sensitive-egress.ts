@@ -1,10 +1,7 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
-import {
-  isPrivilegedIdentityFieldText,
-  isSensitiveIdentifierText,
-} from '../auth-vocabulary';
+import { collectDisclosureSignals } from './disclosure-signals';
 import {
   createObservedFact,
   getCalleeText,
@@ -77,18 +74,6 @@ function isSafeWrapperCall(
   }
 
   return Boolean(calleeText && safeWrapperNames.has(calleeText));
-}
-
-function isIdentifierSensitive(text: string | undefined): boolean {
-  if (!text) {
-    return false;
-  }
-
-  return (
-    isSensitiveIdentifierText(text) ||
-    isPrivilegedIdentityFieldText(text) ||
-    /\b(billing|profile|support)\b/i.test(text)
-  );
 }
 
 function isExternalUrlLiteral(
@@ -167,41 +152,9 @@ function collectSensitiveSignalsFromNode(
   node: TSESTree.Expression | TSESTree.PrivateIdentifier | null | undefined,
   sourceText: string,
 ): string[] {
-  if (!node) {
-    return [];
-  }
-
-  const signals = new Set<string>();
-
-  visitNodes(node, sourceText, (candidate) => {
-    if (candidate.type === 'CallExpression' && isSafeWrapperCall(candidate, sourceText)) {
-      return;
-    }
-
-    if (candidate.type === 'Identifier' && isIdentifierSensitive(candidate.name)) {
-      signals.add(candidate.name);
-      return;
-    }
-
-    if (candidate.type === 'MemberExpression') {
-      const memberText = getNodeText(candidate, sourceText);
-
-      if (memberText && isIdentifierSensitive(memberText)) {
-        signals.add(memberText);
-      }
-      return;
-    }
-
-    if (candidate.type === 'Property') {
-      const keyText = getNodeText(candidate.key, sourceText);
-
-      if (isIdentifierSensitive(keyText)) {
-        signals.add(keyText ?? 'sensitive');
-      }
-    }
+  return collectDisclosureSignals(node, sourceText, {
+    includeDiagnostics: false,
   });
-
-  return [...signals].sort((left, right) => left.localeCompare(right));
 }
 
 function collectFactForCall(

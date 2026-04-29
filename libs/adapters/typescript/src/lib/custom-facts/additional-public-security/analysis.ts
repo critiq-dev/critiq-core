@@ -1,13 +1,12 @@
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
+import { collectDisclosureSignals } from '../disclosure-signals';
 import {
   getNodeText,
-  looksSensitiveIdentifier,
   walkAst,
   type TypeScriptFactDetectorContext,
 } from '../shared';
 import {
-  isPrivilegedIdentityFieldText,
   isSensitiveAuthJwtClaimText,
 } from '../../auth-vocabulary';
 import { requestSourcePattern } from './constants';
@@ -303,76 +302,22 @@ export function collectSensitiveSignals(
   node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
   sourceText: string,
 ): string[] {
-  const signals = new Set<string>();
+  const signals = collectDisclosureSignals(node, sourceText, {
+    includeDiagnostics: false,
+    includeStringLiterals: true,
+  });
 
-  const visit = (
-    candidate: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
-  ) => {
-    if (!candidate) {
-      return;
-    }
+  if (
+    node?.type === 'Literal' &&
+    typeof node.value === 'string' &&
+    isSensitiveAuthJwtClaimText(node.value)
+  ) {
+    return [...new Set([...signals, node.value])].sort((left, right) =>
+      left.localeCompare(right),
+    );
+  }
 
-    if (candidate.type === 'PrivateIdentifier') {
-      if (looksSensitiveIdentifier(candidate.name)) {
-        signals.add(candidate.name);
-      }
-      return;
-    }
-
-    if (candidate.type === 'Identifier') {
-      if (looksSensitiveIdentifier(candidate.name)) {
-        signals.add(candidate.name);
-      }
-      return;
-    }
-
-    if (candidate.type === 'Literal' && typeof candidate.value === 'string') {
-      if (isSensitiveAuthJwtClaimText(candidate.value)) {
-        signals.add(candidate.value);
-      }
-      return;
-    }
-
-    if (candidate.type === 'MemberExpression') {
-      const text = getNodeText(candidate, sourceText);
-
-      if (looksSensitiveIdentifier(text) || isPrivilegedIdentityFieldText(text)) {
-        signals.add(text ?? 'sensitive');
-      }
-    }
-
-    if (candidate.type === 'Property') {
-      const keyText = getNodeText(candidate.key, sourceText);
-
-      if (looksSensitiveIdentifier(keyText)) {
-        signals.add(keyText ?? 'sensitive');
-      }
-    }
-
-    for (const value of Object.values(candidate)) {
-      if (!value) {
-        continue;
-      }
-
-      if (Array.isArray(value)) {
-        for (const entry of value) {
-          if (entry && typeof entry === 'object' && 'type' in entry) {
-            visit(entry as TSESTree.Node);
-          }
-        }
-
-        continue;
-      }
-
-      if (value && typeof value === 'object' && 'type' in value) {
-        visit(value as TSESTree.Node);
-      }
-    }
-  };
-
-  visit(node);
-
-  return [...signals].sort((left, right) => left.localeCompare(right));
+  return signals;
 }
 
 export function resolveFunctionBindings(

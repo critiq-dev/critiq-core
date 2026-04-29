@@ -93,5 +93,21 @@ describe('collectSensitiveLoggingFacts', () => {
 
     expect(facts).toHaveLength(0);
   });
-});
 
+  it('does not treat non-sensitive event name strings as disclosed data', () => {
+    const sourceText = [
+      'declare const analytics: {',
+      '  track(event: string, payload: unknown): void;',
+      '};',
+      '',
+      'analytics.track("user-profile", {',
+      '  userId: "customer-123",',
+      '  channel: "web",',
+      '});',
+    ].join('\n');
+
+    const facts = collectSensitiveLoggingFacts(buildContext(sourceText));
+
+    expect(facts).toHaveLength(0);
+  });
+});

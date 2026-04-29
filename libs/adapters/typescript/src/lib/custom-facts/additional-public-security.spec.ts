@@ -437,6 +437,78 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     ).toHaveLength(0);
   });
 
+  it('flags information leakage sinks but suppresses explicit dev-only guards', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'function handler(req, res, error) {',
+        '  console.error("request failed", error.stack);',
+        '  process.stdout.write(JSON.stringify(req.headers));',
+        '  res.json({ cookies: req.cookies, env: process.env });',
+        '  if (process.env.NODE_ENV !== "production") {',
+        '    console.error(error.stack);',
+        '    res.json(process.env);',
+        '  }',
+        '  import.meta.env.DEV && process.stderr.write(JSON.stringify(req.headers));',
+        '  __DEV__ && process.stderr.write(JSON.stringify(req.headers));',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.information-leakage'),
+    ).toHaveLength(3);
+  });
+
+  it('ignores generic error logging without stack traces or diagnostic payloads', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'async function handler() {',
+        '  try {',
+        '    await performWork();',
+        '  } catch (error) {',
+        '    logger.error("work failed", error);',
+        '    console.error(error.message);',
+        '  }',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.information-leakage'),
+    ).toHaveLength(0);
+  });
+
+  it('flags debug middleware and diagnostic handlers but ignores explicit dev-only mounts', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'const app = express();',
+        'app.use(errorhandler());',
+        'app.use((req, res, error) => {',
+        '  res.json({ stack: error.stack, env: process.env });',
+        '});',
+        'app.get("/debug", (_req, res) => {',
+        '  res.json({ ok: true });',
+        '});',
+        'if (process.env.NODE_ENV === "development") {',
+        '  app.use(errorhandler());',
+        '  app.get("/__debug", (_req, res, error) => {',
+        '    res.json({ stack: error.stack });',
+        '  });',
+        '}',
+        'import.meta.env.DEV && app.get("/pprof", (_req, res) => {',
+        '  res.json({ ok: true });',
+        '});',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.debug-mode-enabled'),
+    ).toHaveLength(3);
+    expect(
+      facts.filter((fact) => fact.kind === 'security.information-leakage'),
+    ).toHaveLength(1);
+  });
+
   it('ignores safe handlers and hardened express configuration', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([

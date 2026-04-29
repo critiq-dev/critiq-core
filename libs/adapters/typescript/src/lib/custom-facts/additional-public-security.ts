@@ -13,6 +13,10 @@ import {
   collectRenderFacts,
 } from './additional-public-security/application';
 import {
+  collectDebugModeEnabledFacts,
+  collectInformationLeakageFacts,
+} from './additional-public-security/disclosure';
+import {
   collectDynamodbQueryFacts,
   collectFileAndExceptionFacts,
   collectNosqlInjectionFacts,
@@ -47,6 +51,7 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
     ...collectHeaderMisuseFacts(context, taintedNames),
     ...collectNosqlInjectionFacts(context, taintedNames, modelNames),
     ...collectDynamodbQueryFacts(context, taintedNames, dynamodbClientNames),
+    ...collectInformationLeakageFacts(context),
     ...collectFormatStringFacts(context, taintedNames),
     ...collectBrowserOriginFacts(context, functionBindings),
     ...collectModuleLoadFacts(
@@ -67,5 +72,6 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
     ),
     ...collectDatadogBrowserFacts(context),
     ...collectExpressHardeningFacts(context),
+    ...collectDebugModeEnabledFacts(context),
   ];
 };
