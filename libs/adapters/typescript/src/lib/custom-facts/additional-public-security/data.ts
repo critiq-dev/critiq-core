@@ -21,7 +21,7 @@ import {
   fileWriteSinkNames,
   sensitiveComparePattern,
 } from './constants';
-import { getLiteralNumber, normalizeText } from './utils';
+import { normalizeText } from './utils';
 
 export function collectNosqlInjectionFacts(
   context: TypeScriptFactDetectorContext,
@@ -300,46 +300,6 @@ export function collectFileAndExceptionFacts(
         );
       }
     }
-  });
-
-  return facts;
-}
-
-export function collectFilePermissionFacts(
-  context: TypeScriptFactDetectorContext,
-): ObservedFact[] {
-  const facts: ObservedFact[] = [];
-
-  walkAst(context.program, (node) => {
-    if (node.type !== 'CallExpression') {
-      return;
-    }
-
-    const calleeText = getCalleeText(node.callee, context.sourceText);
-
-    if (!calleeText || !/(?:^|\.)(chmod|chmodSync)$/u.test(calleeText)) {
-      return;
-    }
-
-    const mode = getLiteralNumber(node.arguments[1] as TSESTree.Expression);
-
-    if (mode === undefined || (mode & 0o007) === 0) {
-      return;
-    }
-
-    facts.push(
-      createObservedFact({
-        appliesTo: 'block',
-        kind: FACT_KINDS.permissiveFilePermissions,
-        node,
-        nodeIds: context.nodeIds,
-        props: {
-          mode,
-          sink: calleeText,
-        },
-        text: calleeText,
-      }),
-    );
   });
 
   return facts;

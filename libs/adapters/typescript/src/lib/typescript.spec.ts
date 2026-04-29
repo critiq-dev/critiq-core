@@ -433,6 +433,10 @@ describe('analyzeTypeScriptFile', () => {
           appliesTo: 'block',
         }),
         expect.objectContaining({
+          kind: 'security.non-literal-fs-filename',
+          appliesTo: 'block',
+        }),
+        expect.objectContaining({
           kind: 'security.command-execution-with-request-input',
           appliesTo: 'block',
         }),

@@ -315,6 +315,55 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     );
   });
 
+  it('flags request and upload controlled filesystem reads, writes, upload filenames, and permissive modes', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'import fs from "node:fs";',
+        'import multer from "multer";',
+        'function readReport(req, file) {',
+        '  fs.readFileSync(req.query.report, "utf8");',
+        '  fs.createReadStream(file.originalname);',
+        '  fs.writeFileSync(req.body.outputPath, "report", { mode: 0o666 });',
+        '  fs.mkdirSync("public-cache", { mode: 0o777 });',
+        '}',
+        'const storage = multer.diskStorage({',
+        '  filename(req, file, cb) {',
+        '    cb(null, file.originalname);',
+        '  },',
+        '});',
+      ].join('\n')),
+    );
+
+    expect(facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'security.request-path-file-read',
+        }),
+        expect.objectContaining({
+          kind: 'security.non-literal-fs-filename',
+        }),
+        expect.objectContaining({
+          kind: 'security.file-generation',
+        }),
+        expect.objectContaining({
+          kind: 'security.external-file-upload',
+        }),
+        expect.objectContaining({
+          kind: 'security.permissive-file-permissions',
+        }),
+      ]),
+    );
+    expect(
+      facts.filter((fact) => fact.kind === 'security.non-literal-fs-filename'),
+    ).toHaveLength(2);
+    expect(
+      facts.filter((fact) => fact.kind === 'security.file-generation'),
+    ).toHaveLength(1);
+    expect(
+      facts.filter((fact) => fact.kind === 'security.permissive-file-permissions'),
+    ).toHaveLength(2);
+  });
+
   it('flags unsafe response writers but ignores escaped response payloads and fixed render locals', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([
@@ -388,5 +437,41 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     );
 
     expect(facts).toEqual([]);
+  });
+
+  it('ignores safe generated upload names and allowlisted filesystem paths', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'import fs from "node:fs";',
+        'import crypto from "node:crypto";',
+        'import multer from "multer";',
+        'function validateReportPath(kind) {',
+        '  return kind === "summary" ? "/srv/reports/summary.txt" : "/srv/reports/default.txt";',
+        '}',
+        'const storage = multer.diskStorage({',
+        '  filename(req, file, cb) {',
+        '    cb(null, `${crypto.randomUUID()}.bin`);',
+        '  },',
+        '});',
+        'function readReport(req) {',
+        '  const safePath = validateReportPath(req.query.kind);',
+        '  const artifactPath = `/tmp/${crypto.randomUUID()}.json`;',
+        '  fs.readFileSync(safePath, "utf8");',
+        '  fs.writeFileSync(artifactPath, "report", { mode: 0o640 });',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) =>
+        [
+          'security.request-path-file-read',
+          'security.non-literal-fs-filename',
+          'security.file-generation',
+          'security.external-file-upload',
+          'security.permissive-file-permissions',
+        ].includes(fact.kind),
+      ),
+    ).toEqual([]);
   });
 });

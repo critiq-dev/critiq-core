@@ -17,6 +17,14 @@ export type FunctionLikeNode =
 const validationWrapperPattern =
   /^(?:allowlist|assert|check|sanitize|validate|verify)/iu;
 
+function looksLikeUploadSource(text: string): boolean {
+  return (
+    /\boriginalname\b/u.test(text) &&
+    (/\bfile(?:\?\.|\.)originalname\b/u.test(text) ||
+      /\b(?:req|request|ctx|context|event)(?:\?\.|\.)files?\b/u.test(text))
+  );
+}
+
 function leafCalleeName(text: string | undefined): string | undefined {
   if (!text) {
     return undefined;
@@ -42,17 +50,18 @@ export function isValidationLikeCall(
   return Boolean(calleeName && validationWrapperPattern.test(calleeName));
 }
 
-export function isRequestDerivedExpression(
+function isDerivedExpression(
   node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
-  taintedNames: ReadonlySet<string>,
+  derivedNames: ReadonlySet<string>,
   sourceText: string,
+  matchesSourceText: (text: string) => boolean,
 ): boolean {
   if (!node) {
     return false;
   }
 
   if (node.type === 'Identifier') {
-    return taintedNames.has(node.name);
+    return derivedNames.has(node.name);
   }
 
   if (node.type === 'CallExpression' && isValidationLikeCall(node, sourceText)) {
@@ -61,7 +70,7 @@ export function isRequestDerivedExpression(
 
   const text = normalizeText(getNodeText(node, sourceText));
 
-  if (text.length > 0 && requestSourcePattern.test(text)) {
+  if (text.length > 0 && matchesSourceText(text)) {
     return true;
   }
 
@@ -69,84 +78,162 @@ export function isRequestDerivedExpression(
     case 'ArrayExpression':
       return node.elements.some((element) =>
         element
-          ? isRequestDerivedExpression(element, taintedNames, sourceText)
+          ? isDerivedExpression(
+              element,
+              derivedNames,
+              sourceText,
+              matchesSourceText,
+            )
           : false,
       );
     case 'AssignmentExpression':
     case 'BinaryExpression':
     case 'LogicalExpression':
       return (
-        isRequestDerivedExpression(node.left, taintedNames, sourceText) ||
-        isRequestDerivedExpression(node.right, taintedNames, sourceText)
+        isDerivedExpression(
+          node.left,
+          derivedNames,
+          sourceText,
+          matchesSourceText,
+        ) ||
+        isDerivedExpression(
+          node.right,
+          derivedNames,
+          sourceText,
+          matchesSourceText,
+        )
       );
     case 'AwaitExpression':
     case 'UnaryExpression':
-      return isRequestDerivedExpression(
+      return isDerivedExpression(
         node.argument,
-        taintedNames,
+        derivedNames,
         sourceText,
+        matchesSourceText,
       );
     case 'CallExpression':
       return node.arguments.some((argument) =>
-        isRequestDerivedExpression(argument, taintedNames, sourceText),
+        isDerivedExpression(
+          argument,
+          derivedNames,
+          sourceText,
+          matchesSourceText,
+        ),
       );
     case 'NewExpression':
       return node.arguments.some((argument) =>
-        isRequestDerivedExpression(argument, taintedNames, sourceText),
+        isDerivedExpression(
+          argument,
+          derivedNames,
+          sourceText,
+          matchesSourceText,
+        ),
       );
     case 'ChainExpression':
-      return isRequestDerivedExpression(
+      return isDerivedExpression(
         node.expression,
-        taintedNames,
+        derivedNames,
         sourceText,
+        matchesSourceText,
       );
     case 'ConditionalExpression':
       return (
-        isRequestDerivedExpression(node.test, taintedNames, sourceText) ||
-        isRequestDerivedExpression(node.consequent, taintedNames, sourceText) ||
-        isRequestDerivedExpression(node.alternate, taintedNames, sourceText)
+        isDerivedExpression(
+          node.test,
+          derivedNames,
+          sourceText,
+          matchesSourceText,
+        ) ||
+        isDerivedExpression(
+          node.consequent,
+          derivedNames,
+          sourceText,
+          matchesSourceText,
+        ) ||
+        isDerivedExpression(
+          node.alternate,
+          derivedNames,
+          sourceText,
+          matchesSourceText,
+        )
       );
     case 'MemberExpression':
-      return requestSourcePattern.test(text);
+      return matchesSourceText(text);
     case 'ObjectExpression':
       return node.properties.some((property) => {
         if (property.type === 'Property') {
           return (
-            isRequestDerivedExpression(
+            isDerivedExpression(
               property.key,
-              taintedNames,
+              derivedNames,
               sourceText,
+              matchesSourceText,
             ) ||
-            isRequestDerivedExpression(property.value, taintedNames, sourceText)
+            isDerivedExpression(
+              property.value,
+              derivedNames,
+              sourceText,
+              matchesSourceText,
+            )
           );
         }
 
-        return isRequestDerivedExpression(
+        return isDerivedExpression(
           property.argument,
-          taintedNames,
+          derivedNames,
           sourceText,
+          matchesSourceText,
         );
       });
     case 'TemplateLiteral':
       return node.expressions.some((expression) =>
-        isRequestDerivedExpression(expression, taintedNames, sourceText),
+        isDerivedExpression(
+          expression,
+          derivedNames,
+          sourceText,
+          matchesSourceText,
+        ),
       );
     case 'TSAsExpression':
     case 'TSTypeAssertion':
-      return isRequestDerivedExpression(
+      return isDerivedExpression(
         node.expression,
-        taintedNames,
+        derivedNames,
         sourceText,
+        matchesSourceText,
       );
     default:
       return false;
   }
 }
 
-export function collectRequestDerivedNames(
+export function isRequestDerivedExpression(
+  node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
+  taintedNames: ReadonlySet<string>,
+  sourceText: string,
+): boolean {
+  return isDerivedExpression(node, taintedNames, sourceText, (text) =>
+    requestSourcePattern.test(text),
+  );
+}
+
+export function isUploadDerivedExpression(
+  node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
+  taintedNames: ReadonlySet<string>,
+  sourceText: string,
+): boolean {
+  return isDerivedExpression(node, taintedNames, sourceText, looksLikeUploadSource);
+}
+
+function collectDerivedNames(
   context: TypeScriptFactDetectorContext,
+  isDerived: (
+    node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
+    derivedNames: ReadonlySet<string>,
+    sourceText: string,
+  ) => boolean,
 ): Set<string> {
-  const taintedNames = new Set<string>();
+  const derivedNames = new Set<string>();
 
   walkAst(context.program, (node) => {
     if (node.type === 'VariableDeclarator') {
@@ -154,10 +241,8 @@ export function collectRequestDerivedNames(
         return;
       }
 
-      if (
-        isRequestDerivedExpression(node.init, taintedNames, context.sourceText)
-      ) {
-        taintedNames.add(node.id.name);
+      if (isDerived(node.init, derivedNames, context.sourceText)) {
+        derivedNames.add(node.id.name);
       }
 
       return;
@@ -170,14 +255,24 @@ export function collectRequestDerivedNames(
       return;
     }
 
-    if (
-      isRequestDerivedExpression(node.right, taintedNames, context.sourceText)
-    ) {
-      taintedNames.add(node.left.name);
+    if (isDerived(node.right, derivedNames, context.sourceText)) {
+      derivedNames.add(node.left.name);
     }
   });
 
-  return taintedNames;
+  return derivedNames;
+}
+
+export function collectRequestDerivedNames(
+  context: TypeScriptFactDetectorContext,
+): Set<string> {
+  return collectDerivedNames(context, isRequestDerivedExpression);
+}
+
+export function collectUploadDerivedNames(
+  context: TypeScriptFactDetectorContext,
+): Set<string> {
+  return collectDerivedNames(context, isUploadDerivedExpression);
 }
 
 export function collectSensitiveSignals(

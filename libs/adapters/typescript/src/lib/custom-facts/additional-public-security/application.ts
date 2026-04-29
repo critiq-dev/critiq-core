@@ -13,7 +13,6 @@ import { isRequestDerivedExpression } from './analysis';
 import {
   FACT_KINDS,
   renderSinkNames,
-  sendFileSinkNames,
   sensitiveComparePattern,
   sessionCallNames,
   strategyNames,
@@ -209,35 +208,11 @@ export function collectDatadogBrowserFacts(
   return facts;
 }
 
-export function collectRenderAndSendFileFacts(
+export function collectRenderFacts(
   context: TypeScriptFactDetectorContext,
   taintedNames: ReadonlySet<string>,
 ): ObservedFact[] {
   const facts: ObservedFact[] = [];
-
-  const hasSafeRoot = (
-    argument: TSESTree.CallExpressionArgument | undefined,
-  ): boolean => {
-    if (
-      !argument ||
-      argument.type === 'SpreadElement' ||
-      argument.type !== 'ObjectExpression'
-    ) {
-      return false;
-    }
-
-    const rootProperty = getObjectProperty(argument, 'root');
-
-    if (!rootProperty) {
-      return false;
-    }
-
-    return !isRequestDerivedExpression(
-      rootProperty.value,
-      taintedNames,
-      context.sourceText,
-    );
-  };
 
   walkAst(context.program, (node) => {
     if (node.type !== 'CallExpression') {
@@ -267,58 +242,6 @@ export function collectRenderAndSendFileFacts(
           }),
         );
       }
-
-      return;
-    }
-
-    if (!calleeText || !sendFileSinkNames.has(calleeText)) {
-      return;
-    }
-
-    const filename = node.arguments[0];
-    const options = node.arguments[1];
-
-    if (
-      filename &&
-      filename.type !== 'SpreadElement' &&
-      isRequestDerivedExpression(filename, taintedNames, context.sourceText) &&
-      !hasSafeRoot(options)
-    ) {
-      facts.push(
-        createObservedFact({
-          appliesTo: 'block',
-          kind: FACT_KINDS.userControlledSendFile,
-          node,
-          nodeIds: context.nodeIds,
-          props: {
-            sink: calleeText,
-            safeRoot: false,
-          },
-          text: calleeText,
-        }),
-      );
-
-      return;
-    }
-
-    if (
-      options &&
-      options.type !== 'SpreadElement' &&
-      isRequestDerivedExpression(options, taintedNames, context.sourceText)
-    ) {
-      facts.push(
-        createObservedFact({
-          appliesTo: 'block',
-          kind: FACT_KINDS.userControlledSendFile,
-          node,
-          nodeIds: context.nodeIds,
-          props: {
-            sink: calleeText,
-            safeRoot: false,
-          },
-          text: calleeText,
-        }),
-      );
     }
   });
 
@@ -349,18 +272,6 @@ export function collectExpressHardeningFacts(
       !expressInitNode
     ) {
       expressInitNode = node;
-    }
-
-    if (calleeText === 'serveIndex') {
-      facts.push(
-        createObservedFact({
-          appliesTo: 'block',
-          kind: FACT_KINDS.exposedDirectoryListing,
-          node,
-          nodeIds: context.nodeIds,
-          text: calleeText,
-        }),
-      );
     }
 
     if (

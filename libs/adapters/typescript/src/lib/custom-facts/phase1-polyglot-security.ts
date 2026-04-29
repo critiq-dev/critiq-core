@@ -66,27 +66,6 @@ export const collectPhase1PolyglotSecurityFacts: TypeScriptFactDetector = (
     }
 
     if (
-      (calleeText === 'fs.readFile' ||
-        calleeText === 'fs.readFileSync' ||
-        calleeText === 'fs.promises.readFile') &&
-      requestInputPattern.test(callText)
-    ) {
-      facts.push(
-        createObservedFact({
-          appliesTo: 'block',
-          kind: 'security.request-path-file-read',
-          node,
-          nodeIds: context.nodeIds,
-          text: callText,
-          props: {
-            callee: calleeText,
-          },
-        }),
-      );
-      return;
-    }
-
-    if (
       ['exec', 'execSync', 'spawn', 'spawnSync'].includes(calleeText) ||
       ['.exec', '.execSync', '.spawn', '.spawnSync'].some((suffix) =>
         calleeText.endsWith(suffix),

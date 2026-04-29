@@ -2,21 +2,22 @@ import {
   collectDynamodbClientBindings,
   collectExpressModelBindings,
   collectRequestDerivedNames,
+  collectUploadDerivedNames,
   resolveFunctionBindings,
 } from './additional-public-security/analysis';
 import {
   collectDatadogBrowserFacts,
   collectExpressHardeningFacts,
   collectHardcodedAuthSecretFacts,
-  collectRenderAndSendFileFacts,
+  collectRenderFacts,
 } from './additional-public-security/application';
 import {
   collectDynamodbQueryFacts,
   collectFileAndExceptionFacts,
-  collectFilePermissionFacts,
   collectNosqlInjectionFacts,
   collectObservableTimingFacts,
 } from './additional-public-security/data';
+import { collectFilesystemSafetyFacts } from './additional-public-security/filesystem';
 import {
   collectHtmlOutputFacts,
   collectHttpResponseFacts,
@@ -34,11 +35,13 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
   context,
 ) => {
   const taintedNames = collectRequestDerivedNames(context);
+  const uploadDerivedNames = collectUploadDerivedNames(context);
   const functionBindings = resolveFunctionBindings(context);
   const modelNames = collectExpressModelBindings(context);
   const dynamodbClientNames = collectDynamodbClientBindings(context);
 
   return [
+    ...collectFilesystemSafetyFacts(context, taintedNames, uploadDerivedNames),
     ...collectHeaderMisuseFacts(context, taintedNames),
     ...collectNosqlInjectionFacts(context, taintedNames, modelNames),
     ...collectDynamodbQueryFacts(context, taintedNames, dynamodbClientNames),
@@ -50,9 +53,8 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
     ...collectWebsocketFacts(context),
     ...collectHardcodedAuthSecretFacts(context),
     ...collectFileAndExceptionFacts(context),
-    ...collectFilePermissionFacts(context),
     ...collectObservableTimingFacts(context),
-    ...collectRenderAndSendFileFacts(context, taintedNames),
+    ...collectRenderFacts(context, taintedNames),
     ...collectDatadogBrowserFacts(context),
     ...collectExpressHardeningFacts(context),
   ];
