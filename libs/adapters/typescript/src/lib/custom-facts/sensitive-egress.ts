@@ -9,12 +9,14 @@ import {
   createObservedFact,
   getCalleeText,
   getNodeText,
-  getObjectProperty,
-  getStringLiteralValue,
   isNode,
   type TypeScriptFactDetector,
   type TypeScriptFactDetectorContext,
 } from './shared';
+import {
+  getOutboundTargetExpression,
+  isExternalNetworkUrlLiteral,
+} from './outbound-network';
 
 const sensitiveEgressKind = 'security.sensitive-data-egress' as const;
 
@@ -89,39 +91,16 @@ function isIdentifierSensitive(text: string | undefined): boolean {
   );
 }
 
-function isLocalOrInternalHost(hostname: string): boolean {
-  return (
-    hostname === 'localhost' ||
-    hostname === '::1' ||
-    hostname === '[::1]' ||
-    hostname.startsWith('127.') ||
-    hostname.startsWith('10.') ||
-    hostname.startsWith('192.168.') ||
-    /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname) ||
-    hostname === '169.254.169.254'
-  );
-}
-
 function isExternalUrlLiteral(
   node: TSESTree.Expression | TSESTree.PrivateIdentifier | null | undefined,
 ): boolean {
-  const literal = getStringLiteralValue(node);
-
-  if (!literal) {
-    return false;
-  }
-
-  if (!/^https?:\/\//i.test(literal)) {
-    return false;
-  }
-
-  try {
-    const parsed = new URL(literal);
-
-    return !isLocalOrInternalHost(parsed.hostname);
-  } catch {
-    return !/localhost|127\.0\.0\.1|169\.254\.169\.254/i.test(literal);
-  }
+  return Boolean(
+    node &&
+      'type' in node &&
+      node.type === 'Literal' &&
+      typeof node.value === 'string' &&
+      isExternalNetworkUrlLiteral(node.value),
+  );
 }
 
 function isExternalProcessorCall(calleeText: string | undefined): boolean {
@@ -225,48 +204,6 @@ function collectSensitiveSignalsFromNode(
   return [...signals].sort((left, right) => left.localeCompare(right));
 }
 
-function getFetchOrAxiosTarget(
-  callExpression: TSESTree.CallExpression,
-  calleeText: string | undefined,
-): TSESTree.Expression | undefined {
-  if (!calleeText) {
-    return undefined;
-  }
-
-  if (calleeText === 'fetch' || calleeText.endsWith('.fetch')) {
-    return callExpression.arguments[0] && callExpression.arguments[0].type !== 'SpreadElement'
-      ? callExpression.arguments[0]
-      : undefined;
-  }
-
-  if (calleeText === 'axios' || calleeText === 'axios.request') {
-    const firstArgument = callExpression.arguments[0];
-
-    if (!firstArgument || firstArgument.type === 'SpreadElement') {
-      return undefined;
-    }
-
-    if (firstArgument.type === 'ObjectExpression') {
-      const urlProperty = getObjectProperty(firstArgument, 'url');
-      const value = urlProperty?.value;
-
-      return value && 'type' in value ? (value as TSESTree.Expression) : undefined;
-    }
-
-    return firstArgument;
-  }
-
-  if (/^axios\.(delete|get|head|options|patch|post|put)$/i.test(calleeText)) {
-    const targetArgument = callExpression.arguments[0];
-
-    return targetArgument && targetArgument.type !== 'SpreadElement'
-      ? targetArgument
-      : undefined;
-  }
-
-  return undefined;
-}
-
 function collectFactForCall(
   context: TypeScriptFactDetectorContext,
   callExpression: TSESTree.CallExpression,
@@ -288,7 +225,7 @@ function collectFactForCall(
     /^axios\.(delete|get|head|options|patch|post|put)$/i.test(calleeText);
 
   if (httpClientSink) {
-    const target = getFetchOrAxiosTarget(callExpression, calleeText);
+    const target = getOutboundTargetExpression(callExpression, calleeText);
 
     if (!target || !isExternalUrlLiteral(target)) {
       return undefined;

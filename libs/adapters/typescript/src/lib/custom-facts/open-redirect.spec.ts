@@ -76,4 +76,19 @@ describe('collectOpenRedirectFacts', () => {
 
     expect(facts).toHaveLength(0);
   });
+
+  it('ignores centralized safe redirect helpers from the shared registry', () => {
+    const facts = collectOpenRedirectFacts(
+      createContext([
+        'function safeRedirect(req: { query: { next?: string } }, res: { redirect(value: string): void }) {',
+        '  res.redirect(sanitizeRedirectTarget(req.query.next));',
+        '  window.location.href = toInternalPath(req.query.next);',
+        '}',
+        'declare function sanitizeRedirectTarget(value: string | undefined): string;',
+        'declare function toInternalPath(value: string | undefined): string;',
+      ].join('\n')),
+    );
+
+    expect(facts).toHaveLength(0);
+  });
 });

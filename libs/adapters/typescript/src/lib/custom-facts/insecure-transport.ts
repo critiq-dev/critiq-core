@@ -4,74 +4,117 @@ import type { TSESTree } from '@typescript-eslint/typescript-estree';
 import {
   createObservedFact,
   excerptFor,
+  getObjectProperty,
   getCalleeText,
-  isPropertyNamed,
+  getStringLiteralValue,
   type TypeScriptFactDetector,
   type TypeScriptFactDetectorContext,
   walkAst,
 } from './shared';
+import {
+  getStringLiteralArgument,
+  isOutboundTransportSink,
+  isRemotePlainHttpUrl,
+} from './outbound-network';
 
 const TLS_FACT_KIND = 'security.tls-verification-disabled';
 const HTTP_FACT_KIND = 'security.insecure-http-transport';
+const WEAK_TLS_FACT_KIND = 'security.weak-tls-version';
 
-const transportSinkNames = new Set([
-  'axios',
-  'axios.request',
-  'fetch',
-  'got',
-  'http.request',
-  'https.request',
-]);
-
-const axiosTransportPattern = /^axios\.(delete|get|head|options|patch|post|put)$/;
-const gotTransportPattern = /^got(\.(delete|get|head|options|patch|post|put))?$/;
-const loopbackHostPattern = /^(localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|::1)$/i;
-
-function isTransportSink(calleeText: string | undefined): boolean {
-  if (!calleeText) {
+function isFunctionLike(
+  node: TSESTree.Expression | TSESTree.PrivateIdentifier | null | undefined,
+): node is TSESTree.ArrowFunctionExpression | TSESTree.FunctionExpression {
+  if (!node || node.type === 'PrivateIdentifier') {
     return false;
   }
 
   return (
-    transportSinkNames.has(calleeText) ||
-    axiosTransportPattern.test(calleeText) ||
-    gotTransportPattern.test(calleeText)
+    node.type === 'ArrowFunctionExpression' ||
+    node.type === 'FunctionExpression'
   );
 }
 
-function isHttpUrl(value: string): boolean {
-  return /^http:\/\//i.test(value);
-}
+function getExpressionPropertyValue(
+  property: TSESTree.Property | undefined,
+): TSESTree.Expression | undefined {
+  const value = property?.value;
 
-function isLocalDevelopmentHttpUrl(value: string): boolean {
-  if (!isHttpUrl(value)) {
-    return false;
-  }
-
-  try {
-    const url = new URL(value);
-
-    return loopbackHostPattern.test(url.hostname);
-  } catch {
-    return false;
-  }
-}
-
-function firstStringArgument(
-  node: TSESTree.CallExpression | TSESTree.NewExpression,
-): string | undefined {
-  const firstArgument = node.arguments[0] as
-    | TSESTree.Expression
-    | TSESTree.SpreadElement
-    | undefined;
-
-  if (!firstArgument || firstArgument.type !== 'Literal') {
+  if (
+    !value ||
+    value.type === 'AssignmentPattern' ||
+    value.type === 'TSEmptyBodyFunctionExpression'
+  ) {
     return undefined;
   }
 
-  return typeof firstArgument.value === 'string'
-    ? firstArgument.value
-    : undefined;
+  return value;
+}
+
+function isUndefinedLikeExpression(
+  node: TSESTree.Expression | TSESTree.PrivateIdentifier | null | undefined,
+): boolean {
+  if (!node || node.type === 'PrivateIdentifier') {
+    return false;
+  }
+
+  if (node.type === 'Identifier' && node.name === 'undefined') {
+    return true;
+  }
+
+  if (node.type === 'Literal') {
+    return node.value === null;
+  }
+
+  return (
+    node.type === 'UnaryExpression' &&
+    node.operator === 'void' &&
+    node.argument.type === 'Literal' &&
+    node.argument.value === 0
+  );
+}
+
+function isPermissiveCheckServerIdentity(
+  node: TSESTree.Expression | TSESTree.PrivateIdentifier | null | undefined,
+): boolean {
+  if (!isFunctionLike(node)) {
+    return false;
+  }
+
+  if (node.body.type !== 'BlockStatement') {
+    return isUndefinedLikeExpression(node.body);
+  }
+
+  if (node.body.body.length === 0) {
+    return true;
+  }
+
+  const returnStatements = node.body.body.filter(
+    (statement): statement is TSESTree.ReturnStatement =>
+      statement.type === 'ReturnStatement',
+  );
+
+  return (
+    returnStatements.length > 0 &&
+    returnStatements.every((statement) =>
+      isUndefinedLikeExpression(statement.argument),
+    )
+  );
+}
+
+function normalizeTlsPolicyValue(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/gu, '');
+}
+
+function isWeakMinVersion(value: string): boolean {
+  return /^(?:sslv3|tlsv1(?:\.0)?|tlsv1\.1)$/iu.test(
+    normalizeTlsPolicyValue(value),
+  );
+}
+
+function isWeakSecureProtocol(value: string): boolean {
+  return /^(?:sslv3_method|tlsv1_method|tlsv1_1_method)$/iu.test(
+    normalizeTlsPolicyValue(value),
+  );
 }
 
 function collectTlsDisableFacts(
@@ -80,31 +123,92 @@ function collectTlsDisableFacts(
   const facts: ObservedFact[] = [];
 
   walkAst(context.program, (node) => {
-    if (node.type === 'Property') {
+    if (node.type === 'ObjectExpression') {
+      const rejectUnauthorized = getObjectProperty(node, 'rejectUnauthorized');
+      const checkServerIdentity = getObjectProperty(node, 'checkServerIdentity');
+      const minVersionProperty = getObjectProperty(node, 'minVersion');
+      const secureProtocolProperty = getObjectProperty(node, 'secureProtocol');
+
       if (
-        !isPropertyNamed(node.key, 'rejectUnauthorized') ||
-        node.value.type !== 'Literal' ||
-        node.value.value !== false
+        rejectUnauthorized?.value.type === 'Literal' &&
+        rejectUnauthorized.value.value === false
       ) {
-        return;
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: TLS_FACT_KIND,
+            node: rejectUnauthorized,
+            nodeIds: context.nodeIds,
+            text: excerptFor(rejectUnauthorized, context.sourceText),
+            props: {
+              option: 'rejectUnauthorized',
+              sink: 'tls-agent',
+              value: false,
+            },
+          }),
+        );
       }
 
-      facts.push(
-        createObservedFact({
-          appliesTo: 'block',
-          kind: TLS_FACT_KIND,
-          node,
-          nodeIds: context.nodeIds,
-          text: excerptFor(node, context.sourceText),
-          props: {
-            option: 'rejectUnauthorized',
-            sink: 'tls-agent',
-            value: false,
-          },
-        }),
+      if (
+        isPermissiveCheckServerIdentity(
+          getExpressionPropertyValue(checkServerIdentity),
+        )
+      ) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: TLS_FACT_KIND,
+            node: checkServerIdentity ?? node,
+            nodeIds: context.nodeIds,
+            text: excerptFor(checkServerIdentity ?? node, context.sourceText),
+            props: {
+              option: 'checkServerIdentity',
+              sink: 'tls-agent',
+              value: 'permissive-callback',
+            },
+          }),
+        );
+      }
+
+      const minVersion = getStringLiteralValue(
+        getExpressionPropertyValue(minVersionProperty),
       );
 
-      return;
+      if (minVersion && isWeakMinVersion(minVersion)) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: WEAK_TLS_FACT_KIND,
+            node: minVersionProperty ?? node,
+            nodeIds: context.nodeIds,
+            text: excerptFor(minVersionProperty ?? node, context.sourceText),
+            props: {
+              option: 'minVersion',
+              value: minVersion,
+            },
+          }),
+        );
+      }
+
+      const secureProtocol = getStringLiteralValue(
+        getExpressionPropertyValue(secureProtocolProperty),
+      );
+
+      if (secureProtocol && isWeakSecureProtocol(secureProtocol)) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: WEAK_TLS_FACT_KIND,
+            node: secureProtocolProperty ?? node,
+            nodeIds: context.nodeIds,
+            text: excerptFor(secureProtocolProperty ?? node, context.sourceText),
+            props: {
+              option: 'secureProtocol',
+              value: secureProtocol,
+            },
+          }),
+        );
+      }
     }
 
     if (node.type !== 'AssignmentExpression') {
@@ -114,27 +218,25 @@ function collectTlsDisableFacts(
     const leftText = excerptFor(node.left, context.sourceText);
 
     if (
-      !/^process\.env\.NODE_TLS_REJECT_UNAUTHORIZED$/i.test(leftText) ||
-      node.right.type !== 'Literal' ||
-      String(node.right.value) !== '0'
+      /^process\.env\.NODE_TLS_REJECT_UNAUTHORIZED$/i.test(leftText) &&
+      node.right.type === 'Literal' &&
+      String(node.right.value) === '0'
     ) {
-      return;
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: TLS_FACT_KIND,
+          node,
+          nodeIds: context.nodeIds,
+          text: excerptFor(node, context.sourceText),
+          props: {
+            option: 'NODE_TLS_REJECT_UNAUTHORIZED',
+            sink: 'process.env',
+            value: '0',
+          },
+        }),
+      );
     }
-
-    facts.push(
-      createObservedFact({
-        appliesTo: 'block',
-        kind: TLS_FACT_KIND,
-        node,
-        nodeIds: context.nodeIds,
-        text: excerptFor(node, context.sourceText),
-        props: {
-          option: 'NODE_TLS_REJECT_UNAUTHORIZED',
-          sink: 'process.env',
-          value: '0',
-        },
-      }),
-    );
   });
 
   return facts;
@@ -155,17 +257,13 @@ function collectInsecureHttpFacts(
       context.sourceText,
     );
 
-    if (!isTransportSink(calleeText)) {
+    if (!isOutboundTransportSink(calleeText)) {
       return;
     }
 
-    const firstArgument = firstStringArgument(node);
+    const firstArgument = getStringLiteralArgument(node);
 
-    if (!firstArgument || !isHttpUrl(firstArgument)) {
-      return;
-    }
-
-    if (isLocalDevelopmentHttpUrl(firstArgument)) {
+    if (!isRemotePlainHttpUrl(firstArgument)) {
       return;
     }
 

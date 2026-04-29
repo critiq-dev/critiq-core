@@ -7,6 +7,7 @@ import {
   collectInsecureCookieJwtSessionFacts,
 } from './insecure-cookie-jwt-session';
 import { collectInsecureTransportFacts } from './insecure-transport';
+import { collectNetworkExposureFacts } from './network-exposure';
 import { collectOpenRedirectFacts } from './open-redirect';
 import { collectPhase1PolyglotSecurityFacts } from './phase1-polyglot-security';
 import { detectReactNextBestPracticesFacts } from './react-next-best-practices';
@@ -24,6 +25,7 @@ export function collectAdditionalTypeScriptFacts(
     ...collectAdditionalPublicSecurityFacts(context),
     ...collectInsecureCookieJwtSessionFacts(context),
     ...collectInsecureTransportFacts(context),
+    ...collectNetworkExposureFacts(context),
     ...collectOpenRedirectFacts(context),
     ...collectQueryCommandDynamicExecutionFacts(context),
     ...collectPhase1PolyglotSecurityFacts(context),

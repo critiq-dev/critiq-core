@@ -112,6 +112,22 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     );
   });
 
+  it('continues to flag cleartext loopback websocket urls after shared transport refactoring', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'const socket = new WebSocket("ws://localhost:3000/socket");',
+      ].join('\n')),
+    );
+
+    expect(facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'security.insecure-websocket-transport',
+        }),
+      ]),
+    );
+  });
+
   it('flags unsafe DOM HTML sinks but ignores trusted sanitizers and fixed HTML', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([

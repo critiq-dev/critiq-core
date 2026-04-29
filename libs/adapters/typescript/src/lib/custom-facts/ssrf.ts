@@ -5,48 +5,20 @@ import {
   createObservedFact,
   getCalleeText,
   getNodeText,
+  getObjectProperty,
   walkAst,
   type TypeScriptFactDetector,
   type TypeScriptFactDetectorContext,
 } from './shared';
+import {
+  getOutboundTargetExpression,
+  isOutboundTransportSink,
+  isPrivateHostLiteral,
+  isSafeUrlWrapperCall,
+} from './outbound-network';
 
 export const SSRF_RULE_ID = 'ts.security.ssrf';
 const SSRF_FACT_KIND = 'security.ssrf';
-
-const outboundSinkNames = new Set([
-  'axios',
-  'axios.delete',
-  'axios.get',
-  'axios.head',
-  'axios.options',
-  'axios.patch',
-  'axios.post',
-  'axios.put',
-  'axios.request',
-  'fetch',
-  'got',
-  'got.delete',
-  'got.get',
-  'got.head',
-  'got.options',
-  'got.patch',
-  'got.post',
-  'got.put',
-  'http.request',
-  'https.request',
-]);
-
-const safeUrlWrapperNames = new Set([
-  'allowlistedUrl',
-  'assertAllowedHost',
-  'assertAllowedUrl',
-  'ensureAllowedUrl',
-  'normalizeAllowedUrl',
-  'normalizeRedirectTarget',
-  'safeUrl',
-  'validateAllowedUrl',
-  'validateUrl',
-]);
 
 const requestSourcePattern =
   /(?:\b(?:req|request|ctx|context|event)\b(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*|\b(?:query|params|body|headers|cookies|searchParams|formData|payload)\b(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*)/u;
@@ -54,59 +26,8 @@ const requestSourcePattern =
 const requestTargetHintPattern =
   /\b(?:callbackUrl|dest(?:ination)?|next|redirect|returnTo|returnUrl|target|endpoint)\b/u;
 
-const privateHostPattern =
-  /(?:^|[^A-Za-z0-9])(?:localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|169\.254\.169\.254|metadata\.google\.internal|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2}|\[::1\])/iu;
-
-const urlPattern = /^https?:\/\//iu;
-
 function isOutboundSink(calleeText: string | undefined): boolean {
-  return Boolean(calleeText && outboundSinkNames.has(calleeText));
-}
-
-function isSafeWrapperCall(
-  node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
-  sourceText: string,
-): boolean {
-  if (!node || node.type !== 'CallExpression') {
-    return false;
-  }
-
-  const calleeText = getCalleeText(node.callee, sourceText);
-
-  return Boolean(calleeText && safeUrlWrapperNames.has(calleeText));
-}
-
-function isPrivateHostLiteral(text: string | undefined): boolean {
-  if (!text) {
-    return false;
-  }
-
-  if (privateHostPattern.test(text)) {
-    return true;
-  }
-
-  if (!urlPattern.test(text)) {
-    return false;
-  }
-
-  try {
-    const url = new URL(text);
-    const hostname = url.hostname.toLowerCase();
-
-    return (
-      hostname === 'localhost' ||
-      hostname === 'metadata.google.internal' ||
-      hostname === '0.0.0.0' ||
-      hostname === '::1' ||
-      hostname.startsWith('127.') ||
-      hostname.startsWith('10.') ||
-      hostname.startsWith('192.168.') ||
-      /^172\.(?:1[6-9]|2\d|3[0-1])\./u.test(hostname) ||
-      hostname === '169.254.169.254'
-    );
-  } catch {
-    return false;
-  }
+  return isOutboundTransportSink(calleeText);
 }
 
 function getExpressionText(
@@ -133,7 +54,7 @@ function isRequestDerivedExpression(
     return taintedNames.has(node.name);
   }
 
-  if (isSafeWrapperCall(node, sourceText)) {
+  if (isSafeUrlWrapperCall(node, sourceText)) {
     return false;
   }
 
@@ -238,32 +159,6 @@ function collectTaintedNames(
   return taintedNames;
 }
 
-function getCallTargetExpression(
-  node: TSESTree.CallExpression | TSESTree.NewExpression,
-): TSESTree.Expression | TSESTree.SpreadElement | undefined {
-  return node.arguments.find(
-    (argument): argument is TSESTree.Expression => argument.type !== 'SpreadElement',
-  );
-}
-
-function getOptionPropertyValue(
-  node: TSESTree.ObjectExpression,
-  name: string,
-): TSESTree.Node | TSESTree.PrivateIdentifier | undefined {
-  const property = node.properties.find(
-    (entry): entry is TSESTree.Property =>
-      entry.type === 'Property' &&
-      ((entry.key.type === 'Identifier' && entry.key.name === name) ||
-        (entry.key.type === 'Literal' && entry.key.value === name)),
-  );
-
-  if (!property) {
-    return undefined;
-  }
-
-  return property.value;
-}
-
 function collectSsrfFromCall(
   context: TypeScriptFactDetectorContext,
   node: TSESTree.CallExpression | TSESTree.NewExpression,
@@ -275,13 +170,13 @@ function collectSsrfFromCall(
     return undefined;
   }
 
-  const targetExpression = getCallTargetExpression(node);
+  const targetExpression = getOutboundTargetExpression(node, calleeText);
 
   if (!targetExpression) {
     return undefined;
   }
 
-  if (isSafeWrapperCall(targetExpression, context.sourceText)) {
+  if (isSafeUrlWrapperCall(targetExpression, context.sourceText)) {
     return undefined;
   }
 
@@ -300,7 +195,7 @@ function collectSsrfFromCall(
 
   if (!reason && targetExpression.type === 'ObjectExpression') {
     for (const propertyName of ['host', 'hostname', 'url', 'uri']) {
-      const propertyValue = getOptionPropertyValue(targetExpression, propertyName);
+      const propertyValue = getObjectProperty(targetExpression, propertyName)?.value;
 
       if (!propertyValue) {
         continue;

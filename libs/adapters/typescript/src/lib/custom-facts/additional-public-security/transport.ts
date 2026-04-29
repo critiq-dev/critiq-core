@@ -10,6 +10,10 @@ import {
   type TypeScriptFactDetectorContext,
 } from '../shared';
 import {
+  getStringLiteralArgument,
+  isInsecureWebsocketUrl,
+} from '../outbound-network';
+import {
   hasOriginCheck,
   isRequestDerivedExpression,
   resolveFunctionLike,
@@ -332,14 +336,11 @@ export function collectWebsocketFacts(
     }
 
     const calleeText = getNodeText(node.callee, context.sourceText);
-    const firstArgument = getLiteralString(
-      node.arguments[0] as TSESTree.Expression | undefined,
-    );
+    const firstArgument = getStringLiteralArgument(node);
 
     if (
       calleeText === 'WebSocket' &&
-      typeof firstArgument === 'string' &&
-      /^ws:\/\//iu.test(firstArgument)
+      isInsecureWebsocketUrl(firstArgument)
     ) {
       facts.push(
         createObservedFact({

@@ -42,16 +42,18 @@ describe('collectSsrfFacts', () => {
           'declare const req: { query: { url: string }, body: { host: string } };',
           'declare const http: { request(value: unknown): void };',
           'declare const got: (value: unknown) => void;',
+          'declare const axios: { request(value: unknown): void };',
           '',
           'const target = req.query.url;',
           'fetch(target);',
           'got(req.body.url);',
+          'axios.request({ url: req.query.url });',
           'http.request({ hostname: "169.254.169.254", path: "/latest/meta-data" });',
         ].join('\n'),
       ),
     );
 
-    expect(facts).toHaveLength(3);
+    expect(facts).toHaveLength(4);
     expect(facts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -74,6 +76,14 @@ describe('collectSsrfFacts', () => {
           kind: 'security.ssrf',
           appliesTo: 'block',
           props: expect.objectContaining({
+            sink: 'axios.request',
+            reason: 'request-controlled-target',
+          }),
+        }),
+        expect.objectContaining({
+          kind: 'security.ssrf',
+          appliesTo: 'block',
+          props: expect.objectContaining({
             sink: 'http.request',
             reason: 'private-host',
           }),
@@ -89,9 +99,11 @@ describe('collectSsrfFacts', () => {
           'declare const req: { query: { url: string } };',
           'declare function normalizeAllowedUrl(value: string): string;',
           'declare function assertAllowedHost(value: string): string;',
+          'declare function validateAllowedUrl(value: string): string;',
           '',
           'fetch(normalizeAllowedUrl(req.query.url));',
           'fetch(assertAllowedHost("https://example.com/api"));',
+          'axios.request({ url: validateAllowedUrl(req.query.url) });',
           'got("https://example.com/api");',
         ].join('\n'),
       ),
@@ -100,4 +112,3 @@ describe('collectSsrfFacts', () => {
     expect(facts).toHaveLength(0);
   });
 });
-

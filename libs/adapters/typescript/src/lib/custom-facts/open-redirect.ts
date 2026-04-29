@@ -9,6 +9,7 @@ import {
   type TypeScriptFactDetectorContext,
   walkAst,
 } from './shared';
+import { isSafeRedirectWrapperCall } from './outbound-network';
 
 const redirectSinkCallNames = new Set([
   'NextResponse.redirect',
@@ -32,17 +33,6 @@ const redirectSourceMemberPattern =
 
 const redirectIdentifierPattern =
   /^(callbackUrl|continue|dest|destination|next|redirect|returnTo|returnUrl)$/iu;
-
-const safeWrapperNames = new Set([
-  'allowlistedOrigin',
-  'assertAllowedOrigin',
-  'ensureInternalPath',
-  'normalizeRedirectPath',
-  'safeRedirectPath',
-  'sanitizeRedirectTarget',
-  'toInternalPath',
-  'validateRedirectTarget',
-]);
 
 interface TaintedAssignment {
   target: string;
@@ -160,13 +150,7 @@ function isSafeWrapperCall(
   expression: TSESTree.Expression | TSESTree.PrivateIdentifier | null | undefined,
   sourceText: string,
 ): boolean {
-  if (!expression || expression.type !== 'CallExpression') {
-    return false;
-  }
-
-  const calleeText = getCalleeText(expression.callee, sourceText);
-
-  return Boolean(calleeText && safeWrapperNames.has(calleeText));
+  return isSafeRedirectWrapperCall(expression, sourceText);
 }
 
 function isInlinePathNormalizationExpression(
