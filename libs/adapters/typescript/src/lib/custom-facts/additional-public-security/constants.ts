@@ -65,4 +65,7 @@ export const fileWriteSinkNames = new Set([
   'writeFileSync',
 ]);
 export const sendFileSinkNames = new Set(['res.sendFile']);
-export const dynamodbQueryCommandNames = new Set(['QueryCommand']);
+export const dynamodbQueryCommandNames = new Set([
+  'QueryCommand',
+  'ScanCommand',
+]);

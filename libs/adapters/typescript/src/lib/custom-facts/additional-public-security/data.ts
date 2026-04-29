@@ -181,7 +181,7 @@ export function collectDynamodbQueryFacts(
     if (
       !calleeText ||
       !dynamodbClientNames.has(node.callee.object.name) ||
-      !/\.query$/u.test(calleeText)
+      !/\.(?:query|scan)$/u.test(calleeText)
     ) {
       return;
     }

@@ -14,6 +14,34 @@ export type FunctionLikeNode =
   | TSESTree.FunctionDeclaration
   | TSESTree.FunctionExpression;
 
+const validationWrapperPattern =
+  /^(?:allowlist|assert|check|sanitize|validate|verify)/iu;
+
+function leafCalleeName(text: string | undefined): string | undefined {
+  if (!text) {
+    return undefined;
+  }
+
+  return text
+    .split('.')
+    .at(-1)
+    ?.replace(/\?$/u, '')
+    .replace(/^#/u, '');
+}
+
+export function isValidationLikeCall(
+  node: TSESTree.CallExpression | null | undefined,
+  sourceText: string,
+): boolean {
+  if (!node) {
+    return false;
+  }
+
+  const calleeName = leafCalleeName(getNodeText(node.callee, sourceText));
+
+  return Boolean(calleeName && validationWrapperPattern.test(calleeName));
+}
+
 export function isRequestDerivedExpression(
   node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
   taintedNames: ReadonlySet<string>,
@@ -25,6 +53,10 @@ export function isRequestDerivedExpression(
 
   if (node.type === 'Identifier') {
     return taintedNames.has(node.name);
+  }
+
+  if (node.type === 'CallExpression' && isValidationLikeCall(node, sourceText)) {
+    return false;
   }
 
   const text = normalizeText(getNodeText(node, sourceText));
@@ -55,6 +87,9 @@ export function isRequestDerivedExpression(
         sourceText,
       );
     case 'CallExpression':
+      return node.arguments.some((argument) =>
+        isRequestDerivedExpression(argument, taintedNames, sourceText),
+      );
     case 'NewExpression':
       return node.arguments.some((argument) =>
         isRequestDerivedExpression(argument, taintedNames, sourceText),

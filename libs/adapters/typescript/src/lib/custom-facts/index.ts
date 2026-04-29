@@ -13,24 +13,35 @@ import { detectReactNextBestPracticesFacts } from './react-next-best-practices';
 import { collectSensitiveEgressFacts } from './sensitive-egress';
 import { collectSensitiveLoggingFacts } from './sensitive-logging';
 import { collectSsrfFacts } from './ssrf';
+import { collectQueryCommandDynamicExecutionFacts } from './query-command-dynamic-execution';
 import type { TypeScriptFactDetectorContext } from './shared';
 import { collectWeakCryptoFacts } from './weak-crypto';
 
 export function collectAdditionalTypeScriptFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
-  return [
+  const facts = [
     ...collectAdditionalPublicSecurityFacts(context),
     ...collectInsecureCookieJwtSessionFacts(context),
     ...collectInsecureTransportFacts(context),
     ...collectOpenRedirectFacts(context),
+    ...collectQueryCommandDynamicExecutionFacts(context),
     ...collectPhase1PolyglotSecurityFacts(context),
     ...detectReactNextBestPracticesFacts(context),
     ...collectSensitiveEgressFacts(context),
     ...collectSensitiveLoggingFacts(context),
     ...collectSsrfFacts(context),
     ...collectWeakCryptoFacts(context),
-  ].sort((left, right) => {
+  ];
+  const uniqueFacts = new Map<string, ObservedFact>();
+
+  for (const fact of facts) {
+    if (!uniqueFacts.has(fact.id)) {
+      uniqueFacts.set(fact.id, fact);
+    }
+  }
+
+  return [...uniqueFacts.values()].sort((left, right) => {
     if (left.range.startLine !== right.range.startLine) {
       return left.range.startLine - right.range.startLine;
     }

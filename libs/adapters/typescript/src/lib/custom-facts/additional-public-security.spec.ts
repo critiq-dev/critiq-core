@@ -187,6 +187,28 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     );
   });
 
+  it('flags aggregation pipelines and dynamodb scan expressions but ignores validated wrappers', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'const User = require("../models/user");',
+        'const dynamodb = new AWS.DynamoDB.DocumentClient();',
+        'function handler(req) {',
+        '  User.aggregate([{ $match: req.body.filter }]);',
+        '  User.find(validateFilter(req.body.filter));',
+        '  dynamodb.scan({ FilterExpression: req.query.expression });',
+        '  new ScanCommand({ FilterExpression: req.query.expression });',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.express-nosql-injection'),
+    ).toHaveLength(1);
+    expect(
+      facts.filter((fact) => fact.kind === 'security.dynamodb-query-injection'),
+    ).toHaveLength(2);
+  });
+
   it('flags user-controlled render and sendFile sinks plus express hardening gaps', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([
