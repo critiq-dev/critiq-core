@@ -17,7 +17,11 @@ import {
   validateLoadedRuleDocument,
 } from '@critiq/core-rules-dsl';
 import {
+  augmentProjectFacts,
   createDefaultSourceAdapterRegistry,
+  isTestPath,
+  toDisplayPath,
+  walkFiles,
   type SourceAdapterRegistry,
 } from '@critiq/check-runner';
 import { loadYamlText } from '@critiq/util-yaml-loader';
@@ -145,11 +149,16 @@ const ruleSpecFixtureSchema = z
     name: z.string().min(1),
     sourcePath: z.string().min(1).optional(),
     observationPath: z.string().min(1).optional(),
+    workspacePath: z.string().min(1).optional(),
     expect: ruleSpecFixtureExpectationSchema,
   })
   .strict()
   .superRefine((value, context) => {
-    const declaredSources = [value.sourcePath, value.observationPath].filter(
+    const declaredSources = [
+      value.sourcePath,
+      value.observationPath,
+      value.workspacePath,
+    ].filter(
       (entry): entry is string => typeof entry === 'string' && entry.length > 0,
     );
 
@@ -157,7 +166,7 @@ const ruleSpecFixtureSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          'Each fixture must declare exactly one of sourcePath or observationPath.',
+          'Each fixture must declare exactly one of sourcePath, observationPath, or workspacePath.',
         path: ['sourcePath'],
       });
     }
@@ -237,7 +246,7 @@ export interface EmittedFindingRecord {
 export interface RuleSpecFixtureResult {
   name: string;
   fixturePath: string;
-  sourceKind: 'source' | 'observation';
+  sourceKind: 'source' | 'observation' | 'workspace';
   success: boolean;
   matches: EvaluationMatch[];
   emittedFindings: EmittedFindingRecord[];
@@ -338,6 +347,73 @@ function analyzeSourceFixture(
   return result.success
     ? result.data
     : (result as Extract<typeof result, { success: false }>).diagnostics;
+}
+
+function analyzeWorkspaceFixture(
+  workspaceRoot: string,
+  adapterRegistry: SourceAdapterRegistry,
+): Diagnostic[] | AnalyzedFile[] {
+  const supportedFiles = walkFiles(workspaceRoot)
+    .map((absolutePath) => {
+      const displayPath = toDisplayPath(workspaceRoot, absolutePath);
+
+      return {
+        absolutePath,
+        displayPath,
+        adapter: adapterRegistry.findAdapterForPath(displayPath),
+      };
+    })
+    .filter(
+      (entry): entry is {
+        absolutePath: string;
+        displayPath: string;
+        adapter: NonNullable<ReturnType<SourceAdapterRegistry['findAdapterForPath']>>;
+      } => Boolean(entry.adapter),
+    );
+
+  if (supportedFiles.length === 0) {
+    return [
+      createPathDiagnostic(
+        'harness.fixture.unsupported-workspace',
+        'No supported source files were found in the workspace fixture.',
+        workspaceRoot,
+      ),
+    ];
+  }
+
+  const diagnostics: Diagnostic[] = [];
+  const analyzedFiles: AnalyzedFile[] = [];
+
+  for (const entry of supportedFiles) {
+    const textOrFailure = readFixtureText(entry.absolutePath);
+
+    if (Array.isArray(textOrFailure)) {
+      diagnostics.push(...textOrFailure);
+      continue;
+    }
+
+    const result = entry.adapter.analyze(entry.displayPath, textOrFailure);
+
+    if (!result.success) {
+      const failure = result as Extract<typeof result, { success: false }>;
+
+      diagnostics.push(...failure.diagnostics);
+      continue;
+    }
+
+    analyzedFiles.push(result.data);
+  }
+
+  if (diagnostics.length > 0) {
+    return diagnostics;
+  }
+
+  return augmentProjectFacts(analyzedFiles, {
+    scopeMode: 'repo',
+    availableTestPaths: new Set(
+      analyzedFiles.map((file) => file.path).filter((path) => isTestPath(path)),
+    ),
+  });
 }
 
 function readFixtureText(fixturePath: string): string | Diagnostic[] {
@@ -507,27 +583,63 @@ function analyzeFixture(
   specDirectory: string,
   fixture: RuleSpecFixture,
   adapterRegistry: SourceAdapterRegistry,
-): { sourceKind: 'source' | 'observation'; fixturePath: string; result: Diagnostic[] | AnalyzedFile } {
-  const sourceKind = fixture.sourcePath ? 'source' : 'observation';
-  const declaredPath = fixture.sourcePath ?? fixture.observationPath ?? '';
+): {
+  sourceKind: 'source' | 'observation' | 'workspace';
+  fixturePath: string;
+  diagnostics?: Diagnostic[];
+  analyzedFiles?: AnalyzedFile[];
+} {
+  const sourceKind = fixture.sourcePath
+    ? 'source'
+    : fixture.observationPath
+      ? 'observation'
+      : 'workspace';
+  const declaredPath =
+    fixture.sourcePath ?? fixture.observationPath ?? fixture.workspacePath ?? '';
   const fixturePath = resolve(specDirectory, declaredPath);
+
+  if (sourceKind === 'workspace') {
+    const workspaceAnalysis = analyzeWorkspaceFixture(fixturePath, adapterRegistry);
+
+    return {
+      sourceKind,
+      fixturePath,
+      ...(Array.isArray(workspaceAnalysis) &&
+      workspaceAnalysis.every((entry) => 'path' in entry && 'language' in entry)
+        ? {
+            analyzedFiles: workspaceAnalysis,
+          }
+        : {
+            diagnostics: workspaceAnalysis as Diagnostic[],
+          }),
+    };
+  }
+
   const textOrFailure = readFixtureText(fixturePath);
 
   if (Array.isArray(textOrFailure)) {
     return {
       sourceKind,
       fixturePath,
-      result: textOrFailure,
+      diagnostics: textOrFailure,
     };
   }
+
+  const analyzedFile =
+    sourceKind === 'source'
+      ? analyzeSourceFixture(fixturePath, textOrFailure, adapterRegistry)
+      : validateObservationFixture(fixturePath, textOrFailure);
 
   return {
     sourceKind,
     fixturePath,
-    result:
-      sourceKind === 'source'
-        ? analyzeSourceFixture(fixturePath, textOrFailure, adapterRegistry)
-        : validateObservationFixture(fixturePath, textOrFailure),
+    ...(Array.isArray(analyzedFile)
+      ? {
+          diagnostics: analyzedFile,
+        }
+      : {
+          analyzedFiles: [analyzedFile],
+        }),
   };
 }
 
@@ -663,7 +775,7 @@ export function runRuleSpec(
   const fixtureResults = loadedSpec.data.spec.fixtures.map((fixture) => {
     const analysis = analyzeFixture(specDirectory, fixture, adapterRegistry);
 
-    if (Array.isArray(analysis.result)) {
+    if (analysis.diagnostics) {
       return {
         name: fixture.name,
         fixturePath: analysis.fixturePath,
@@ -672,15 +784,21 @@ export function runRuleSpec(
         matches: [],
         emittedFindings: [],
         assertionFailures: [],
-        diagnostics: analysis.result,
+        diagnostics: analysis.diagnostics,
         buildIssues: [],
       } satisfies RuleSpecFixtureResult;
     }
 
-    const analyzedFile = analysis.result;
-    const matches = evaluateRule(normalizedRule, analyzedFile);
-    const buildResults = matches.map((match) =>
-      buildFinding(normalizedRule, analyzedFile, match),
+    const analyzedFiles = analysis.analyzedFiles ?? [];
+    const evaluationResults = analyzedFiles.map((analyzedFile) => ({
+      analyzedFile,
+      matches: evaluateRule(normalizedRule, analyzedFile),
+    }));
+    const matches = evaluationResults.flatMap((result) => result.matches);
+    const buildResults = evaluationResults.flatMap((result) =>
+      result.matches.map((match) =>
+        buildFinding(normalizedRule, result.analyzedFile, match),
+      ),
     );
     const buildIssues = buildResults.flatMap((result) =>
       result.success

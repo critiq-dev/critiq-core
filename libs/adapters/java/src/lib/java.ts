@@ -1,5 +1,4 @@
 import {
-  analyzePolyglotFile,
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
@@ -11,6 +10,7 @@ import {
   collectUnsafeDeserializationFacts,
   collectWeakHashFacts,
   containsIdentifier,
+  createRegexPolyglotAdapter,
   findFirstUnmatchedDelimiter,
   type PolyglotAdapterDefinition,
   type SourceAnalysisFailure,
@@ -23,13 +23,6 @@ import { createDiagnostic, type Diagnostic } from '@critiq/core-diagnostics';
 export type JavaAnalysisSuccess = SourceAnalysisSuccess;
 export type JavaAnalysisFailure = SourceAnalysisFailure;
 export type JavaAnalysisResult = SourceAnalysisResult;
-
-export const javaSourceAdapter = {
-  packageName: '@critiq/adapter-java',
-  supportedExtensions: ['.java'],
-  supportedLanguages: ['java'],
-  analyze: analyzeJavaFile,
-} as const;
 
 type JavaScanState = TrackedIdentifierState;
 
@@ -126,9 +119,13 @@ const javaAdapterDefinition: PolyglotAdapterDefinition<JavaScanState> = {
   ],
 };
 
-function analyzeJavaFile(path: string, text: string): JavaAnalysisResult {
-  return analyzePolyglotFile(javaAdapterDefinition, path, text);
-}
+export const { analyze: analyzeJavaFile, sourceAdapter: javaSourceAdapter } =
+  createRegexPolyglotAdapter({
+    packageName: '@critiq/adapter-java',
+    supportedExtensions: ['.java'] as const,
+    supportedLanguages: ['java'] as const,
+    definition: javaAdapterDefinition,
+  });
 
 function validateJavaSource(path: string, text: string): Diagnostic | undefined {
   const unmatched = findFirstUnmatchedDelimiter(

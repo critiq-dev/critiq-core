@@ -17,3 +17,7 @@ It owns:
 - the stable `check` JSON envelope
 
 The CLI should remain a thin wrapper over this package.
+
+See [PROJECT_ANALYSIS.md](./PROJECT_ANALYSIS.md) for the invariants around
+project-analysis ranges, normalization, duplicate detection, and source/test
+correlation.

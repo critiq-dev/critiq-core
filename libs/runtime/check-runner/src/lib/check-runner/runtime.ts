@@ -21,6 +21,7 @@ import {
   evaluateRuleApplicability,
   type AnalyzedFile,
 } from '@critiq/core-rules-engine';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
@@ -50,7 +51,24 @@ import { augmentProjectFacts } from '../project-analysis';
 import { isTestPath } from '../project-analysis/context';
 
 const CHECK_ENGINE_KIND = 'critiq-cli' as const;
-const CHECK_ENGINE_VERSION = '0.0.1' as const;
+
+function loadCheckEngineVersion(): string {
+  try {
+    const packageJson = JSON.parse(
+      readFileSync(resolve(__dirname, '../../../package.json'), 'utf8'),
+    ) as { version?: string };
+
+    if (packageJson.version && packageJson.version.trim().length > 0) {
+      return packageJson.version.trim();
+    }
+  } catch {
+    // Fall back to the previous workspace default when package metadata is unavailable.
+  }
+
+  return '0.0.1';
+}
+
+const CHECK_ENGINE_VERSION = loadCheckEngineVersion();
 
 function buildScopeFallback(
   baseRef?: string,
@@ -145,6 +163,14 @@ function resolveCatalogPackageRuntime(
 
 export { createDefaultSourceAdapterRegistry } from './registry';
 export { createSourceAdapterRegistry } from './registry';
+export {
+  createCliInputDiagnostic,
+  determineExitCode,
+  hasGlobMagic,
+  toDisplayPath,
+  toPosixPath,
+  walkFiles,
+} from './shared';
 export type {
   CheckProgressUpdate,
   CheckCommandEnvelope,

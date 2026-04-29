@@ -34,3 +34,28 @@ export function analyzePolyglotFile<TState>(
     data: buildAnalyzedFileWithFacts(path, definition.language, text, facts),
   };
 }
+
+export function createRegexPolyglotAdapter<
+  TState,
+  TPackageName extends string,
+  TExtensions extends readonly string[],
+  TLanguages extends readonly string[],
+>(options: {
+  packageName: TPackageName;
+  supportedExtensions: TExtensions;
+  supportedLanguages: TLanguages;
+  definition: PolyglotAdapterDefinition<TState>;
+}) {
+  const analyze = (path: string, text: string): SourceAnalysisResult =>
+    analyzePolyglotFile(options.definition, path, text);
+
+  return {
+    analyze,
+    sourceAdapter: {
+      packageName: options.packageName,
+      supportedExtensions: options.supportedExtensions,
+      supportedLanguages: options.supportedLanguages,
+      analyze,
+    },
+  } as const;
+}

@@ -1,5 +1,4 @@
 import {
-  analyzePolyglotFile,
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
@@ -10,6 +9,7 @@ import {
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
   collectWeakHashFacts,
+  createRegexPolyglotAdapter,
   escapeRegExp,
   findFirstUnmatchedDelimiter,
   type PolyglotAdapterDefinition,
@@ -23,13 +23,6 @@ import { createDiagnostic, type Diagnostic } from '@critiq/core-diagnostics';
 export type PhpAnalysisSuccess = SourceAnalysisSuccess;
 export type PhpAnalysisFailure = SourceAnalysisFailure;
 export type PhpAnalysisResult = SourceAnalysisResult;
-
-export const phpSourceAdapter = {
-  packageName: '@critiq/adapter-php',
-  supportedExtensions: ['.php'],
-  supportedLanguages: ['php'],
-  analyze: analyzePhpFile,
-} as const;
 
 type PhpScanState = TrackedIdentifierState;
 
@@ -126,9 +119,13 @@ const phpAdapterDefinition: PolyglotAdapterDefinition<PhpScanState> = {
   ],
 };
 
-function analyzePhpFile(path: string, text: string): PhpAnalysisResult {
-  return analyzePolyglotFile(phpAdapterDefinition, path, text);
-}
+export const { analyze: analyzePhpFile, sourceAdapter: phpSourceAdapter } =
+  createRegexPolyglotAdapter({
+    packageName: '@critiq/adapter-php',
+    supportedExtensions: ['.php'] as const,
+    supportedLanguages: ['php'] as const,
+    definition: phpAdapterDefinition,
+  });
 
 function validatePhpSource(path: string, text: string): Diagnostic | undefined {
   const unmatched = findFirstUnmatchedDelimiter(

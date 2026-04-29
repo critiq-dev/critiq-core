@@ -112,6 +112,32 @@ const factRule = [
   '    summary: Review `${captures.issue.text}`',
 ].join('\n');
 
+const tightCouplingRule = [
+  'apiVersion: critiq.dev/v1alpha1',
+  'kind: Rule',
+  'metadata:',
+  '  id: ts.quality.tight-module-coupling',
+  '  title: Tight coupling between modules',
+  '  summary: Direct import cycles between modules increase coupling.',
+  '  rationale: Cyclic dependencies complicate testing and initialization order.',
+  '  appliesTo: project',
+  'scope:',
+  '  languages:',
+  '    - typescript',
+  'match:',
+  '  fact:',
+  '    kind: quality.tight-module-coupling',
+  '    bind: issue',
+  'emit:',
+  '  finding:',
+  '    category: quality.architecture',
+  '    severity: medium',
+  '    confidence: 0.9',
+  '  message:',
+  '    title: Break direct cyclic imports between modules',
+  '    summary: "`${captures.issue.text}` participates in a direct import cycle."',
+].join('\n');
+
 describe('workspaceHarnessPackageName', () => {
   it('returns the expected package import path', () => {
     expect(workspaceHarnessPackageName()).toBe('@critiq/testing-harness');
@@ -119,7 +145,7 @@ describe('workspaceHarnessPackageName', () => {
 });
 
 describe('rule spec validation', () => {
-  it('rejects fixtures that omit both sourcePath and observationPath', () => {
+  it('rejects fixtures that omit sourcePath, observationPath, and workspacePath', () => {
     expect(
       validateRuleSpec({
         apiVersion: 'critiq.dev/v1alpha1',
@@ -322,6 +348,71 @@ Success: false"
       expect.objectContaining({
         sourceKind: 'observation',
         success: true,
+      }),
+    );
+  });
+
+  it('executes a workspace fixture through project-analysis facts', () => {
+    writeWorkspaceFile(
+      tempDirectory,
+      'rules/tight-coupling.rule.yaml',
+      tightCouplingRule,
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'workspace/src/a.ts',
+      [
+        "import { b } from './b';",
+        'export const a = () => b();',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'workspace/src/b.ts',
+      [
+        "import { a } from './a';",
+        'export const b = () => a();',
+      ].join('\n'),
+    );
+    writeWorkspaceFile(
+      tempDirectory,
+      'rules/tight-coupling.spec.yaml',
+      [
+        'apiVersion: critiq.dev/v1alpha1',
+        'kind: RuleSpec',
+        'rulePath: ./tight-coupling.rule.yaml',
+        'fixtures:',
+        '  - name: workspace fixture emits project facts',
+        '    workspacePath: ../workspace',
+        '    expect:',
+        '      findingCount: 2',
+        '      allRuleIds:',
+        '        - ts.quality.tight-module-coupling',
+        '        - ts.quality.tight-module-coupling',
+        '      allSeverities:',
+        '        - medium',
+        '        - medium',
+        '      primaryLocation:',
+        '        line: 1',
+        '        column: 1',
+      ].join('\n'),
+    );
+
+    const result = runRuleSpec(
+      join(tempDirectory, 'rules/tight-coupling.spec.yaml'),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.fixtureResults[0]).toEqual(
+      expect.objectContaining({
+        sourceKind: 'workspace',
+        success: true,
+        emittedFindings: expect.arrayContaining([
+          expect.objectContaining({
+            ruleId: 'ts.quality.tight-module-coupling',
+            severity: 'medium',
+          }),
+        ]),
       }),
     );
   });

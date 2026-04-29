@@ -1,5 +1,4 @@
 import {
-  analyzePolyglotFile,
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
@@ -11,6 +10,7 @@ import {
   collectUnsafeDeserializationFacts,
   collectWeakHashFacts,
   containsIdentifier,
+  createRegexPolyglotAdapter,
   findFirstUnmatchedDelimiter,
   type PolyglotAdapterDefinition,
   type SourceAnalysisFailure,
@@ -23,13 +23,6 @@ import { createDiagnostic, type Diagnostic } from '@critiq/core-diagnostics';
 export type RustAnalysisSuccess = SourceAnalysisSuccess;
 export type RustAnalysisFailure = SourceAnalysisFailure;
 export type RustAnalysisResult = SourceAnalysisResult;
-
-export const rustSourceAdapter = {
-  packageName: '@critiq/adapter-rust',
-  supportedExtensions: ['.rs'],
-  supportedLanguages: ['rust'],
-  analyze: analyzeRustFile,
-} as const;
 
 type RustScanState = TrackedIdentifierState;
 
@@ -121,9 +114,13 @@ const rustAdapterDefinition: PolyglotAdapterDefinition<RustScanState> = {
   ],
 };
 
-function analyzeRustFile(path: string, text: string): RustAnalysisResult {
-  return analyzePolyglotFile(rustAdapterDefinition, path, text);
-}
+export const { analyze: analyzeRustFile, sourceAdapter: rustSourceAdapter } =
+  createRegexPolyglotAdapter({
+    packageName: '@critiq/adapter-rust',
+    supportedExtensions: ['.rs'] as const,
+    supportedLanguages: ['rust'] as const,
+    definition: rustAdapterDefinition,
+  });
 
 function validateRustSource(path: string, text: string): Diagnostic | undefined {
   const unmatched = findFirstUnmatchedDelimiter(

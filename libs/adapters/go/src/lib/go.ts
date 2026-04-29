@@ -1,5 +1,4 @@
 import {
-  analyzePolyglotFile,
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
@@ -11,6 +10,7 @@ import {
   collectUnsafeDeserializationFacts,
   collectWeakHashFacts,
   containsIdentifier,
+  createRegexPolyglotAdapter,
   findFirstUnmatchedDelimiter,
   type PolyglotAdapterDefinition,
   type SourceAnalysisFailure,
@@ -23,13 +23,6 @@ import { createDiagnostic, type Diagnostic } from '@critiq/core-diagnostics';
 export type GoAnalysisSuccess = SourceAnalysisSuccess;
 export type GoAnalysisFailure = SourceAnalysisFailure;
 export type GoAnalysisResult = SourceAnalysisResult;
-
-export const goSourceAdapter = {
-  packageName: '@critiq/adapter-go',
-  supportedExtensions: ['.go'],
-  supportedLanguages: ['go'],
-  analyze: analyzeGoFile,
-} as const;
 
 type GoScanState = TrackedIdentifierState;
 
@@ -118,9 +111,13 @@ const goAdapterDefinition: PolyglotAdapterDefinition<GoScanState> = {
   ],
 };
 
-function analyzeGoFile(path: string, text: string): GoAnalysisResult {
-  return analyzePolyglotFile(goAdapterDefinition, path, text);
-}
+export const { analyze: analyzeGoFile, sourceAdapter: goSourceAdapter } =
+  createRegexPolyglotAdapter({
+    packageName: '@critiq/adapter-go',
+    supportedExtensions: ['.go'] as const,
+    supportedLanguages: ['go'] as const,
+    definition: goAdapterDefinition,
+  });
 
 function validateGoSource(path: string, text: string): Diagnostic | undefined {
   if (!/^\s*package\s+[A-Za-z_][A-Za-z0-9_]*\s*$/m.test(text)) {

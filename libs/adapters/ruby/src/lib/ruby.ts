@@ -1,5 +1,4 @@
 import {
-  analyzePolyglotFile,
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
@@ -11,6 +10,7 @@ import {
   collectUnsafeDeserializationFacts,
   collectWeakHashFacts,
   containsIdentifier,
+  createRegexPolyglotAdapter,
   findFirstUnmatchedDelimiter,
   stripHashLineComment,
   type PolyglotAdapterDefinition,
@@ -24,13 +24,6 @@ import { createDiagnostic, type Diagnostic } from '@critiq/core-diagnostics';
 export type RubyAnalysisSuccess = SourceAnalysisSuccess;
 export type RubyAnalysisFailure = SourceAnalysisFailure;
 export type RubyAnalysisResult = SourceAnalysisResult;
-
-export const rubySourceAdapter = {
-  packageName: '@critiq/adapter-ruby',
-  supportedExtensions: ['.rb'],
-  supportedLanguages: ['ruby'],
-  analyze: analyzeRubyFile,
-} as const;
 
 type RubyScanState = TrackedIdentifierState;
 
@@ -120,9 +113,13 @@ const rubyAdapterDefinition: PolyglotAdapterDefinition<RubyScanState> = {
   ],
 };
 
-function analyzeRubyFile(path: string, text: string): RubyAnalysisResult {
-  return analyzePolyglotFile(rubyAdapterDefinition, path, text);
-}
+export const { analyze: analyzeRubyFile, sourceAdapter: rubySourceAdapter } =
+  createRegexPolyglotAdapter({
+    packageName: '@critiq/adapter-ruby',
+    supportedExtensions: ['.rb'] as const,
+    supportedLanguages: ['ruby'] as const,
+    definition: rubyAdapterDefinition,
+  });
 
 function validateRubySource(path: string, text: string): Diagnostic | undefined {
   const unmatched = findFirstUnmatchedDelimiter(

@@ -14,9 +14,7 @@ import {
   type LoadRuleResult,
   type RuleTemplateVariableMap,
 } from '@critiq/core-rules-dsl';
-import { minimatch } from 'minimatch';
-import { readdirSync, statSync } from 'node:fs';
-import { resolve, sep } from 'node:path';
+import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import {
@@ -38,8 +36,12 @@ import {
   renderValidatePretty,
 } from '../rendering/rules.rendering';
 import { determineExitCode } from '../utils/determine-exit-code.util';
-import { hasGlobMagic } from '../utils/has-glob-magic.util';
 import { toDisplayPath } from '../utils/to-display-path.util';
+import {
+  resolveSingleFilePath,
+  resolveTestTargets,
+  resolveValidateTargets,
+} from './rules-targets';
 
 const DEFAULT_TEMPLATE_VARIABLES: RuleTemplateVariableMap = {
   'emit.message.title': [],
@@ -61,203 +63,6 @@ function createParsedSummary(path: string, uri: string): ExplainParsedSummary {
       semanticValidation: 'skipped',
       normalization: 'skipped',
     },
-  };
-}
-
-function isSkippableDirectory(name: string): boolean {
-  return [
-    '.git',
-    '.nx',
-    '.serverless',
-    'cdk.out',
-    'coverage',
-    'dist',
-    'node_modules',
-    'vendor',
-  ].includes(name);
-}
-
-function walkFiles(rootDirectory: string): string[] {
-  const files: string[] = [];
-  const queue = [rootDirectory];
-
-  while (queue.length > 0) {
-    const currentDirectory = queue.shift();
-
-    if (!currentDirectory) {
-      continue;
-    }
-
-    const entries = readdirSync(currentDirectory, { withFileTypes: true }).sort(
-      (left, right) => left.name.localeCompare(right.name),
-    );
-
-    for (const entry of entries) {
-      const absolutePath = resolve(currentDirectory, entry.name);
-
-      if (entry.isDirectory()) {
-        if (
-          !(
-            isSkippableDirectory(entry.name) ||
-            (entry.name === 'cache' &&
-              currentDirectory.split(sep).at(-1) === '.yarn')
-          )
-        ) {
-          queue.push(absolutePath);
-        }
-
-        continue;
-      }
-
-      if (entry.isFile()) {
-        files.push(absolutePath);
-      }
-    }
-  }
-
-  return files.sort((left, right) => left.localeCompare(right));
-}
-
-function resolveValidateTargets(
-  cwd: string,
-  target: string,
-):
-  | { success: true; files: string[] }
-  | { success: false; diagnostics: Diagnostic[] } {
-  const absoluteCandidate = resolve(cwd, target);
-
-  if (!hasGlobMagic(target)) {
-    try {
-      if (!statSync(absoluteCandidate).isFile()) {
-        return {
-          success: false,
-          diagnostics: [
-            {
-              code: 'cli.input.invalid',
-              severity: 'error',
-              message: `Expected a file path for \`${target}\`.`,
-            },
-          ],
-        };
-      }
-
-      return {
-        success: true,
-        files: [absoluteCandidate],
-      };
-    } catch {
-      return {
-        success: false,
-        diagnostics: [
-          {
-            code: 'cli.input.invalid',
-            severity: 'error',
-            message: `No files matched \`${target}\`.`,
-            details: {
-              target,
-            },
-          },
-        ],
-      };
-    }
-  }
-
-  try {
-    const matches = walkFiles(cwd).filter((absolutePath) =>
-      minimatch(toDisplayPath(cwd, absolutePath), target, { dot: true }),
-    );
-
-    if (matches.length === 0) {
-      return {
-        success: false,
-        diagnostics: [
-          {
-            code: 'cli.input.invalid',
-            severity: 'error',
-            message: `No files matched \`${target}\`.`,
-            details: {
-              target,
-            },
-          },
-        ],
-      };
-    }
-
-    return {
-      success: true,
-      files: matches,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      diagnostics: [
-        {
-          code: 'runtime.internal.error',
-          severity: 'error',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Unexpected file discovery failure.',
-          details: {
-            target,
-          },
-        },
-      ],
-    };
-  }
-}
-
-function resolveTestTargets(
-  cwd: string,
-  target: string | undefined,
-):
-  | { success: true; target: string; files: string[] }
-  | { success: false; target: string; diagnostics: Diagnostic[] } {
-  const resolvedTarget = target ?? '**/*.spec.yaml';
-  const resolved = resolveValidateTargets(cwd, resolvedTarget);
-
-  if (!resolved.success) {
-    const failure = resolved as Extract<
-      ReturnType<typeof resolveValidateTargets>,
-      { success: false }
-    >;
-
-    return {
-      success: false,
-      target: resolvedTarget,
-      diagnostics: failure.diagnostics,
-    };
-  }
-
-  return {
-    success: true,
-    target: resolvedTarget,
-    files: resolved.files,
-  };
-}
-
-function resolveSingleFilePath(
-  cwd: string,
-  inputPath: string,
-):
-  | { success: true; absolutePath: string }
-  | { success: false; diagnostics: Diagnostic[] } {
-  if (hasGlobMagic(inputPath)) {
-    return {
-      success: false,
-      diagnostics: [
-        {
-          code: 'cli.input.invalid',
-          severity: 'error',
-          message: `Expected a concrete file path for \`${inputPath}\`, not a glob.`,
-        },
-      ],
-    };
-  }
-
-  return {
-    success: true,
-    absolutePath: resolve(cwd, inputPath),
   };
 }
 

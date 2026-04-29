@@ -1,5 +1,4 @@
 import {
-  analyzePolyglotFile,
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
@@ -11,6 +10,7 @@ import {
   collectUnsafeDeserializationFacts,
   collectWeakHashFacts,
   containsIdentifier,
+  createRegexPolyglotAdapter,
   findFirstUnmatchedDelimiter,
   stripHashLineComment,
   type PolyglotAdapterDefinition,
@@ -24,13 +24,6 @@ import { createDiagnostic, type Diagnostic } from '@critiq/core-diagnostics';
 export type PythonAnalysisSuccess = SourceAnalysisSuccess;
 export type PythonAnalysisFailure = SourceAnalysisFailure;
 export type PythonAnalysisResult = SourceAnalysisResult;
-
-export const pythonSourceAdapter = {
-  packageName: '@critiq/adapter-python',
-  supportedExtensions: ['.py'],
-  supportedLanguages: ['python'],
-  analyze: analyzePythonFile,
-} as const;
 
 interface PythonScanState extends TrackedIdentifierState {
   routeParameters: Set<string>;
@@ -129,9 +122,16 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
   ],
 };
 
-function analyzePythonFile(path: string, text: string): PythonAnalysisResult {
-  return analyzePolyglotFile(pythonAdapterDefinition, path, text);
-}
+export const {
+  analyze: analyzePythonFile,
+  sourceAdapter: pythonSourceAdapter,
+} =
+  createRegexPolyglotAdapter({
+    packageName: '@critiq/adapter-python',
+    supportedExtensions: ['.py'] as const,
+    supportedLanguages: ['python'] as const,
+    definition: pythonAdapterDefinition,
+  });
 
 function validatePythonSource(path: string, text: string): Diagnostic | undefined {
   const unmatched = findFirstUnmatchedDelimiter(
