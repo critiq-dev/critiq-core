@@ -2,150 +2,91 @@
 
 ![banner](./docs/assets/banner.png)
 
-## Description
+<p align="center">
+  <a href="https://skillicons.dev">
+    <img
+      src="https://skillicons.dev/icons?i=ts,js,nodejs,go,java,python,php,ruby,rust&perline=9"
+      alt="TypeScript, JavaScript, Node.js, Go, Java, Python, PHP, Ruby, and Rust support"
+    />
+  </a>
+</p>
 
-Critiq Core is the open source confidence layer behind Critiq.
+<p align="center">
+  <strong>Open source static analysis contracts, rule runtime, and CLI for deterministic code review.</strong>
+</p>
 
-We built it for developers shipping AI-assisted code who want deterministic,
-inspectable review instead of another black-box approval bot. If you are
-vibing your way toward production, this repository gives you the public rule,
-finding, config, and CLI contracts you can read, adapt, test, and run in CI.
+<p align="center">
+  <code>critiq-core</code> is the public engine behind Critiq. It gives developers a readable rule DSL, canonical finding contracts, a reusable scan runtime, and a CLI that behaves the same way locally and in CI.
+</p>
 
-Critiq Core is meant to be useful on its own:
+<table>
+  <tr>
+    <td align="center"><strong>112</strong><br/>OSS rules via <code>@critiq/rules</code></td>
+    <td align="center"><strong>10</strong><br/>rule categories</td>
+    <td align="center"><strong>4</strong><br/>presets</td>
+  </tr>
+</table>
 
-- run a maintained rule catalog against a repository or a diff
-- author and test your own rules with fixture-backed `RuleSpec` files
-- publish an internal rule pack with stable contracts
-- embed Critiq packages inside your own tooling or automation
-- keep the same findings and diagnostics locally and in CI
+## Start In 60 Seconds
 
-What the OSS core ships today:
+> Zero-config first run: `critiq check` falls back to the OSS `@critiq/rules` catalog and the `recommended` preset. You do not need `.critiq/config.yaml` for the first scan.
 
-- catalog-first `critiq check` for repository and diff-scoped scans
-- deterministic rule validation, normalization, and execution
-- canonical findings with evidence, provenance, and confidence
-- repo-level heuristics layered on top of file analysis
-- a reusable GitHub Actions workflow for CI adoption
-- first-class TypeScript and JavaScript analysis plus early polyglot adapters
-
-`critiq.dev` and the future Pro layer build on these same contracts, but this
-repository is public by design because confidence should not depend on hidden
-runtime behavior.
-
-## Repository Layout
-
-### Apps
-
-- `apps/cli`
-  The published `critiq` CLI for `check`, `rules validate`, `rules test`,
-  `rules normalize`, and `rules explain`.
-
-### Libs
-
-- `libs/core/config`
-  Owns `.critiq/config.yaml`, normalization, and config loading.
-- `libs/core/catalog`
-  Owns rule catalog manifests, package resolution, preset filtering, and
-  repository-language detection.
-- `libs/core/diagnostics`
-  Shared diagnostics, source spans, and terminal formatting contracts.
-- `libs/core/finding-schema`
-  Defines the canonical finding contract and checked-in JSON Schema artifacts.
-- `libs/core/rules-dsl`
-  Defines the public rule DSL, YAML loading, contract validation, and semantic
-  validation.
-- `libs/core/ir`
-  Normalizes valid rules into canonical IR and deterministic rule hashes.
-- `libs/core/rules-engine`
-  Evaluates normalized rules against analyzed files and builds findings.
-- `libs/runtime/check-runner`
-  Reusable runtime behind `critiq check`, including catalog loading, file
-  discovery, diff scoping, and report assembly.
-- `libs/adapters/typescript`
-  Reference adapter for `.ts`, `.tsx`, `.js`, and `.jsx`.
-- `libs/adapters/go`, `libs/adapters/java`, `libs/adapters/php`,
-  `libs/adapters/python`, `libs/adapters/ruby`, `libs/adapters/rust`
-  Early phase-1 polyglot adapters with narrower coverage than the TypeScript
-  adapter.
-- `libs/adapters/shared`
-  Shared polyglot helpers used by the non-TypeScript adapters.
-- `libs/utils/file-system`, `libs/utils/yaml-loader`
-  Shared file-system and YAML utilities used across the workspace.
-
-### Tools
-
-- `tools/testing/harness`
-  Fixture-backed `RuleSpec` runner and reporters for end-to-end rule tests.
-
-### Adjacent Repositories
-
-- `critiq-rules`
-  The maintained OSS rule catalog and starter examples that `critiq check`
-  consumes by default.
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 20 or newer
-- npm 10 or newer
-
-### Install And Verify
+Run Critiq from this repo today:
 
 ```bash
 npm install
-npm run verify
-```
-
-### Build The Packaged CLI
-
-```bash
 npm run nx -- run cli:prune
-```
-
-Use `cli:prune` when you want the packaged runtime in `dist/`. The built
-entrypoint is:
-
-```bash
-node dist/apps/cli/main.js
-```
-
-### Commit A Runtime Config
-
-`critiq check` can fall back to the default OSS catalog and the
-`recommended` preset, but we recommend committing `.critiq/config.yaml` so the
-confidence policy is explicit in the repository:
-
-```bash
-mkdir -p .critiq
-cat > .critiq/config.yaml <<'EOF'
-apiVersion: critiq.dev/v1alpha1
-kind: CritiqConfig
-catalog:
-  package: "@critiq/rules"
-preset: recommended
-disableRules: []
-disableCategories: []
-disableLanguages: []
-includeTests: false
-ignorePaths: []
-severityOverrides: {}
-EOF
-```
-
-### Run A Repository Check
-
-```bash
 node dist/apps/cli/main.js check .
 ```
 
-### Run A Diff-Scoped Check
+Run against a diff:
 
 ```bash
 node dist/apps/cli/main.js check . --base origin/main --head HEAD
 ```
 
-### Run The Rule Authoring Loop
+The npm package surface we are standardizing on is:
+
+- `critiq` for repository and diff-scoped scans
+- `@critiq/core` for the reusable engine and contracts in this repo
+- `@critiq/rules` for the default OSS catalog
+
+Once that package surface is published, the zero-config consumer flow becomes:
+
+```bash
+npm install -D critiq @critiq/rules
+npx critiq check .
+```
+
+When you want explicit repository policy later, commit `.critiq/config.yaml`. You do not need it to get started.
+
+## What `critiq-core` Is For
+
+- run deterministic repository or diff-scoped checks with the `critiq` CLI
+- author, validate, explain, and fixture-test rules with stable contracts
+- reuse the same finding schema, diagnostics, and runtime behavior in your own tooling
+- keep local runs and CI runs aligned instead of depending on black-box review behavior
+
+## OSS Catalog Snapshot
+
+The default OSS catalog in `@critiq/rules` currently covers:
+
+| Category | Rules |
+| --- | ---: |
+| Security | 70 |
+| Correctness | 15 |
+| Performance | 10 |
+| Quality | 10 |
+| Logging | 2 |
+| Config | 1 |
+| Next | 1 |
+| Random | 1 |
+| React | 1 |
+| Runtime | 1 |
+
+Supported presets: `recommended`, `strict`, `security`, `experimental`
+
+## Rule Authoring Loop
 
 Validate authored rules:
 
@@ -165,19 +106,7 @@ Run fixture-backed specs:
 node dist/apps/cli/main.js rules test ".critiq/rules/*.spec.yaml"
 ```
 
-If you cloned the sibling `critiq-rules` repository, point the same commands at
-its example packs instead of local `.critiq/rules/` files.
-
-## Current Coverage
-
-- TypeScript and JavaScript are the deepest supported languages today and power
-  the richest adapter-level detections.
-- Go, Java, PHP, Python, Ruby, and Rust adapters are included for early
-  polyglot coverage and currently expose a narrower fact surface.
-- `critiq check` auto-detects repository languages, filters rules by preset and
-  config, and emits informational diagnostics when nothing remains active.
-- Tests are excluded from `check` by default. Set `includeTests: true` when you
-  want them included in scan scope.
+If you cloned the separate `critiq-rules` repository, point the same commands at its rule packs instead of local `.critiq/rules/` files.
 
 ## CI Adoption
 
@@ -193,17 +122,59 @@ jobs:
       check-target: .
       check-base: origin/main
       check-head: HEAD
-      validate-glob: .critiq/rules/*.rule.yaml
-      test-glob: .critiq/rules/*.spec.yaml
 ```
-
-The workflow installs the requested `critiq` package, runs the selected
-commands with JSON output, uploads the result artifacts, and fails the job when
-any Critiq command exits non-zero.
 
 Pin both the workflow ref and `critiq-version` in production automation.
 
-## Docs Map
+<details>
+<summary><strong>Repository Layout</strong></summary>
+
+### Apps
+
+- `apps/cli`
+  The published `critiq` CLI for `check`, `rules validate`, `rules test`, `rules normalize`, and `rules explain`.
+
+### Core libraries
+
+- `libs/core/config`
+  Owns `.critiq/config.yaml`, normalization, and config loading.
+- `libs/core/catalog`
+  Owns rule catalog manifests, package resolution, preset filtering, and repository-language detection.
+- `libs/core/diagnostics`
+  Shared diagnostics, source spans, and terminal formatting contracts.
+- `libs/core/finding-schema`
+  Defines the canonical finding contract and checked-in JSON Schema artifacts.
+- `libs/core/rules-dsl`
+  Defines the public rule DSL, YAML loading, contract validation, and semantic validation.
+- `libs/core/ir`
+  Normalizes valid rules into canonical IR and deterministic rule hashes.
+- `libs/core/rules-engine`
+  Evaluates normalized rules against analyzed files and builds findings.
+- `libs/runtime/check-runner`
+  Reusable runtime behind `critiq check`, including catalog loading, file discovery, diff scoping, and report assembly.
+
+### Adapters
+
+- `libs/adapters/typescript`
+  Reference adapter for `.ts`, `.tsx`, `.js`, and `.jsx`.
+- `libs/adapters/go`, `libs/adapters/java`, `libs/adapters/php`, `libs/adapters/python`, `libs/adapters/ruby`, `libs/adapters/rust`
+  Early phase-1 polyglot adapters with narrower coverage than the TypeScript adapter.
+- `libs/adapters/shared`
+  Shared polyglot helpers used by the non-TypeScript adapters.
+
+### Tools
+
+- `tools/testing/harness`
+  Fixture-backed `RuleSpec` runner and reporters for end-to-end rule tests.
+
+### Adjacent OSS repository
+
+- `critiq-rules`
+  The maintained OSS rule catalog and starter examples published as `@critiq/rules`.
+
+</details>
+
+## Docs
 
 - New here: [docs/guides/getting-started.md](./docs/guides/getting-started.md)
 - Running the CLI: [docs/reference/cli.md](./docs/reference/cli.md)
@@ -214,12 +185,4 @@ Pin both the workflow ref and `critiq-version` in production automation.
 
 ## OSS Core And Pro
 
-Critiq Core is the open source part of our confidence story. It gives you the
-deterministic engine, stable contracts, and local or CI workflow you can adapt
-to your own repositories today.
-
-The hosted Critiq product and future Pro offerings build further up the stack:
-orchestration, collaboration, policy governance, broader pipeline visibility,
-and stronger organizational confidence around what is moving toward production.
-The line matters to us. We want the confidence engine itself to remain public,
-inspectable, and portable.
+Critiq Core is the open source confidence engine. The hosted Critiq product and future Pro layer build on these same public contracts, then add orchestration, collaboration, policy governance, and wider pipeline visibility.
