@@ -4,6 +4,9 @@ import {
   collectAdditionalPublicSecurityFacts,
 } from './additional-public-security';
 import {
+  collectClientApplicationSecurityFacts,
+} from './client-application-security';
+import {
   collectInsecureCookieJwtSessionFacts,
 } from './insecure-cookie-jwt-session';
 import { collectInsecureTransportFacts } from './insecure-transport';
@@ -23,6 +26,7 @@ export function collectAdditionalTypeScriptFacts(
 ): ObservedFact[] {
   const facts = [
     ...collectAdditionalPublicSecurityFacts(context),
+    ...collectClientApplicationSecurityFacts(context),
     ...collectInsecureCookieJwtSessionFacts(context),
     ...collectInsecureTransportFacts(context),
     ...collectNetworkExposureFacts(context),

@@ -1,4 +1,6 @@
 import {
+  collectAndroidScreenshotExposureFacts,
+  collectAndroidWorldReadableModeFacts,
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
@@ -57,6 +59,14 @@ const javaAdapterDefinition: PolyglotAdapterDefinition<JavaScanState> = {
       text,
       detector,
       assignmentPattern: hardcodedCredentialPattern,
+    }),
+    ...collectAndroidScreenshotExposureFacts({
+      text,
+      detector,
+    }),
+    ...collectAndroidWorldReadableModeFacts({
+      text,
+      detector,
     }),
     ...collectSensitiveLoggingFacts({
       text,

@@ -5,6 +5,19 @@ import {
   getObjectProperty,
   getStringLiteralValue,
 } from './shared';
+import {
+  isSafeRedirectWrapperCall,
+  isSafeRedirectWrapperName,
+  isSafeUrlWrapperCall,
+  isSafeUrlWrapperName,
+} from './substrate/network-safety';
+
+export {
+  isSafeRedirectWrapperCall,
+  isSafeRedirectWrapperName,
+  isSafeUrlWrapperCall,
+  isSafeUrlWrapperName,
+};
 
 export type NetworkScheme = 'http' | 'https' | 'ws' | 'wss';
 export type HostClassification =
@@ -27,29 +40,6 @@ const outboundTransportSinkNames = new Set([
 
 const axiosTransportPattern = /^axios\.(delete|get|head|options|patch|post|put)$/u;
 const gotTransportPattern = /^got(\.(delete|get|head|options|patch|post|put))?$/u;
-
-const safeUrlWrapperNames = new Set([
-  'allowlistedUrl',
-  'assertAllowedHost',
-  'assertAllowedUrl',
-  'ensureAllowedUrl',
-  'normalizeAllowedUrl',
-  'normalizeRedirectTarget',
-  'safeUrl',
-  'validateAllowedUrl',
-  'validateUrl',
-]);
-
-const safeRedirectWrapperNames = new Set([
-  'allowlistedOrigin',
-  'assertAllowedOrigin',
-  'ensureInternalPath',
-  'normalizeRedirectPath',
-  'safeRedirectPath',
-  'sanitizeRedirectTarget',
-  'toInternalPath',
-  'validateRedirectTarget',
-]);
 
 const loopbackIpv4Pattern = /^127(?:\.\d{1,3}){3}$/u;
 const privateIpv4Patterns = [
@@ -225,40 +215,6 @@ export function isPrivateHostLiteral(text: string | undefined): boolean {
   }
 
   return isPrivateOrInternalHostname(stripped);
-}
-
-export function isSafeUrlWrapperName(
-  calleeText: string | undefined,
-): boolean {
-  return Boolean(calleeText && safeUrlWrapperNames.has(calleeText));
-}
-
-export function isSafeRedirectWrapperName(
-  calleeText: string | undefined,
-): boolean {
-  return Boolean(calleeText && safeRedirectWrapperNames.has(calleeText));
-}
-
-export function isSafeUrlWrapperCall(
-  node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
-  sourceText: string,
-): boolean {
-  if (!node || node.type !== 'CallExpression') {
-    return false;
-  }
-
-  return isSafeUrlWrapperName(getCalleeText(node.callee, sourceText));
-}
-
-export function isSafeRedirectWrapperCall(
-  node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
-  sourceText: string,
-): boolean {
-  if (!node || node.type !== 'CallExpression') {
-    return false;
-  }
-
-  return isSafeRedirectWrapperName(getCalleeText(node.callee, sourceText));
 }
 
 export function isOutboundTransportSink(

@@ -98,4 +98,31 @@ describe('javaSourceAdapter', () => {
       'security.weak-hash-algorithm',
     ]);
   });
+
+  it('emits Android client-safety facts', () => {
+    const result = javaSourceAdapter.analyze(
+      'LoginActivity.java',
+      [
+        'class LoginActivity extends AppCompatActivity {',
+        '  void onCreate(Bundle savedInstanceState) {',
+        '    String accessToken = loadToken();',
+        '    openFileOutput("tokens.json", Context.MODE_WORLD_READABLE);',
+        '    getSharedPreferences("prefs", MODE_WORLD_WRITEABLE);',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toEqual([
+      'security.android-screenshot-exposure',
+      'security.android-world-readable-mode',
+      'security.android-world-readable-mode',
+    ]);
+  });
 });

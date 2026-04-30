@@ -17,53 +17,17 @@ import {
   isHtmlLikeText,
   unwrapExpression,
 } from './utils';
+import { isTrustedHtmlSanitizerCall } from '../substrate/html-sanitizers';
 import { trustBoundaryTemplateCompilerCallees } from '../../trust-boundary';
 
 const dangerousHtmlInsertionMethods = new Set(['insertAdjacentHTML']);
 const dangerousDocumentMethods = new Set(['write', 'writeln']);
-const trustedHtmlCalleeNames = new Set([
-  '_.escape',
-  'DOMPurify.sanitize',
-  'he.escape',
-  'lodash.escape',
-  'validator.escape',
-]);
-const trustedHtmlLeafNames = new Set([
-  'escapeHTML',
-  'escapeHtml',
-  'sanitize',
-  'sanitizeHTML',
-  'sanitizeHtml',
-]);
-
-function leafCalleeName(text: string | undefined): string | undefined {
-  if (!text) {
-    return undefined;
-  }
-
-  return text
-    .split('.')
-    .at(-1)
-    ?.replace(/\?$/u, '')
-    .replace(/^#/u, '');
-}
 
 function isTrustedHtmlCall(
   expression: TSESTree.CallExpression,
   sourceText: string,
 ): boolean {
-  const calleeText = getCalleeText(expression.callee, sourceText);
-  const leafName = leafCalleeName(calleeText);
-
-  if (calleeText && trustedHtmlCalleeNames.has(calleeText)) {
-    return true;
-  }
-
-  return Boolean(
-    leafName &&
-      (trustedHtmlLeafNames.has(leafName) ||
-        /^sanitize[A-Za-z0-9_$]*$/u.test(leafName)),
-  );
+  return isTrustedHtmlSanitizerCall(expression, sourceText);
 }
 
 function isTrustedHtmlExpression(

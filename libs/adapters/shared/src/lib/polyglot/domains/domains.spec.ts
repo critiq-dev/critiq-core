@@ -1,4 +1,6 @@
 import {
+  collectAndroidScreenshotExposureFacts,
+  collectAndroidWorldReadableModeFacts,
   collectHardcodedCredentialFacts,
   collectSensitiveLoggingFacts,
   collectTlsVerificationDisabledFacts,
@@ -66,6 +68,50 @@ describe('shared domain collectors', () => {
     expect(facts.map((fact) => fact.kind)).toEqual([
       'security.tls-verification-disabled',
       'security.tls-verification-disabled',
+    ]);
+  });
+
+  it('flags Android activities that omit or clear FLAG_SECURE on sensitive screens', () => {
+    const facts = collectAndroidScreenshotExposureFacts({
+      detector: 'test-detector',
+      text: [
+        'class LoginActivity extends AppCompatActivity {',
+        '  void onCreate(Bundle savedInstanceState) {',
+        '    String accessToken = loadToken();',
+        '  }',
+        '}',
+        'class WalletActivity extends Activity {',
+        '  void onResume() {',
+        '    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts).toHaveLength(2);
+    expect(facts.map((fact) => fact.kind)).toEqual([
+      'security.android-screenshot-exposure',
+      'security.android-screenshot-exposure',
+    ]);
+    expect(facts.map((fact) => fact.props['reason'])).toEqual([
+      'flag-secure-cleared',
+      'flag-secure-cleared',
+    ]);
+  });
+
+  it('flags Android world-readable or writable context modes', () => {
+    const facts = collectAndroidWorldReadableModeFacts({
+      detector: 'test-detector',
+      text: [
+        'openFileOutput("tokens.json", Context.MODE_WORLD_READABLE);',
+        'getSharedPreferences("prefs", MODE_WORLD_WRITEABLE);',
+      ].join('\n'),
+    });
+
+    expect(facts).toHaveLength(2);
+    expect(facts.map((fact) => fact.kind)).toEqual([
+      'security.android-world-readable-mode',
+      'security.android-world-readable-mode',
     ]);
   });
 });

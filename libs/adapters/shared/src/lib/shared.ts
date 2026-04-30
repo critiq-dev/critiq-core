@@ -9,6 +9,8 @@ export * from './polyglot/types';
 
 export * from './polyglot/domains/command-execution';
 export * from './polyglot/domains/hardcoded-credentials';
+export * from './polyglot/domains/android-screenshot-exposure';
+export * from './polyglot/domains/android-world-readable-mode';
 export * from './polyglot/domains/insecure-http-transport';
 export * from './polyglot/domains/request-path-file-read';
 export * from './polyglot/domains/sensitive-logging';
