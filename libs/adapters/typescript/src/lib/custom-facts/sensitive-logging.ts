@@ -1,6 +1,6 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
-import { collectSensitiveDisclosureLabels } from './disclosure-signals';
+import { collectPrivacyDatatypes } from './privacy-vocabulary';
 import {
   createObservedFact,
   getCalleeText,
@@ -67,9 +67,7 @@ function collectSensitiveLabelsFromArguments(
   const labels: string[] = [];
 
   for (const argument of arguments_) {
-    for (const label of collectSensitiveDisclosureLabels(argument, sourceText, {
-      includeStringLiterals: false,
-    })) {
+    for (const label of collectPrivacyDatatypes(argument, sourceText)) {
       if (!labels.includes(label)) {
         labels.push(label);
       }

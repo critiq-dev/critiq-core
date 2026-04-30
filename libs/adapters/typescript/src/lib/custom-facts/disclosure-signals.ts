@@ -5,10 +5,8 @@ import {
   isSensitiveIdentifierText,
   tokenizeIdentifierLikeText,
 } from '../auth-vocabulary';
+import { privacySafeWrapperPattern } from './privacy-substrate';
 import { getCalleeText, getNodeText } from './shared';
-
-const disclosureSafeWrapperPattern =
-  /(^|\.)(redact|mask|sanitize|anonymize|dropSensitiveFields|omitSensitiveFields|redactSensitive|safeSerialize|hashSensitiveValue|maskSensitiveData|redactSensitiveData|sanitizePayload|stripSensitiveFields)$/u;
 
 const disclosureSignalOrder = [
   'email',
@@ -293,7 +291,7 @@ function isSafeWrapperCall(
 ): boolean {
   const calleeText = getCalleeText(node.callee, sourceText);
 
-  return Boolean(calleeText && disclosureSafeWrapperPattern.test(calleeText));
+  return Boolean(calleeText && privacySafeWrapperPattern.test(calleeText));
 }
 
 function visitDisclosureNode(

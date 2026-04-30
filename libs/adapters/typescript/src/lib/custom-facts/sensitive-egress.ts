@@ -1,14 +1,20 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
-import { collectDisclosureSignals } from './disclosure-signals';
+import {
+  externalHttpProcessorId,
+  matchPrivacyProcessorRecipe,
+  type PrivacyProcessorCategory,
+  type PrivacyProcessorSinkKind,
+} from './privacy-processor-recipes';
+import { isPrivacySafeWrapperCall } from './privacy-substrate';
+import { collectPrivacyDatatypes } from './privacy-vocabulary';
 import {
   createObservedFact,
   getCalleeText,
-  getNodeText,
-  isNode,
   type TypeScriptFactDetector,
   type TypeScriptFactDetectorContext,
+  walkAst,
 } from './shared';
 import {
   getOutboundTargetExpression,
@@ -16,41 +22,6 @@ import {
 } from './outbound-network';
 
 const sensitiveEgressKind = 'security.sensitive-data-egress' as const;
-
-const safeWrapperNames = new Set([
-  'dropSensitiveFields',
-  'maskSensitiveData',
-  'redact',
-  'redactSensitiveData',
-  'sanitizePayload',
-  'stripSensitiveFields',
-]);
-
-const externalProcessorCallPatterns = [
-  /^analytics\.(capture|group|identify|page|track)$/i,
-  /^amplitude\.(identify|logEvent|track)$/i,
-  /^Bugsnag\.(leaveBreadcrumb|notify|start)$/i,
-  /^cohere\.(chat|generate)$/i,
-  /^dataLayer\.push$/i,
-  /^DD_RUM\.(addAction|setUser)$/i,
-  /^gtag$/i,
-  /^Honeybadger\.(notify|notifyAsync|setContext)$/i,
-  /^mixpanel\.(capture|group|identify|people\.(append|set)|track)$/i,
-  /^(newrelic|newRelic)\.(noticeError|setCustomAttribute|setPageViewName)$/i,
-  /^openai\.(chat\.completions\.create|embeddings\.create|responses\.create)$/i,
-  /^openai\.createCompletion$/i,
-  /^posthog\.(alias|capture|group|identify)$/i,
-  /^ReactGA\.event$/i,
-  /^resend\./i,
-  /^Rollbar\.(critical|debug|error|info|warning)$/i,
-  /^segment\.(group|identify|page|track)$/i,
-  /^sendgrid\./i,
-  /^Sentry\.(addBreadcrumb|captureEvent|captureException|captureMessage|setContext|setExtra|setTag|setUser)$/i,
-  /^slack(Webhook)?\.(postMessage|send|notify)$/i,
-  /^sentry\.(captureEvent|captureException|captureMessage|setContext|setExtra|setTag|setUser)$/i,
-  /^webhook\.(dispatch|post|send)$/i,
-  /^window\.dataLayer\.push$/i,
-];
 
 function isCallExpression(node: TSESTree.Node): node is TSESTree.CallExpression {
   return node.type === 'CallExpression';
@@ -61,19 +32,6 @@ function getCallCalleeText(
   sourceText: string,
 ): string | undefined {
   return getCalleeText(callExpression.callee, sourceText);
-}
-
-function isSafeWrapperCall(
-  node: TSESTree.CallExpression,
-  sourceText: string,
-): boolean {
-  const calleeText = getCallCalleeText(node, sourceText);
-
-  if (!calleeText) {
-    return false;
-  }
-
-  return Boolean(calleeText && safeWrapperNames.has(calleeText));
 }
 
 function isExternalUrlLiteral(
@@ -105,56 +63,13 @@ function isExternalProcessorCall(calleeText: string | undefined): boolean {
     return true;
   }
 
-  return externalProcessorCallPatterns.some((pattern) => pattern.test(calleeText));
+  return Boolean(matchPrivacyProcessorRecipe(calleeText));
 }
 
-function isKnownOutboundProcessor(calleeText: string | undefined): boolean {
-  return Boolean(calleeText) && isExternalProcessorCall(calleeText);
-}
-
-function visitNodes(
-  node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
-  sourceText: string,
-  visitor: (candidate: TSESTree.Node) => void,
-): void {
-  if (!node || node.type === 'PrivateIdentifier') {
-    return;
-  }
-
-  visitor(node);
-
-  if (node.type === 'CallExpression' && isSafeWrapperCall(node, sourceText)) {
-    return;
-  }
-
-  for (const value of Object.values(node)) {
-    if (!value) {
-      continue;
-    }
-
-    if (Array.isArray(value)) {
-      for (const entry of value) {
-        if (entry && typeof entry === 'object' && 'type' in entry) {
-          visitNodes(entry as TSESTree.Node, sourceText, visitor);
-        }
-      }
-
-      continue;
-    }
-
-    if (value && typeof value === 'object' && 'type' in value) {
-      visitNodes(value as TSESTree.Node, sourceText, visitor);
-    }
-  }
-}
-
-function collectSensitiveSignalsFromNode(
-  node: TSESTree.Expression | TSESTree.PrivateIdentifier | null | undefined,
-  sourceText: string,
-): string[] {
-  return collectDisclosureSignals(node, sourceText, {
-    includeDiagnostics: false,
-  });
+interface EgressProcessorMatch {
+  processorId: string;
+  processorCategory: PrivacyProcessorCategory;
+  sinkKind: PrivacyProcessorSinkKind;
 }
 
 function collectFactForCall(
@@ -163,13 +78,11 @@ function collectFactForCall(
 ): ObservedFact | undefined {
   const calleeText = getCallCalleeText(callExpression, context.sourceText);
 
-  if (!calleeText || !isKnownOutboundProcessor(calleeText)) {
+  if (!calleeText || !isExternalProcessorCall(calleeText)) {
     return undefined;
   }
 
-  const processorSink = externalProcessorCallPatterns.some((pattern) =>
-    pattern.test(calleeText),
-  );
+  const recipe = matchPrivacyProcessorRecipe(calleeText);
   const httpClientSink =
     calleeText === 'fetch' ||
     calleeText.endsWith('.fetch') ||
@@ -177,27 +90,45 @@ function collectFactForCall(
     calleeText === 'axios.request' ||
     /^axios\.(delete|get|head|options|patch|post|put)$/i.test(calleeText);
 
+  let processor: EgressProcessorMatch | undefined;
+
+  if (recipe) {
+    processor = {
+      processorId: recipe.id,
+      processorCategory: recipe.category,
+      sinkKind: 'sdk',
+    };
+  }
+
   if (httpClientSink) {
     const target = getOutboundTargetExpression(callExpression, calleeText);
 
     if (!target || !isExternalUrlLiteral(target)) {
       return undefined;
     }
+
+    processor ??= {
+      processorId: externalHttpProcessorId,
+      processorCategory: 'external-api',
+      sinkKind: 'http',
+    };
   }
 
-  if (!processorSink && !httpClientSink) {
+  if (!processor) {
     return undefined;
   }
 
-  const sensitiveSignals = callExpression.arguments.flatMap((argument) => {
+  const datatypes = callExpression.arguments.flatMap((argument) => {
     if (argument.type === 'SpreadElement') {
       return [];
     }
 
-    return collectSensitiveSignalsFromNode(argument, context.sourceText);
+    return collectPrivacyDatatypes(argument, context.sourceText);
   });
 
-  if (sensitiveSignals.length === 0) {
+  const normalizedDatatypes = [...new Set(datatypes)].sort();
+
+  if (normalizedDatatypes.length === 0) {
     return undefined;
   }
 
@@ -208,7 +139,12 @@ function collectFactForCall(
     nodeIds: context.nodeIds,
     props: {
       callee: calleeText,
-      sensitiveSignals: [...new Set(sensitiveSignals)].sort(),
+      rawCallee: calleeText,
+      processorCategory: processor.processorCategory,
+      processorId: processor.processorId,
+      sinkKind: processor.sinkKind,
+      datatypes: normalizedDatatypes,
+      sensitiveSignals: normalizedDatatypes,
     },
     text: context.sourceText.slice(callExpression.range[0], callExpression.range[1]),
   });
@@ -219,8 +155,12 @@ export const collectSensitiveEgressFacts: TypeScriptFactDetector = (
 ) => {
   const facts: ObservedFact[] = [];
 
-  visitNodes(context.program, context.sourceText, (candidate) => {
+  walkAst(context.program, (candidate) => {
     if (!isCallExpression(candidate)) {
+      return;
+    }
+
+    if (isPrivacySafeWrapperCall(candidate, context.sourceText)) {
       return;
     }
 
