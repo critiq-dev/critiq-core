@@ -18,9 +18,33 @@
   <code>critiq-core</code> is the public engine behind Critiq. It gives developers a readable rule DSL, canonical finding contracts, a reusable scan runtime, and a CLI that behaves the same way locally and in CI.
 </p>
 
-## Rules
+## Start In 60 Seconds
 
-We publish the OSS catalog as [`@critiq/rules`](https://github.com/critiq-dev/critiq-rules). Today it includes `112` rules across `10` categories, with `recommended`, `strict`, `security`, and `experimental` presets.
+Run Critiq on your repo without creating `.critiq/config.yaml` first:
+
+```bash
+npm install -D @critiq/core @critiq/rules
+npx critiq check .
+```
+
+Run Critiq against a diff:
+
+```bash
+npx critiq check . --base origin/main --head HEAD
+```
+
+The npm package surface we are standardizing on is:
+
+- `@critiq/core` for the CLI, runtime, and public contracts in this repo
+- `@critiq/rules` for the default OSS catalog
+
+When you want explicit repository policy later, add `.critiq/config.yaml`. You do not need it for the first run.
+
+## OSS Rule Catalog
+
+We publish the OSS rule catalog as [`@critiq/rules`](https://github.com/critiq-dev/critiq-rules). 
+
+Today it includes `112` rules across `10` categories, with `recommended`, `strict`, `security`, and `experimental` presets.
 
 | Category | Rules | What it looks after |
 | --- | ---: | --- |
@@ -44,27 +68,6 @@ We only add rules when they are worth interrupting a developer for.
 - We avoid low-value rules that are already better enforced by compilers, such as TypeScript `tsconfig`, or a standard linter configuration. A blanket `any` detector is a good example: it creates noise, duplicates existing toolchains, and usually says less than the compiler already can.
 - A rule should produce an actionable finding with evidence, not just restate generic style guidance.
 
-## Start In 60 Seconds
-
-Run Critiq on your repo without creating `.critiq/config.yaml` first:
-
-```bash
-npm install -D @critiq/core @critiq/rules
-npx critiq check .
-```
-
-Run Critiq against a diff:
-
-```bash
-npx critiq check . --base origin/main --head HEAD
-```
-
-The npm package surface we are standardizing on is:
-
-- `@critiq/core` for the CLI, runtime, and public contracts in this repo
-- `@critiq/rules` for the default OSS catalog
-
-When you want explicit repository policy later, add `.critiq/config.yaml`. You do not need it for the first run.
 
 ## What `critiq-core` Is For
 
