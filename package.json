@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Deterministic OSS core packages for critiq.dev scanning, findings, adapters, and CLI runtime.",
   "license": "Apache-2.0",
+  "packageManager": "npm@11.4.2",
   "scripts": {
     "changeset": "changeset",
     "build:release-cli": "node scripts/build-release-cli.mjs",
