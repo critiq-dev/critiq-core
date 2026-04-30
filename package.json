@@ -9,7 +9,9 @@
     "build:release-cli": "node scripts/build-release-cli.mjs",
     "commit": "cz",
     "commitlint": "commitlint --last",
+    "commitlint:edit": "commitlint --edit",
     "nx": "nx",
+    "prepare": "simple-git-hooks",
     "build": "nx run-many -t build --all",
     "lint": "nx run-many -t lint --all",
     "test": "nx run-many -t test --all",
@@ -62,6 +64,7 @@
     "jsonc-eslint-parser": "^2.1.0",
     "nx": "22.6.4",
     "prettier": "~3.6.2",
+    "simple-git-hooks": "^2.13.1",
     "ts-jest": "^29.4.0",
     "ts-node": "10.9.1",
     "tslib": "^2.3.0",
@@ -75,5 +78,8 @@
     "yaml": "^2.8.3",
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.25.2"
+  },
+  "simple-git-hooks": {
+    "commit-msg": "npm run commitlint:edit -- \"$1\""
   }
 }
