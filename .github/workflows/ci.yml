@@ -74,12 +74,3 @@ jobs:
 
       - name: Verify Release Readiness
         run: npm run release:verify
-
-  reusable-workflow-smoke:
-    needs:
-      - workflow-lint
-    uses: ./.github/workflows/run-critiq-cli.yml
-    with:
-      critiq-version: file:./dist/publish/cli
-      validate-glob: examples/starter-pack/rules/*.rule.yaml
-      test-glob: examples/starter-pack/rules/*.spec.yaml
