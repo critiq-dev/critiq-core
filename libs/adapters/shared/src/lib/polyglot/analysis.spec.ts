@@ -1,6 +1,6 @@
 import { createDiagnostic } from '@critiq/core-diagnostics';
 
-import { createObservedFactFromOffsets } from '../runtime/helpers';
+import { createObservedFactFromOffsets } from '../runtime';
 
 import { analyzePolyglotFile, createRegexPolyglotAdapter } from './analysis';
 

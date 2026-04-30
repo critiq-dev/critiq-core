@@ -175,7 +175,7 @@ function collectDiagnosticSignalsFromText(
   }
 
   if (
-    /\bprocess\.env(?:\b|[\.\[])/u.test(text) ||
+    /\bprocess\.env(?:\b|\.|\[)/u.test(text) ||
     tokens.has('env') ||
     tokens.has('environment')
   ) {

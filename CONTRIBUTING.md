@@ -27,6 +27,9 @@ The maintained OSS catalog and starter content now live in the separate
 If you are not sure where something belongs, read
 [docs/architecture/repo-map.md](./docs/architecture/repo-map.md) first.
 
+If you are changing an adapter, also read
+[libs/adapters/Agents.md](./libs/adapters/Agents.md).
+
 ## Local Setup
 
 Prerequisites:

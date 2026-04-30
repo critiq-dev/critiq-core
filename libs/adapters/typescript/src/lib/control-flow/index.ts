@@ -1,17 +1,62 @@
 import type {
   AnalyzedFileSemantics,
   ObservedBasicBlock,
-  ObservedControlFlowEdge,
   ObservedFact,
   ObservedFunction,
-  ObservedRange,
 } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
 import {
+  childNodesOf,
+  excerptFor,
+  toObservedRange,
+} from '../ast';
+import {
   authTokenLikeNameTokens,
   tokenizeIdentifierLikeText,
-} from './auth-vocabulary';
+} from '../auth-vocabulary';
+import {
+  configNameTokens,
+  deepNestingThreshold,
+  dictionaryLikeCollectionTokens,
+  functionComplexityThreshold,
+  functionStatementThreshold,
+  largePayloadExtensionPattern,
+  nestedLoopThreshold,
+  optionalReturningMethodNames,
+  recognizedAsyncCallees,
+  recognizedBlockingSyncCallees,
+  recognizedErrorSinkCallees,
+  recognizedExpensiveComputationCallees,
+  recognizedExpensiveConstructorCallees,
+  suggestiveLargePayloadNamePattern,
+  tokenRiskyCalleePattern,
+  tokenValidationCalleePattern,
+  trivialMagicNumbers,
+  type AwaitSequenceCandidate,
+  type BindingFlowState,
+  type BuildContext,
+  type ComparisonOperator,
+  type ConstantConditionResult,
+  type FlowNode,
+  type ForLoopInitializerPattern,
+  type FunctionBuildContext,
+  type FunctionContainerNode,
+  type FunctionDataFlowState,
+  type LiteralComparisonPattern,
+  type LoopFrame,
+  type LoopUpdateDirection,
+  type PrimitiveValue,
+  type PromiseChainState,
+  type SequenceResult,
+  type StatementSurfaceCandidate,
+  type StaticPrimitiveResult,
+  type StructuralFunctionMetrics,
+  type SwitchFrame,
+  type TopLevelConfigLiteral,
+  type TraversalState,
+  type UnreachableReason,
+} from './context';
 import {
   collectReferencedIdentifiers,
   createTrustBoundaryValidationState,
@@ -21,318 +66,7 @@ import {
   noteValidatedTrustBoundaryExpression,
   trustBoundarySensitiveConstructorCallees,
   trustBoundaryUnsafeDeserializationCallees,
-  type TrustBoundaryValidationState,
-} from './trust-boundary';
-
-interface NodeLike {
-  type: string;
-  loc: {
-    start: {
-      line: number;
-      column: number;
-    };
-    end: {
-      line: number;
-      column: number;
-    };
-  };
-  range: [number, number];
-}
-
-type FunctionContainerNode =
-  | TSESTree.Program
-  | TSESTree.FunctionDeclaration
-  | TSESTree.FunctionExpression
-  | TSESTree.ArrowFunctionExpression;
-
-type FlowNode = TSESTree.Node;
-type ComparisonOperator = '==' | '===' | '!=' | '!==';
-type PrimitiveValue = string | number | boolean | bigint | null;
-type UnreachableReason = 'after-return' | 'after-throw';
-type LoopUpdateDirection = 'increment' | 'decrement';
-
-interface SequenceResult {
-  nextBlockIds: string[];
-  terminalReasons: Set<UnreachableReason>;
-}
-
-interface LoopFrame {
-  breakBlockIds: string[];
-  continueTargetBlockId: string;
-}
-
-interface SwitchFrame {
-  breakBlockIds: string[];
-}
-
-interface TraversalState {
-  loopFrames: LoopFrame[];
-  switchFrames: SwitchFrame[];
-}
-
-interface BuildContext {
-  asyncFunctionBindings: Set<string>;
-  blocks: ObservedBasicBlock[];
-  edges: ObservedControlFlowEdge[];
-  facts: ObservedFact[];
-  functionIndex: number;
-  functions: ObservedFunction[];
-  nodeIds: WeakMap<object, string>;
-  parentNodes: WeakMap<object, TSESTree.Node | undefined>;
-  sourceText: string;
-}
-
-interface FunctionBuildContext {
-  blockIndex: number;
-  edgeIndex: number;
-  functionObservation: ObservedFunction;
-  hasReachableValueReturn: boolean;
-  root: BuildContext;
-}
-
-interface StaticPrimitiveResult {
-  known: true;
-  value: PrimitiveValue;
-}
-
-interface ConstantConditionResult {
-  value: boolean;
-  reason: 'literal-boolean' | 'literal-comparison' | 'negated-literal';
-}
-
-interface LiteralComparisonPattern {
-  literalKey: string;
-  literalText: string;
-  operator: ComparisonOperator;
-  subjectText: string;
-}
-
-interface ForLoopInitializerPattern {
-  collectionText?: string;
-  initialValue?: number;
-  kind: 'length-minus-one' | 'number';
-  variableName: string;
-}
-
-interface PromiseChainState {
-  hasCatch: boolean;
-  hasFinally: boolean;
-  hasThen: boolean;
-  hasThenRejectionHandler: boolean;
-}
-
-interface AwaitSequenceCandidate {
-  bindingNames: string[];
-  callExpression: TSESTree.CallExpression;
-  statement: TSESTree.Statement;
-}
-
-interface StructuralFunctionMetrics {
-  cyclomaticComplexity: number;
-  maxLoopNestingDepth: number;
-  maxNestingDepth: number;
-  statementCount: number;
-}
-
-interface StatementSurfaceCandidate {
-  key: string;
-  node: TSESTree.Node;
-  text: string;
-}
-
-interface TopLevelConfigLiteral {
-  name: string;
-  node: TSESTree.Node;
-  valueText: string;
-}
-
-interface BindingFlowState {
-  externalInput: boolean;
-  maybeNull: boolean;
-  optional: boolean;
-  tokenLike: boolean;
-}
-
-interface FunctionDataFlowState {
-  bindings: Map<string, BindingFlowState>;
-  validatedTrustBoundaries: TrustBoundaryValidationState;
-  tokenValidatedIdentifiers: Set<string>;
-}
-
-const recognizedErrorSinkCallees = new Set([
-  'captureException',
-  'console.error',
-  'console.warn',
-  'logger.error',
-  'logger.warn',
-]);
-
-const recognizedAsyncCallees = new Set([
-  'fetch',
-  'Promise.all',
-  'Promise.allSettled',
-  'Promise.any',
-  'Promise.race',
-]);
-
-const recognizedBlockingSyncCallees = new Set([
-  'execFileSync',
-  'execSync',
-  'fs.appendFileSync',
-  'fs.copyFileSync',
-  'fs.existsSync',
-  'fs.mkdirSync',
-  'fs.openSync',
-  'fs.readFileSync',
-  'fs.readdirSync',
-  'fs.realpathSync',
-  'fs.rmSync',
-  'fs.statSync',
-  'fs.unlinkSync',
-  'fs.writeFileSync',
-  'spawnSync',
-]);
-
-const recognizedExpensiveComputationCallees = new Set([
-  'Array.from',
-  'JSON.parse',
-  'JSON.stringify',
-  'Object.entries',
-  'Object.keys',
-  'Object.values',
-]);
-
-const recognizedExpensiveConstructorCallees = new Set([
-  'Intl.DateTimeFormat',
-  'Intl.NumberFormat',
-  'RegExp',
-]);
-
-const largePayloadExtensionPattern = /\.(csv|jsonl|ndjson|log|parquet|tsv|xml)$/i;
-const suggestiveLargePayloadNamePattern =
-  /(archive|buffer|csv|dump|export|jsonl|log|ndjson|payload|report|stream|tsv)/i;
-const trivialMagicNumbers = new Set([-1, 0, 1, 2]);
-const configNameTokens = new Set([
-  'api',
-  'base',
-  'bucket',
-  'domain',
-  'endpoint',
-  'env',
-  'environment',
-  'feature',
-  'flag',
-  'host',
-  'origin',
-  'path',
-  'port',
-  'queue',
-  'region',
-  'retry',
-  'service',
-  'settings',
-  'timeout',
-  'topic',
-  'ttl',
-  'uri',
-  'url',
-]);
-const dictionaryLikeCollectionTokens = new Set([
-  'cache',
-  'dict',
-  'dictionary',
-  'index',
-  'lookup',
-  'map',
-  'record',
-  'registry',
-  'store',
-  'table',
-]);
-const functionStatementThreshold = 18;
-const functionComplexityThreshold = 10;
-const deepNestingThreshold = 4;
-const nestedLoopThreshold = 2;
-const optionalReturningMethodNames = new Set([
-  'find',
-  'get',
-  'match',
-]);
-const tokenRiskyCalleePattern =
-  /(^|\.)(decode|deserialize|findSession|getSession|getUserFromToken|loadSession|lookupSession|parseJwt|readSession)$/;
-const tokenValidationCalleePattern =
-  /(^|\.)(assertAuthenticated|authenticate|checkSession|checkToken|validateSession|validateToken|verify|verifySession|verifyToken)$/;
-
-function asNodeLike(node: TSESTree.Node): NodeLike {
-  return node as unknown as NodeLike;
-}
-
-function toObservedRange(node: TSESTree.Node): ObservedRange {
-  const positioned = asNodeLike(node);
-
-  return {
-    startLine: positioned.loc.start.line,
-    startColumn: positioned.loc.start.column + 1,
-    endLine: positioned.loc.end.line,
-    endColumn: positioned.loc.end.column + 1,
-  };
-}
-
-function excerptFor(node: TSESTree.Node, sourceText: string): string {
-  const positioned = asNodeLike(node);
-
-  return sourceText.slice(positioned.range[0], positioned.range[1]);
-}
-
-function childNodesOf(node: TSESTree.Node): TSESTree.Node[] {
-  const children: TSESTree.Node[] = [];
-
-  for (const [key, value] of Object.entries(node as unknown as Record<string, unknown>)) {
-    if (key === 'loc' || key === 'range' || key === 'parent') {
-      continue;
-    }
-
-    if (Array.isArray(value)) {
-      for (const entry of value) {
-        if (isNode(entry)) {
-          children.push(entry);
-        }
-      }
-
-      continue;
-    }
-
-    if (isNode(value)) {
-      children.push(value);
-    }
-  }
-
-  return children.sort(compareNodes);
-}
-
-function compareNodes(left: TSESTree.Node, right: TSESTree.Node): number {
-  const leftNode = asNodeLike(left);
-  const rightNode = asNodeLike(right);
-
-  if (leftNode.range[0] !== rightNode.range[0]) {
-    return leftNode.range[0] - rightNode.range[0];
-  }
-
-  if (leftNode.range[1] !== rightNode.range[1]) {
-    return leftNode.range[1] - rightNode.range[1];
-  }
-
-  return left.type.localeCompare(right.type);
-}
-
-function isNode(value: unknown): value is TSESTree.Node {
-  return (
-    Boolean(value) &&
-    typeof value === 'object' &&
-    typeof (value as { type?: unknown }).type === 'string' &&
-    Array.isArray((value as { range?: unknown }).range)
-  );
-}
+} from '../trust-boundary';
 
 function isFunctionContainer(node: TSESTree.Node): node is FunctionContainerNode {
   return (
@@ -1030,7 +764,7 @@ function staticPrimitiveValue(
       if (current.operator === '!') {
         return {
           known: true,
-          value: !Boolean(argument.value),
+          value: !argument.value,
         };
       }
 

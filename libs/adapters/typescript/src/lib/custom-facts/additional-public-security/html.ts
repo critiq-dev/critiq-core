@@ -13,10 +13,12 @@ import { isRequestDerivedExpression } from './analysis';
 import { FACT_KINDS, responseSinkNames } from './constants';
 import {
   getLiteralString,
+} from './literal-values';
+import {
   getMemberPropertyName,
-  isHtmlLikeText,
-  unwrapExpression,
-} from './utils';
+} from './property-names';
+import { isHtmlLikeText } from './html-like-text';
+import { unwrapExpression } from './unwrap-expression';
 import { isTrustedHtmlSanitizerCall } from '../substrate/html-sanitizers';
 import { trustBoundaryTemplateCompilerCallees } from '../../trust-boundary';
 

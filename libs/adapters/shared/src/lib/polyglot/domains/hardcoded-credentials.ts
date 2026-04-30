@@ -1,7 +1,7 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
-import { CREDENTIAL_IDENTIFIER_PATTERN } from '../../runtime/helpers';
-import { collectMatchedFacts } from './shared';
+import { CREDENTIAL_IDENTIFIER_PATTERN } from '../../runtime';
+import { collectMatchedFacts } from './collect-matched-facts';
 
 export interface HardcodedCredentialOptions {
   appliesTo?: ObservedFact['appliesTo'];

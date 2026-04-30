@@ -26,7 +26,7 @@ import {
   type FunctionLikeNode,
 } from './analysis';
 import { FACT_KINDS } from './constants';
-import { getLiteralString } from './utils';
+import { getLiteralString } from './literal-values';
 import { trustBoundaryModuleLoaderCallees } from '../../trust-boundary';
 
 function isUiRedressHeader(

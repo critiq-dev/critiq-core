@@ -1,4 +1,4 @@
-export * from './runtime/helpers';
+export * from './runtime';
 
 export * from './polyglot/analysis';
 export * from './polyglot/fact-utils';

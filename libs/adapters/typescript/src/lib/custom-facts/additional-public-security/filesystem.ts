@@ -20,7 +20,7 @@ import {
   permissionOptionSinkNames,
   sendFileSinkNames,
 } from './constants';
-import { getLiteralNumber } from './utils';
+import { getLiteralNumber } from './literal-values';
 
 function isRequestOrUploadDerivedExpression(
   node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,

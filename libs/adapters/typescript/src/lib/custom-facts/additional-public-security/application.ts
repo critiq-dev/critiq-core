@@ -28,10 +28,12 @@ import {
 } from './constants';
 import {
   getLiteralString,
-  normalizeText,
+} from './literal-values';
+import {
   objectBooleanFlagFalse,
   objectPropertyNames,
-} from './utils';
+} from './object-flags';
+import { normalizeText } from './text-normalization';
 
 function getTemplateLiteralString(
   node: TSESTree.TemplateLiteral,

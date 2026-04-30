@@ -3,8 +3,8 @@ import type { ObservedFact } from '@critiq/core-rules-engine';
 import {
   REDACTION_WRAPPER_PATTERN,
   SENSITIVE_LABEL_PATTERN,
-} from '../../runtime/helpers';
-import { collectSnippetFacts } from './shared';
+} from '../../runtime';
+import { collectSnippetFacts } from './collect-snippet-facts';
 
 export interface SensitiveLoggingOptions<TState> {
   detector: string;

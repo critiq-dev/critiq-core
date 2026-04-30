@@ -124,9 +124,9 @@ Current structural thresholds and heuristics are intentionally narrow:
 
 ## Repository-Level Augmentation
 
-The adapter itself remains single-file. When `critiq check` runs through
-`@critiq/check-runner`, the runtime layers a limited repo pass on top of
-adapter output for:
+The adapter itself focuses on per-file analysis. When `critiq check` runs
+through `@critiq/check-runner`, the runtime layers a limited repo pass on top
+of adapter output for:
 
 - missing authorization before sensitive backend actions
 - missing ownership validation on request-derived ids

@@ -1,7 +1,7 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
-import { type CallSnippet } from '../../runtime/helpers';
-import { collectSnippetFacts } from './shared';
+import { type CallSnippet } from '../../runtime';
+import { collectSnippetFacts } from './collect-snippet-facts';
 
 export interface SqlInterpolationOptions<TState> {
   detector: string;

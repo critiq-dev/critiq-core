@@ -1,7 +1,7 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
 import { hasRemotePlainHttpUrl } from '../text';
-import { collectSnippetFacts } from './shared';
+import { collectSnippetFacts } from './collect-snippet-facts';
 
 export interface InsecureHttpTransportOptions<TState> {
   detector: string;

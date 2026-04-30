@@ -17,7 +17,7 @@ import {
   resolveFunctionLike,
 } from './analysis';
 import { FACT_KINDS } from './constants';
-import { getLiteralString } from './utils';
+import { getLiteralString } from './literal-values';
 
 const informationLeakageSinkPattern =
   /^(?:console|logger|log)\.(?:debug|error|info|log|warn)$/u;

@@ -4,7 +4,39 @@ import type { TSESTree } from '@typescript-eslint/typescript-estree';
 import {
   isAuthLikeText,
   tokenizeIdentifierLikeText,
-} from '../auth-vocabulary';
+} from '../../auth-vocabulary';
+export {
+  INSECURE_PASSWORD_HASH_CONFIG_RULE_ID,
+  INSUFFICIENT_RANDOM_RULE_ID,
+  MISSING_INTEGRITY_RULE_ID,
+  PREDICTABLE_TOKEN_RULE_ID,
+  WEAK_CIPHER_RULE_ID,
+  WEAK_HASH_RULE_ID,
+  WEAK_KEY_STRENGTH_RULE_ID,
+} from './constants';
+import {
+  compatibilitySensitiveTargetTokens,
+  INSECURE_PASSWORD_HASH_CONFIG_FACT_KIND,
+  INSUFFICIENT_RANDOM_FACT_KIND,
+  integrityHelperCallNames,
+  MISSING_INTEGRITY_FACT_KIND,
+  otpLikeTargetTokens,
+  pbkdf2CallNames,
+  PREDICTABLE_TOKEN_FACT_KIND,
+  predictableSourceMatcher,
+  predictableTokenSourcePattern,
+  rsaKeyGenerationCallNames,
+  rsaPaddingCallNames,
+  sensitivePasswordValuePattern,
+  symmetricKeyGenerationCallNames,
+  weakCipherCallNames,
+  WEAK_CIPHER_FACT_KIND,
+  weakHashAlgorithmPattern,
+  weakHashCallNames,
+  WEAK_HASH_FACT_KIND,
+  WEAK_KEY_STRENGTH_FACT_KIND,
+  webCryptoGenerateKeyCallNames,
+} from './constants';
 import {
   createObservedFact,
   getCalleeText,
@@ -22,137 +54,7 @@ import {
   type FunctionLikeNode,
   type TypeScriptFactDetector,
   type TypeScriptFactDetectorContext,
-} from './shared';
-
-export const WEAK_HASH_RULE_ID = 'security.weak-hash-algorithm';
-export const WEAK_CIPHER_RULE_ID = 'ts.security.weak-cipher-or-mode';
-export const PREDICTABLE_TOKEN_RULE_ID =
-  'ts.security.predictable-token-generation';
-export const INSECURE_PASSWORD_HASH_CONFIG_RULE_ID =
-  'ts.security.insecure-password-hash-configuration';
-export const INSUFFICIENT_RANDOM_RULE_ID =
-  'ts.security.insufficiently-random-values';
-export const WEAK_KEY_STRENGTH_RULE_ID = 'ts.security.weak-key-strength';
-export const MISSING_INTEGRITY_RULE_ID =
-  'ts.security.missing-integrity-check';
-
-const WEAK_HASH_FACT_KIND = 'security.weak-hash-algorithm';
-const WEAK_CIPHER_FACT_KIND = 'security.weak-cipher-or-mode';
-const PREDICTABLE_TOKEN_FACT_KIND = 'security.predictable-token-generation';
-const INSECURE_PASSWORD_HASH_CONFIG_FACT_KIND =
-  'security.insecure-password-hash-configuration';
-const INSUFFICIENT_RANDOM_FACT_KIND = 'security.insufficiently-random-values';
-const WEAK_KEY_STRENGTH_FACT_KIND = 'security.weak-key-strength';
-const MISSING_INTEGRITY_FACT_KIND = 'security.missing-integrity-check';
-
-const weakHashAlgorithmPattern = /^(md4|md5|ripemd160|sha1)$/i;
-const sensitivePasswordValuePattern =
-  /(?:password|passphrase|hash|secret|token|api[_-]?key|auth[_-]?token)/i;
-const predictableTokenSourcePattern =
-  /(Math\.random|Date\.now|new Date\(\)\.getTime\(\)|performance\.now)/i;
-const predictableSourceMatcher =
-  /Math\.random|Date\.now|new Date\(\)\.getTime\(\)|performance\.now/gi;
-
-const compatibilitySensitiveTargetTokens = new Set([
-  'api',
-  'auth',
-  'client',
-  'cookie',
-  'credential',
-  'invite',
-  'jwt',
-  'magic',
-  'nonce',
-  'otp',
-  'passcode',
-  'refresh',
-  'reset',
-  'secret',
-  'session',
-  'signing',
-  'token',
-  'verification',
-  'verify',
-]);
-
-const otpLikeTargetTokens = new Set([
-  '2fa',
-  'code',
-  'one',
-  'otp',
-  'passcode',
-  'pin',
-  'time',
-  'totp',
-  'verification',
-]);
-
-const weakHashCallNames = new Set([
-  'createHash',
-  'createHmac',
-  'crypto.createHash',
-  'crypto.createHmac',
-  'crypto.subtle.digest',
-  'globalThis.crypto.subtle.digest',
-  'subtle.digest',
-]);
-
-const pbkdf2CallNames = new Set([
-  'pbkdf2',
-  'pbkdf2Sync',
-  'crypto.pbkdf2',
-  'crypto.pbkdf2Sync',
-]);
-
-const weakCipherCallNames = new Set([
-  'createCipher',
-  'createCipheriv',
-  'createDecipher',
-  'createDecipheriv',
-  'crypto.createCipher',
-  'crypto.createCipheriv',
-  'crypto.createDecipher',
-  'crypto.createDecipheriv',
-]);
-
-const rsaPaddingCallNames = new Set([
-  'privateDecrypt',
-  'privateEncrypt',
-  'publicDecrypt',
-  'publicEncrypt',
-  'crypto.privateDecrypt',
-  'crypto.privateEncrypt',
-  'crypto.publicDecrypt',
-  'crypto.publicEncrypt',
-]);
-
-const rsaKeyGenerationCallNames = new Set([
-  'generateKeyPair',
-  'generateKeyPairSync',
-  'crypto.generateKeyPair',
-  'crypto.generateKeyPairSync',
-]);
-
-const symmetricKeyGenerationCallNames = new Set([
-  'generateKey',
-  'generateKeySync',
-  'crypto.generateKey',
-  'crypto.generateKeySync',
-]);
-
-const webCryptoGenerateKeyCallNames = new Set([
-  'crypto.subtle.generateKey',
-  'globalThis.crypto.subtle.generateKey',
-  'subtle.generateKey',
-]);
-
-const integrityHelperCallNames = new Set([
-  'createHmac',
-  'crypto.createHmac',
-  'crypto.subtle.sign',
-  'globalThis.crypto.subtle.sign',
-  'subtle.sign',
-]);
+} from '../shared';
 
 type ExpressionBindingMap = Map<string, TSESTree.Expression>;
 

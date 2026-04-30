@@ -1,6 +1,6 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
-import { collectSnippetFacts } from './shared';
+import { collectSnippetFacts } from './collect-snippet-facts';
 
 export interface UnsafeDeserializationOptions<TState> {
   detector: string;

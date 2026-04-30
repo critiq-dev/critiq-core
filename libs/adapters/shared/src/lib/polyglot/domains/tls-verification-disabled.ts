@@ -1,7 +1,8 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
-import { type CallSnippet } from '../../runtime/helpers';
-import { collectMatchedFacts, collectSnippetFacts } from './shared';
+import { type CallSnippet } from '../../runtime';
+import { collectMatchedFacts } from './collect-matched-facts';
+import { collectSnippetFacts } from './collect-snippet-facts';
 
 export interface TlsSnippetPattern<TState> {
   pattern: RegExp;

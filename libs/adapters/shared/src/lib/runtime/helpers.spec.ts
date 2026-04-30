@@ -3,7 +3,7 @@ import {
   createObservedFactFromOffsets,
   createRangeFromOffsets,
   findCallSnippets,
-} from './helpers';
+} from './index';
 
 describe('runtime helpers', () => {
   it('creates ranges from offsets across line boundaries', () => {

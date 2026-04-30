@@ -96,7 +96,7 @@ Current structural thresholds and heuristics are intentionally narrow:
 
 ## Repository-Level Augmentation
 
-The adapter stays single-file. When `critiq check` runs through
+The adapter focuses on per-file analysis. When `critiq check` runs through
 `@critiq/check-runner`, the runtime adds a limited repo pass on top of adapter
 output for:
 

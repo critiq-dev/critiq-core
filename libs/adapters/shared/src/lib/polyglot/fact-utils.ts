@@ -3,7 +3,7 @@ import type { ObservedFact } from '@critiq/core-rules-engine';
 import {
   createObservedFactFromOffsets,
   type CallSnippet,
-} from '../runtime/helpers';
+} from '../runtime';
 
 export interface CreateOffsetFactOptions {
   detector: string;

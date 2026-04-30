@@ -21,7 +21,7 @@ import {
   fileWriteSinkNames,
   sensitiveComparePattern,
 } from './constants';
-import { normalizeText } from './utils';
+import { normalizeText } from './text-normalization';
 
 export function collectNosqlInjectionFacts(
   context: TypeScriptFactDetectorContext,

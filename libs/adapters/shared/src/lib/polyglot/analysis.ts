@@ -1,4 +1,4 @@
-import { buildAnalyzedFileWithFacts } from '../runtime/helpers';
+import { buildAnalyzedFileWithFacts } from '../runtime';
 
 import { dedupeFacts } from './fact-utils';
 import type {

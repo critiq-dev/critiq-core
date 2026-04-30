@@ -1,6 +1,6 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
-import { collectMatchedFacts } from './shared';
+import { collectMatchedFacts } from './collect-matched-facts';
 
 const defaultAndroidActivityPattern =
   /\bclass\s+[A-Za-z_][A-Za-z0-9_]*\s+extends\s+(?:[A-Za-z_][A-Za-z0-9_]*Activity|Activity|AppCompatActivity|ComponentActivity|FragmentActivity)\b/g;

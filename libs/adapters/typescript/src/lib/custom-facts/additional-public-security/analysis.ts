@@ -10,7 +10,8 @@ import {
   isSensitiveAuthJwtClaimText,
 } from '../../auth-vocabulary';
 import { requestSourcePattern } from './constants';
-import { getLiteralString, normalizeText } from './utils';
+import { getLiteralString } from './literal-values';
+import { normalizeText } from './text-normalization';
 import {
   createTrustBoundaryValidationState,
   isTrustBoundaryExpressionValidated,

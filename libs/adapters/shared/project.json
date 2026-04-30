@@ -11,7 +11,8 @@
       "options": {
         "outputPath": "dist/libs/adapters/shared",
         "main": "libs/adapters/shared/src/index.ts",
-        "tsConfig": "libs/adapters/shared/tsconfig.lib.json"
+        "tsConfig": "libs/adapters/shared/tsconfig.lib.json",
+        "assets": ["libs/adapters/shared/*.md"]
       }
     },
     "typecheck": {

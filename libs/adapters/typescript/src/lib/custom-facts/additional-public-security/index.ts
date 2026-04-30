@@ -5,36 +5,36 @@ import {
   collectUploadDerivedNames,
   collectValidatedTrustBoundaryState,
   resolveFunctionBindings,
-} from './additional-public-security/analysis';
+} from './analysis';
 import {
   collectDatadogBrowserFacts,
   collectExpressHardeningFacts,
   collectHardcodedAuthSecretFacts,
   collectRenderFacts,
-} from './additional-public-security/application';
+} from './application';
 import {
   collectDebugModeEnabledFacts,
   collectInformationLeakageFacts,
-} from './additional-public-security/disclosure';
+} from './disclosure';
 import {
   collectDynamodbQueryFacts,
   collectFileAndExceptionFacts,
   collectNosqlInjectionFacts,
   collectObservableTimingFacts,
-} from './additional-public-security/data';
-import { collectFilesystemSafetyFacts } from './additional-public-security/filesystem';
+} from './data';
+import { collectFilesystemSafetyFacts } from './filesystem';
 import {
   collectHtmlOutputFacts,
   collectHttpResponseFacts,
-} from './additional-public-security/html';
+} from './html';
 import {
   collectBrowserOriginFacts,
   collectFormatStringFacts,
   collectHeaderMisuseFacts,
   collectModuleLoadFacts,
   collectWebsocketFacts,
-} from './additional-public-security/transport';
-import { type TypeScriptFactDetector } from './shared';
+} from './transport';
+import { type TypeScriptFactDetector } from '../shared';
 
 export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
   context,

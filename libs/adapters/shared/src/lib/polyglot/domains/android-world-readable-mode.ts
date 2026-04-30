@@ -1,6 +1,6 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
-import { collectMatchedFacts } from './shared';
+import { collectMatchedFacts } from './collect-matched-facts';
 
 const defaultAndroidWorldReadablePattern =
   /\b(?:Context\.)?MODE_WORLD_(?:READABLE|WRITABLE|WRITEABLE)\b/g;
