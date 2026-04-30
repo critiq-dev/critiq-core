@@ -48,7 +48,7 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
 
   return [
     ...collectFilesystemSafetyFacts(context, taintedNames, uploadDerivedNames),
-    ...collectHeaderMisuseFacts(context, taintedNames),
+    ...collectHeaderMisuseFacts(context, taintedNames, functionBindings),
     ...collectNosqlInjectionFacts(context, taintedNames, modelNames),
     ...collectDynamodbQueryFacts(context, taintedNames, dynamodbClientNames),
     ...collectInformationLeakageFacts(context),
@@ -71,7 +71,7 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
       validatedTrustBoundaries,
     ),
     ...collectDatadogBrowserFacts(context),
-    ...collectExpressHardeningFacts(context),
+    ...collectExpressHardeningFacts(context, functionBindings),
     ...collectDebugModeEnabledFacts(context),
   ];
 };

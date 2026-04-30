@@ -48,6 +48,36 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     );
   });
 
+  it('flags permissive CORS configs and reflected callback origins while preserving literal allowlists', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'const permissiveCors = { origin: true };',
+        'const safeCors = { origin: ["https://app.example.com"] };',
+        'const headerBag = { "Access-Control-Allow-Origin": "*" };',
+        'function allowAllOrigin(origin, callback) {',
+        '  callback(null, true);',
+        '}',
+        'function reflectOrigin(origin, callback) {',
+        '  callback(null, origin);',
+        '}',
+        'cors({ origin: "*" });',
+        'cors(permissiveCors);',
+        'cors({ origin: allowAllOrigin });',
+        'cors({ origin: "https://admin.example.com" });',
+        'cors(safeCors);',
+        'cors({ origin: reflectOrigin });',
+        'res.writeHead(200, headerBag);',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.permissive-allow-origin'),
+    ).toHaveLength(4);
+    expect(
+      facts.filter((fact) => fact.kind === 'security.insecure-allow-origin'),
+    ).toHaveLength(1);
+  });
+
   it('does not flag fixed log format strings when later arguments are tainted', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([
@@ -208,6 +238,31 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     ).toHaveLength(1);
   });
 
+  it('flags disabled helmet protections but suppresses missing-helmet when a local wrapper returns helmet()', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'const express = require("express");',
+        'const app = express();',
+        'function buildHelmet() {',
+        '  return helmet();',
+        '}',
+        'function handler(res) {',
+        '  res.setHeader("Content-Security-Policy", "frame-ancestors *");',
+        '}',
+        'app.use(buildHelmet());',
+        'app.use(helmet({ frameguard: false }));',
+        'app.use(helmet({ contentSecurityPolicy: false }));',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.ui-redress'),
+    ).toHaveLength(3);
+    expect(
+      facts.filter((fact) => fact.kind === 'security.express-missing-helmet'),
+    ).toHaveLength(0);
+  });
+
   it('flags hardcoded auth secrets, sensitive exceptions and file writes, permissive modes, and observable timing checks', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([
@@ -359,6 +414,50 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     expect(
       facts.filter((fact) => fact.kind === 'security.user-controlled-view-render'),
     ).toHaveLength(1);
+  });
+
+  it('flags permissive session cookie settings but ignores explicit sameSite allowlists', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'const crossSiteCookie = {',
+        '  name: "sid",',
+        '  maxAge: 60_000,',
+        '  path: "/",',
+        '  domain: ".example.com",',
+        '  secure: true,',
+        '  httpOnly: true,',
+        '  sameSite: "none",',
+        '};',
+        'session({ name: "sid", cookie: crossSiteCookie });',
+        'cookieSession({',
+        '  name: "sid",',
+        '  maxAge: 60_000,',
+        '  path: "/",',
+        '  domain: ".example.com",',
+        '  secure: true,',
+        '  httpOnly: true,',
+        '  sameSite: "none",',
+        '});',
+        'session({',
+        '  name: "safeSid",',
+        '  cookie: {',
+        '    name: "safeSid",',
+        '    maxAge: 60_000,',
+        '    path: "/",',
+        '    domain: "example.com",',
+        '    secure: true,',
+        '    httpOnly: true,',
+        '    sameSite: "lax",',
+        '  },',
+        '});',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === 'security.express-permissive-cookie-config',
+      ),
+    ).toHaveLength(2);
   });
 
   it('flags request and upload controlled filesystem reads, writes, upload filenames, and permissive modes', () => {

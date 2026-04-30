@@ -19,6 +19,7 @@ export const FACT_KINDS = {
   fileGeneration: 'security.file-generation',
   importUsingUserInput: 'security.import-using-user-input',
   insecureAllowOrigin: 'security.insecure-allow-origin',
+  permissiveAllowOrigin: 'security.permissive-allow-origin',
   insecureCookie: 'security.express-insecure-cookie',
   insecureCookieHttpOnly: 'security.express-cookie-missing-http-only',
   insecurePasswordHashConfig: 'security.insecure-password-hash-configuration',
@@ -42,6 +43,8 @@ export const FACT_KINDS = {
   exposedDirectoryListing: 'security.exposed-directory-listing',
   expressDefaultSessionConfig: 'security.express-default-session-config',
   expressDefaultCookieConfig: 'security.express-default-cookie-config',
+  expressPermissiveCookieConfig:
+    'security.express-permissive-cookie-config',
   expressStaticAssetsAfterSession:
     'security.express-static-assets-after-session',
   expressMissingHelmet: 'security.express-missing-helmet',

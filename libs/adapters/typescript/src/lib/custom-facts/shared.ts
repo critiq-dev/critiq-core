@@ -303,6 +303,54 @@ export function getObjectProperty(
   );
 }
 
+export function collectObjectBindings(
+  context: TypeScriptFactDetectorContext,
+): Map<string, TSESTree.ObjectExpression> {
+  const bindings = new Map<string, TSESTree.ObjectExpression>();
+
+  walkAst(context.program, (node) => {
+    if (node.type !== 'VariableDeclarator') {
+      return;
+    }
+
+    if (node.id.type !== 'Identifier') {
+      return;
+    }
+
+    if (!node.init || node.init.type !== 'ObjectExpression') {
+      return;
+    }
+
+    bindings.set(node.id.name, node.init);
+  });
+
+  return bindings;
+}
+
+export function resolveObjectExpression(
+  expression:
+    | TSESTree.Expression
+    | TSESTree.PrivateIdentifier
+    | TSESTree.CallExpressionArgument
+    | null
+    | undefined,
+  bindings: ReadonlyMap<string, TSESTree.ObjectExpression>,
+): TSESTree.ObjectExpression | undefined {
+  if (!expression || expression.type === 'PrivateIdentifier') {
+    return undefined;
+  }
+
+  if (expression.type === 'ObjectExpression') {
+    return expression;
+  }
+
+  if (expression.type === 'Identifier') {
+    return bindings.get(expression.name);
+  }
+
+  return undefined;
+}
+
 export function isFunctionLike(
   node: TSESTree.Node | null | undefined,
 ): node is FunctionLikeNode {

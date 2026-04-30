@@ -2,11 +2,15 @@ import type { ObservedFact } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
 import {
+  collectObjectBindings,
   createObservedFact,
   excerptFor,
   getCalleeText,
   getNodeText,
+  getObjectProperty,
+  resolveObjectExpression,
   walkAst,
+  walkFunctionBodySkippingNestedFunctions,
   type TypeScriptFactDetectorContext,
 } from '../shared';
 import {
@@ -25,11 +29,283 @@ import { FACT_KINDS } from './constants';
 import { getLiteralString } from './utils';
 import { trustBoundaryModuleLoaderCallees } from '../../trust-boundary';
 
+function isUiRedressHeader(
+  headerName: string,
+): boolean {
+  const normalizedHeader = headerName.toLowerCase();
+
+  return (
+    normalizedHeader === 'content-security-policy' ||
+    normalizedHeader === 'x-frame-options'
+  );
+}
+
+function hasDangerousUiRedressValue(
+  headerName: string,
+  headerValue: TSESTree.Expression | undefined,
+): boolean {
+  const literalValue = getLiteralString(headerValue);
+
+  if (!literalValue) {
+    return false;
+  }
+
+  const normalizedHeader = headerName.toLowerCase();
+  const normalizedValue = literalValue.toLowerCase().replace(/\s+/gu, ' ').trim();
+
+  if (normalizedHeader === 'x-frame-options') {
+    return (
+      normalizedValue === '*' ||
+      normalizedValue === 'allowall' ||
+      normalizedValue === 'off' ||
+      normalizedValue === 'false' ||
+      /^allow-from\s+\*$/u.test(normalizedValue)
+    );
+  }
+
+  return /(?:^|;)\s*frame-ancestors\s+\*/u.test(normalizedValue);
+}
+
+function collectHeaderFacts(
+  facts: ObservedFact[],
+  context: TypeScriptFactDetectorContext,
+  node: TSESTree.CallExpression,
+  headerName: string,
+  headerValue: TSESTree.Expression | undefined,
+  taintedNames: ReadonlySet<string>,
+): void {
+  if (!headerValue) {
+    return;
+  }
+
+  const normalizedHeader = headerName.toLowerCase();
+  const requestDerived = isRequestDerivedExpression(
+    headerValue,
+    taintedNames,
+    context.sourceText,
+  );
+
+  if (normalizedHeader === 'access-control-allow-origin') {
+    if (requestDerived) {
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: FACT_KINDS.insecureAllowOrigin,
+          node,
+          nodeIds: context.nodeIds,
+          props: {
+            header: headerName,
+          },
+          text: getCalleeText(node.callee, context.sourceText),
+        }),
+      );
+      return;
+    }
+
+    if (getLiteralString(headerValue) === '*') {
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: FACT_KINDS.permissiveAllowOrigin,
+          node,
+          nodeIds: context.nodeIds,
+          props: {
+            header: headerName,
+          },
+          text: getCalleeText(node.callee, context.sourceText),
+        }),
+      );
+    }
+
+    return;
+  }
+
+  if (
+    isUiRedressHeader(headerName) &&
+    (requestDerived || hasDangerousUiRedressValue(headerName, headerValue))
+  ) {
+    facts.push(
+      createObservedFact({
+        appliesTo: 'block',
+        kind: FACT_KINDS.uiRedress,
+        node,
+        nodeIds: context.nodeIds,
+        props: {
+          header: headerName,
+        },
+        text: getCalleeText(node.callee, context.sourceText),
+      }),
+    );
+  }
+}
+
+function isSafeCorsOriginExpression(
+  expression: TSESTree.Expression,
+): boolean {
+  if (expression.type === 'Literal') {
+    if (typeof expression.value === 'string') {
+      return expression.value !== '*';
+    }
+
+    return expression.value === false;
+  }
+
+  if (expression.type !== 'ArrayExpression') {
+    return false;
+  }
+
+  return expression.elements.every(
+    (element) =>
+      element?.type === 'Literal' &&
+      typeof element.value === 'string' &&
+      element.value !== '*',
+  );
+}
+
+function classifyCorsOriginCallback(
+  handler: FunctionLikeNode,
+): string | undefined {
+  const originParam =
+    handler.params[0]?.type === 'Identifier' ? handler.params[0] : undefined;
+  const callbackParam =
+    handler.params[1]?.type === 'Identifier' ? handler.params[1] : undefined;
+
+  if (!callbackParam) {
+    return undefined;
+  }
+
+  let classification: string | undefined;
+
+  walkFunctionBodySkippingNestedFunctions(handler, (node) => {
+    if (
+      classification ||
+      node.type !== 'CallExpression' ||
+      node.callee.type !== 'Identifier' ||
+      node.callee.name !== callbackParam.name
+    ) {
+      return;
+    }
+
+    const decisionArgument =
+      node.arguments[1] && node.arguments[1].type !== 'SpreadElement'
+        ? node.arguments[1]
+        : undefined;
+
+    if (!decisionArgument) {
+      return;
+    }
+
+    if (
+      decisionArgument.type === 'Literal' &&
+      (decisionArgument.value === true || decisionArgument.value === '*')
+    ) {
+      classification = FACT_KINDS.permissiveAllowOrigin;
+      return;
+    }
+
+    if (
+      originParam &&
+      decisionArgument.type === 'Identifier' &&
+      decisionArgument.name === originParam.name
+    ) {
+      classification = FACT_KINDS.insecureAllowOrigin;
+    }
+  });
+
+  if (classification) {
+    return classification;
+  }
+
+  if (
+    handler.body.type !== 'BlockStatement' &&
+    handler.body.type === 'Literal' &&
+    (handler.body.value === true || handler.body.value === '*')
+  ) {
+    return FACT_KINDS.permissiveAllowOrigin;
+  }
+
+  return undefined;
+}
+
+function classifyCorsConfig(
+  node: TSESTree.CallExpression,
+  context: TypeScriptFactDetectorContext,
+  taintedNames: ReadonlySet<string>,
+  objectBindings: ReadonlyMap<string, TSESTree.ObjectExpression>,
+  functionBindings: ReadonlyMap<string, FunctionLikeNode>,
+): string | undefined {
+  if (node.arguments.length === 0) {
+    return FACT_KINDS.permissiveAllowOrigin;
+  }
+
+  const firstArgument =
+    node.arguments[0] && node.arguments[0].type !== 'SpreadElement'
+      ? node.arguments[0]
+      : undefined;
+
+  if (!firstArgument) {
+    return undefined;
+  }
+
+  const config = resolveObjectExpression(firstArgument, objectBindings);
+
+  if (!config) {
+    return undefined;
+  }
+
+  const originProperty = getObjectProperty(config, 'origin');
+
+  if (!originProperty) {
+    return FACT_KINDS.permissiveAllowOrigin;
+  }
+
+  const originValue = originProperty.value as TSESTree.Expression;
+
+  if (
+    isRequestDerivedExpression(originValue, taintedNames, context.sourceText)
+  ) {
+    return FACT_KINDS.insecureAllowOrigin;
+  }
+
+  if (
+    originValue.type === 'Literal' &&
+    (originValue.value === '*' || originValue.value === true)
+  ) {
+    return FACT_KINDS.permissiveAllowOrigin;
+  }
+
+  if (
+    originValue.type === 'ArrayExpression' &&
+    originValue.elements.some(
+      (element) =>
+        element?.type === 'Literal' &&
+        typeof element.value === 'string' &&
+        element.value === '*',
+    )
+  ) {
+    return FACT_KINDS.permissiveAllowOrigin;
+  }
+
+  if (isSafeCorsOriginExpression(originValue)) {
+    return undefined;
+  }
+
+  const callback = resolveFunctionLike(originValue, functionBindings);
+
+  if (!callback) {
+    return undefined;
+  }
+
+  return classifyCorsOriginCallback(callback);
+}
+
 export function collectHeaderMisuseFacts(
   context: TypeScriptFactDetectorContext,
   taintedNames: ReadonlySet<string>,
+  functionBindings: ReadonlyMap<string, FunctionLikeNode>,
 ): ObservedFact[] {
   const facts: ObservedFact[] = [];
+  const objectBindings = collectObjectBindings(context);
 
   walkAst(context.program, (node) => {
     if (node.type !== 'CallExpression') {
@@ -37,6 +313,29 @@ export function collectHeaderMisuseFacts(
     }
 
     const calleeText = getCalleeText(node.callee, context.sourceText);
+
+    if (calleeText === 'cors') {
+      const corsFactKind = classifyCorsConfig(
+        node,
+        context,
+        taintedNames,
+        objectBindings,
+        functionBindings,
+      );
+
+      if (corsFactKind) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: corsFactKind,
+            node,
+            nodeIds: context.nodeIds,
+            text: calleeText,
+          }),
+        );
+      }
+    }
+
     const headerName = getLiteralString(
       node.arguments[0] as TSESTree.Expression,
     );
@@ -45,53 +344,28 @@ export function collectHeaderMisuseFacts(
     if (
       calleeText &&
       /(?:^|\.)(header|set|setHeader)$/u.test(calleeText) &&
-      headerName &&
-      headerValue &&
-      isRequestDerivedExpression(headerValue, taintedNames, context.sourceText)
+      headerName
     ) {
-      const normalizedHeader = headerName.toLowerCase();
-
-      if (normalizedHeader === 'access-control-allow-origin') {
-        facts.push(
-          createObservedFact({
-            appliesTo: 'block',
-            kind: FACT_KINDS.insecureAllowOrigin,
-            node,
-            nodeIds: context.nodeIds,
-            props: {
-              header: headerName,
-            },
-            text: calleeText,
-          }),
-        );
-      }
-
-      if (
-        normalizedHeader === 'content-security-policy' ||
-        normalizedHeader === 'x-frame-options'
-      ) {
-        facts.push(
-          createObservedFact({
-            appliesTo: 'block',
-            kind: FACT_KINDS.uiRedress,
-            node,
-            nodeIds: context.nodeIds,
-            props: {
-              header: headerName,
-            },
-            text: calleeText,
-          }),
-        );
-      }
+      collectHeaderFacts(
+        facts,
+        context,
+        node,
+        headerName,
+        headerValue,
+        taintedNames,
+      );
     }
 
     if (calleeText !== 'res.writeHead') {
       return;
     }
 
-    const headerBag = node.arguments[1];
+    const headerBag = resolveObjectExpression(
+      node.arguments[1],
+      objectBindings,
+    );
 
-    if (!headerBag || headerBag.type !== 'ObjectExpression') {
+    if (!headerBag) {
       return;
     }
 
@@ -112,50 +386,14 @@ export function collectHeaderMisuseFacts(
         continue;
       }
 
-      if (
-        !isRequestDerivedExpression(
-          property.value,
-          taintedNames,
-          context.sourceText,
-        )
-      ) {
-        continue;
-      }
-
-      const normalizedHeader = header.toLowerCase();
-
-      if (normalizedHeader === 'access-control-allow-origin') {
-        facts.push(
-          createObservedFact({
-            appliesTo: 'block',
-            kind: FACT_KINDS.insecureAllowOrigin,
-            node,
-            nodeIds: context.nodeIds,
-            props: {
-              header,
-            },
-            text: calleeText,
-          }),
-        );
-      }
-
-      if (
-        normalizedHeader === 'content-security-policy' ||
-        normalizedHeader === 'x-frame-options'
-      ) {
-        facts.push(
-          createObservedFact({
-            appliesTo: 'block',
-            kind: FACT_KINDS.uiRedress,
-            node,
-            nodeIds: context.nodeIds,
-            props: {
-              header,
-            },
-            text: calleeText,
-          }),
-        );
-      }
+      collectHeaderFacts(
+        facts,
+        context,
+        node,
+        header,
+        property.value as TSESTree.Expression,
+        taintedNames,
+      );
     }
   });
 

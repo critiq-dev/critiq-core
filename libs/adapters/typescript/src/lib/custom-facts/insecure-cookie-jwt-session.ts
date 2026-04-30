@@ -8,6 +8,7 @@ import {
   isSensitiveAuthJwtClaimText,
 } from '../auth-vocabulary';
 import {
+  collectObjectBindings,
   createObservedFact,
   getCalleeText,
   getNodeText,
@@ -15,6 +16,7 @@ import {
   getStringLiteralValue,
   isBooleanLiteral,
   looksSensitiveIdentifier,
+  resolveObjectExpression,
   walkAst,
   type TypeScriptFactDetector,
   type TypeScriptFactDetectorContext,
@@ -54,49 +56,6 @@ const STORAGE_SINKS = new Set([
   'window.localStorage.setItem',
   'window.sessionStorage.setItem',
 ]);
-
-function collectObjectBindings(
-  context: TypeScriptFactDetectorContext,
-): Map<string, TSESTree.ObjectExpression> {
-  const bindings = new Map<string, TSESTree.ObjectExpression>();
-
-  walkAst(context.program, (node) => {
-    if (node.type !== 'VariableDeclarator') {
-      return;
-    }
-
-    if (node.id.type !== 'Identifier') {
-      return;
-    }
-
-    if (!node.init || node.init.type !== 'ObjectExpression') {
-      return;
-    }
-
-    bindings.set(node.id.name, node.init);
-  });
-
-  return bindings;
-}
-
-function resolveObjectExpression(
-  expression: TSESTree.Expression | TSESTree.PrivateIdentifier | null | undefined,
-  bindings: Map<string, TSESTree.ObjectExpression>,
-): TSESTree.ObjectExpression | undefined {
-  if (!expression) {
-    return undefined;
-  }
-
-  if (expression.type === 'ObjectExpression') {
-    return expression;
-  }
-
-  if (expression.type === 'Identifier') {
-    return bindings.get(expression.name);
-  }
-
-  return undefined;
-}
 
 function getPropertyNames(objectExpression: TSESTree.ObjectExpression): string[] {
   const names: string[] = [];

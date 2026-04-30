@@ -3,16 +3,21 @@ import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
 import { isAuthSecretPropertyName } from '../../auth-vocabulary';
 import {
+  collectObjectBindings,
   createObservedFact,
   getCalleeText,
   getNodeText,
   getObjectProperty,
+  resolveObjectExpression,
   walkAst,
+  walkFunctionBodySkippingNestedFunctions,
   type TypeScriptFactDetectorContext,
 } from '../shared';
 import {
   isRequestDerivedExpression,
   isValidatedTrustBoundaryExpression,
+  resolveFunctionLike,
+  type FunctionLikeNode,
   type TrustBoundaryValidationState,
 } from './analysis';
 import {
@@ -132,10 +137,123 @@ function findAuthSecretProperty(
   return undefined;
 }
 
+function getReturnedCallExpression(
+  handler: FunctionLikeNode | undefined,
+): TSESTree.CallExpression | undefined {
+  if (!handler) {
+    return undefined;
+  }
+
+  if (handler.body.type !== 'BlockStatement') {
+    return handler.body.type === 'CallExpression' ? handler.body : undefined;
+  }
+
+  let returnedCall: TSESTree.CallExpression | undefined;
+
+  walkFunctionBodySkippingNestedFunctions(handler, (node) => {
+    if (
+      returnedCall ||
+      node.type !== 'ReturnStatement' ||
+      !node.argument ||
+      node.argument.type !== 'CallExpression'
+    ) {
+      return;
+    }
+
+    returnedCall = node.argument;
+  });
+
+  return returnedCall;
+}
+
+function resolveMiddlewareCallExpression(
+  expression:
+    | TSESTree.Expression
+    | TSESTree.SpreadElement
+    | TSESTree.PrivateIdentifier
+    | undefined,
+  functionBindings: ReadonlyMap<string, FunctionLikeNode>,
+): TSESTree.CallExpression | undefined {
+  if (
+    !expression ||
+    expression.type === 'SpreadElement' ||
+    expression.type === 'PrivateIdentifier' ||
+    expression.type !== 'CallExpression'
+  ) {
+    return undefined;
+  }
+
+  const wrapper =
+    expression.callee.type === 'Identifier'
+      ? resolveFunctionLike(expression.callee, functionBindings)
+      : undefined;
+
+  return getReturnedCallExpression(wrapper) ?? expression;
+}
+
+function getSessionCookieConfig(
+  calleeText: string,
+  config: TSESTree.ObjectExpression,
+  objectBindings: ReadonlyMap<string, TSESTree.ObjectExpression>,
+): TSESTree.ObjectExpression | undefined {
+  if (calleeText === 'session') {
+    const cookieProperty = getObjectProperty(config, 'cookie');
+
+    return resolveObjectExpression(
+      cookieProperty?.value as TSESTree.Expression | undefined,
+      objectBindings,
+    );
+  }
+
+  return config;
+}
+
+function hasExplicitCookieAttributes(
+  cookieConfig: TSESTree.ObjectExpression,
+): boolean {
+  const cookiePropertyNames = objectPropertyNames(cookieConfig);
+
+  return (
+    cookiePropertyNames.has('name') &&
+    (cookiePropertyNames.has('maxAge') || cookiePropertyNames.has('expires')) &&
+    cookiePropertyNames.has('path') &&
+    cookiePropertyNames.has('domain') &&
+    cookiePropertyNames.has('secure') &&
+    cookiePropertyNames.has('httpOnly')
+  );
+}
+
+function getPermissiveCookieReasons(
+  cookieConfig: TSESTree.ObjectExpression,
+): string[] {
+  const reasons: string[] = [];
+  const sameSiteValue = getLiteralString(
+    getObjectProperty(cookieConfig, 'sameSite')?.value as
+      | TSESTree.Expression
+      | undefined,
+  )?.toLowerCase();
+  const domainValue = getLiteralString(
+    getObjectProperty(cookieConfig, 'domain')?.value as
+      | TSESTree.Expression
+      | undefined,
+  );
+
+  if (sameSiteValue === 'none') {
+    reasons.push('sameSite');
+  }
+
+  if (domainValue && (domainValue.includes('*') || domainValue.startsWith('.'))) {
+    reasons.push('domain');
+  }
+
+  return reasons;
+}
+
 export function collectHardcodedAuthSecretFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
   const facts: ObservedFact[] = [];
+  const objectBindings = collectObjectBindings(context);
 
   walkAst(context.program, (node) => {
     if (node.type === 'CallExpression') {
@@ -201,13 +319,12 @@ export function collectHardcodedAuthSecretFacts(
           calleeText === 'expressjwt' ||
           calleeText === 'expressJwt') &&
         configArgument &&
-        configArgument.type !== 'SpreadElement' &&
-        configArgument.type === 'ObjectExpression'
+        configArgument.type !== 'SpreadElement'
       ) {
-        const secretProperty = findAuthSecretProperty(
-          configArgument,
-          context.sourceText,
-        );
+        const config = resolveObjectExpression(configArgument, objectBindings);
+        const secretProperty = config
+          ? findAuthSecretProperty(config, context.sourceText)
+          : undefined;
 
         if (secretProperty) {
           facts.push(
@@ -237,9 +354,9 @@ export function collectHardcodedAuthSecretFacts(
       return;
     }
 
-    const config = node.arguments[0];
+    const config = resolveObjectExpression(node.arguments[0], objectBindings);
 
-    if (!config || config.type !== 'ObjectExpression') {
+    if (!config) {
       return;
     }
 
@@ -362,8 +479,10 @@ export function collectRenderFacts(
 
 export function collectExpressHardeningFacts(
   context: TypeScriptFactDetectorContext,
+  functionBindings: ReadonlyMap<string, FunctionLikeNode>,
 ): ObservedFact[] {
   const facts: ObservedFact[] = [];
+  const objectBindings = collectObjectBindings(context);
   let expressInitNode: TSESTree.CallExpression | undefined;
   let helmetApplied = false;
   let reduceFingerprintApplied = false;
@@ -392,15 +511,44 @@ export function collectExpressHardeningFacts(
       node.arguments[0].type !== 'SpreadElement'
     ) {
       callIndex += 1;
-      const middlewareText = normalizeText(
-        getNodeText(node.arguments[0], context.sourceText),
+      const middlewareCall = resolveMiddlewareCallExpression(
+        node.arguments[0],
+        functionBindings,
       );
+      const middlewareText = normalizeText(
+        getNodeText(middlewareCall ?? node.arguments[0], context.sourceText),
+      );
+      const middlewareCalleeText = middlewareCall
+        ? getCalleeText(middlewareCall.callee, context.sourceText)
+        : undefined;
 
-      if (/^helmet\(/u.test(middlewareText)) {
+      if (middlewareCalleeText === 'helmet' || /^helmet\(/u.test(middlewareText)) {
         helmetApplied = true;
+
+        const helmetConfig = resolveObjectExpression(
+          middlewareCall?.arguments[0],
+          objectBindings,
+        );
+
+        if (
+          objectBooleanFlagFalse(helmetConfig, 'frameguard') ||
+          objectBooleanFlagFalse(helmetConfig, 'contentSecurityPolicy')
+        ) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'block',
+              kind: FACT_KINDS.uiRedress,
+              node,
+              nodeIds: context.nodeIds,
+              text: middlewareCalleeText ?? 'helmet',
+            }),
+          );
+        }
       }
 
       if (
+        middlewareCalleeText === 'helmet.hidePoweredBy' ||
+        middlewareCalleeText === 'hidePoweredBy' ||
         /^helmet\.hidePoweredBy\(/u.test(middlewareText) ||
         /^hidePoweredBy\(/u.test(middlewareText)
       ) {
@@ -408,14 +556,17 @@ export function collectExpressHardeningFacts(
       }
 
       if (
-        /^express\.static\(/u.test(middlewareText) &&
+        (middlewareCalleeText === 'express.static' ||
+          /^express\.static\(/u.test(middlewareText)) &&
         staticIndex === Number.POSITIVE_INFINITY
       ) {
         staticIndex = callIndex;
       }
 
       if (
-        /^session\(/u.test(middlewareText) &&
+        ((middlewareCalleeText && sessionCallNames.has(middlewareCalleeText)) ||
+          /^session\(/u.test(middlewareText) ||
+          /^cookieSession\(/u.test(middlewareText)) &&
         sessionIndex === Number.POSITIVE_INFINITY
       ) {
         sessionIndex = callIndex;
@@ -431,20 +582,14 @@ export function collectExpressHardeningFacts(
     }
 
     if (calleeText && sessionCallNames.has(calleeText)) {
-      const config = node.arguments[0];
+      const config = resolveObjectExpression(node.arguments[0], objectBindings);
 
-      if (config && config.type === 'ObjectExpression') {
-        let cookieConfig: TSESTree.ObjectExpression | undefined;
-
-        if (calleeText === 'session') {
-          const cookieProperty = getObjectProperty(config, 'cookie');
-          cookieConfig =
-            cookieProperty?.value.type === 'ObjectExpression'
-              ? cookieProperty.value
-              : undefined;
-        } else {
-          cookieConfig = config;
-        }
+      if (config) {
+        const cookieConfig = getSessionCookieConfig(
+          calleeText,
+          config,
+          objectBindings,
+        );
 
         if (objectBooleanFlagFalse(cookieConfig, 'httpOnly')) {
           facts.push(
@@ -483,16 +628,7 @@ export function collectExpressHardeningFacts(
         }
 
         if (calleeText === 'cookieSession') {
-          const propertyNames = objectPropertyNames(config);
-          const hasAllCookieAttributes =
-            propertyNames.has('name') &&
-            (propertyNames.has('maxAge') || propertyNames.has('expires')) &&
-            propertyNames.has('path') &&
-            propertyNames.has('domain') &&
-            propertyNames.has('secure') &&
-            propertyNames.has('httpOnly');
-
-          if (!hasAllCookieAttributes) {
+          if (cookieConfig && !hasExplicitCookieAttributes(cookieConfig)) {
             facts.push(
               createObservedFact({
                 appliesTo: 'block',
@@ -505,34 +641,39 @@ export function collectExpressHardeningFacts(
           }
         }
 
-        if (calleeText === 'session') {
-          const cookieProperty = getObjectProperty(config, 'cookie');
+        if (
+          calleeText === 'session' &&
+          cookieConfig &&
+          !hasExplicitCookieAttributes(cookieConfig)
+        ) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'block',
+              kind: FACT_KINDS.expressDefaultCookieConfig,
+              node,
+              nodeIds: context.nodeIds,
+              text: calleeText,
+            }),
+          );
+        }
 
-          if (cookieProperty?.value.type === 'ObjectExpression') {
-            const cookiePropertyNames = objectPropertyNames(
-              cookieProperty.value,
-            );
-            const hasAllCookieAttributes =
-              cookiePropertyNames.has('name') &&
-              (cookiePropertyNames.has('maxAge') ||
-                cookiePropertyNames.has('expires')) &&
-              cookiePropertyNames.has('path') &&
-              cookiePropertyNames.has('domain') &&
-              cookiePropertyNames.has('secure') &&
-              cookiePropertyNames.has('httpOnly');
+        const permissiveCookieReasons = cookieConfig
+          ? getPermissiveCookieReasons(cookieConfig)
+          : [];
 
-            if (!hasAllCookieAttributes) {
-              facts.push(
-                createObservedFact({
-                  appliesTo: 'block',
-                  kind: FACT_KINDS.expressDefaultCookieConfig,
-                  node,
-                  nodeIds: context.nodeIds,
-                  text: calleeText,
-                }),
-              );
-            }
-          }
+        if (permissiveCookieReasons.length > 0) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'block',
+              kind: FACT_KINDS.expressPermissiveCookieConfig,
+              node,
+              nodeIds: context.nodeIds,
+              props: {
+                reasons: permissiveCookieReasons,
+              },
+              text: calleeText,
+            }),
+          );
         }
       }
     }
@@ -540,12 +681,12 @@ export function collectExpressHardeningFacts(
     if (
       (calleeText === 'expressjwt' || calleeText === 'expressJwt') &&
       node.arguments[0] &&
-      node.arguments[0].type !== 'SpreadElement' &&
-      node.arguments[0].type === 'ObjectExpression'
+      node.arguments[0].type !== 'SpreadElement'
     ) {
-      const hasSecret = Boolean(getObjectProperty(node.arguments[0], 'secret'));
+      const config = resolveObjectExpression(node.arguments[0], objectBindings);
+      const hasSecret = Boolean(getObjectProperty(config, 'secret'));
       const hasIsRevoked = Boolean(
-        getObjectProperty(node.arguments[0], 'isRevoked'),
+        getObjectProperty(config, 'isRevoked'),
       );
 
       if (hasSecret && !hasIsRevoked) {
