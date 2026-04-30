@@ -30,7 +30,7 @@ It owns:
 - repository-level config loading
 - catalog package resolution and preset filtering
 - the reusable `check` runtime
-- the published `critiq` CLI
+- the published `@critiq/cli` package and `critiq` CLI
 - fixture-backed `RuleSpec` execution
 - first-party adapters, including the TypeScript reference adapter and early
   polyglot adapters

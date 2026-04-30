@@ -14,6 +14,8 @@ const defaultRuntime: Required<CliRuntime> = {
   isInteractive: Boolean(process.stdout.isTTY),
 };
 
+const discardOutput = (_message: string) => undefined;
+
 export function resolveRuntime(runtime: CliRuntime = {}): Required<CliRuntime> {
   return {
     cwd: runtime.cwd ?? defaultRuntime.cwd,
@@ -22,7 +24,7 @@ export function resolveRuntime(runtime: CliRuntime = {}): Required<CliRuntime> {
     writeRaw:
       runtime.writeRaw ??
       (runtime.writeStdout || runtime.writeStderr
-        ? () => {}
+        ? discardOutput
         : defaultRuntime.writeRaw),
     isInteractive:
       runtime.isInteractive ??

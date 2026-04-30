@@ -43,6 +43,7 @@ export type FindingValidationResult =
  */
 function loadFindingV0JsonSchema(): Record<string, unknown> {
   const candidatePaths = [
+    resolve(__dirname, './schema/finding-v0.schema.json'),
     resolve(__dirname, '../../schema/finding-v0.schema.json'),
     resolve(
       __dirname,

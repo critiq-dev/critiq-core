@@ -53,13 +53,25 @@ import { isTestPath } from '../project-analysis/context';
 const CHECK_ENGINE_KIND = 'critiq-cli' as const;
 
 function loadCheckEngineVersion(): string {
-  try {
-    const packageJson = JSON.parse(
-      readFileSync(resolve(__dirname, '../../../package.json'), 'utf8'),
-    ) as { version?: string };
+  const candidatePaths = [
+    resolve(__dirname, './package.json'),
+    resolve(__dirname, '../package.json'),
+    resolve(__dirname, '../../../package.json'),
+  ];
 
-    if (packageJson.version && packageJson.version.trim().length > 0) {
-      return packageJson.version.trim();
+  try {
+    for (const candidatePath of candidatePaths) {
+      try {
+        const packageJson = JSON.parse(
+          readFileSync(candidatePath, 'utf8'),
+        ) as { version?: string };
+
+        if (packageJson.version && packageJson.version.trim().length > 0) {
+          return packageJson.version.trim();
+        }
+      } catch {
+        // Try the next package.json candidate.
+      }
     }
   } catch {
     // Fall back to the previous workspace default when package metadata is unavailable.

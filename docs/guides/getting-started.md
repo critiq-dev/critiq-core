@@ -43,11 +43,11 @@ npm run nx -- graph
 npm run nx -- run cli:prune
 ```
 
-Use `cli:prune` when you want the packaged runtime in `dist/`. The built
-entrypoint is:
+Use `npm run build:release-cli` when you want the publishable CLI runtime in
+`dist/publish/cli`. The built entrypoint is:
 
 ```bash
-node dist/apps/cli/main.js
+node dist/publish/cli/main.js
 ```
 
 ## 4. Commit A Critiq Config
@@ -85,7 +85,7 @@ Notes:
 Run the configured OSS catalog against this repository:
 
 ```bash
-node dist/apps/cli/main.js check .
+node dist/publish/cli/main.js check .
 ```
 
 This is the fastest way to see the full confidence path in action:
@@ -102,7 +102,7 @@ This is the fastest way to see the full confidence path in action:
 When you want the scan to focus on changed files, provide both refs:
 
 ```bash
-node dist/apps/cli/main.js check . --base origin/main --head HEAD
+node dist/publish/cli/main.js check . --base origin/main --head HEAD
 ```
 
 Use this shape in pull request automation and pre-merge checks.
@@ -112,9 +112,9 @@ Use this shape in pull request automation and pre-merge checks.
 If you keep local rules in `.critiq/rules/`, the basic workflow is:
 
 ```bash
-node dist/apps/cli/main.js rules validate ".critiq/rules/*.rule.yaml"
-node dist/apps/cli/main.js rules explain .critiq/rules/no-console.rule.yaml
-node dist/apps/cli/main.js rules test ".critiq/rules/*.spec.yaml"
+node dist/publish/cli/main.js rules validate ".critiq/rules/*.rule.yaml"
+node dist/publish/cli/main.js rules explain .critiq/rules/no-console.rule.yaml
+node dist/publish/cli/main.js rules test ".critiq/rules/*.spec.yaml"
 ```
 
 If you cloned the sibling `critiq-rules` repository, point those same commands
@@ -125,7 +125,7 @@ at its example packs instead.
 The most important packages to learn first are:
 
 - `apps/cli`
-  The published `critiq` command surface.
+  The published `@critiq/cli` package and `critiq` command surface.
 - `libs/runtime/check-runner`
   The reusable repository scan runtime behind `critiq check`.
 - `libs/core/config`

@@ -1,29 +1,29 @@
 # Release Process
 
-This repository uses Changesets for coordinated versioning.
+This repository uses Changesets for version preparation and `vX.Y.Z` tags for
+publishing `@critiq/cli`.
+
+## Release Flow
+
+1. Add a changeset for user-facing CLI/runtime changes.
+2. Run `npm run version:packages` to cut the version commit.
+3. Push the version commit.
+4. Create and push a tag that matches `apps/cli/package.json`, for example
+   `v0.1.0`.
+5. The `release.yml` workflow verifies the repo, publishes `@critiq/cli`, and
+   creates the GitHub release from Conventional Commit history.
 
 ## CI Gates
 
 The release workflow requires:
 
 - `npm ci`
-- `npm run verify`
-- `npm run check:schema-drift`
-- `npm run check:package-exports`
-- `npm run check:package-contents`
-- `npm run release:dry-run`
+- `npm run release:verify`
+- `node scripts/check-release-tag.mjs "$GITHUB_REF_NAME"`
 
 ## Publishable Packages
 
-- `critiq`
-- `@critiq/check-runner`
-- `@critiq/core-finding-schema`
-- `@critiq/core-rules-dsl`
-- `@critiq/core-diagnostics`
-- `@critiq/core-ir`
-- `@critiq/core-rules-engine`
-- `@critiq/adapter-typescript`
-- `@critiq/testing-harness`
+- `@critiq/cli`
 
 `@critiq/rules` now lives in the separate `critiq-rules` repository.
 
@@ -31,7 +31,7 @@ The release workflow requires:
 
 Release notes must call out:
 
-- finding schema changes
-- rule DSL changes
 - CLI flags or JSON envelope changes
-- adapter property-path compatibility changes
+- rule loading or catalog resolution changes
+- adapter behavior changes that affect CLI findings
+- breaking compatibility for existing rule packs

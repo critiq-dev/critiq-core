@@ -268,7 +268,7 @@ This repository publishes a reusable workflow at
 
 Use it when you want consumer repositories to:
 
-- install a pinned `critiq` package version
+- install a pinned `@critiq/cli` package version
 - run `check`, `validate`, and `test` with JSON output
 - upload Critiq result artifacts
 - fail the job when any Critiq command exits non-zero

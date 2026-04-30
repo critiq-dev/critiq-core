@@ -5,21 +5,19 @@ wire contract needs stronger guarantees.
 
 ## Compatibility Surface
 
-- `@critiq/core-finding-schema`
-  - semver for the package
+- `@critiq/cli`
+  - semver for documented commands, flags, JSON envelopes, and packaged runtime
   - `schemaVersion` for emitted finding payloads
-- `@critiq/core-rules-dsl`
-  - semver for the package
-  - `apiVersion` and `kind` for authored rule compatibility
-- `@critiq/adapter-typescript`
-  - semver only for the documented observation and property-path surface
-- `@critiq/testing-harness` and `critiq`
-  - semver for documented commands, flags, JSON envelopes, and RuleSpec behavior
+  - `apiVersion` and `kind` for authored rule compatibility consumed by the CLI
+
+`@critiq/rules` is versioned independently in the separate `critiq-rules`
+repository.
 
 ## Internal Surface
 
-`@critiq/core-ir` is repo-internal. Its shape may change as long as repo
-consumers are updated together.
+The low-level `@critiq/*` workspace libraries in this repository are internal
+implementation details. They may change as long as `@critiq/cli` compatibility
+is preserved.
 
 ## Deprecation
 

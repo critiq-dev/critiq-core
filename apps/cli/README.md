@@ -3,6 +3,13 @@
 `critiq` is the local developer interface for working with Critiq rules in your
 own repository.
 
+Install it with the default OSS catalog:
+
+```bash
+npm install -D @critiq/cli @critiq/rules
+npx critiq check .
+```
+
 It is designed for two equally important modes:
 
 - manual invocation while a developer is authoring, debugging, or reviewing a rule
@@ -25,12 +32,12 @@ The CLI now has two modes:
 If you want to run the built CLI from `dist/`, use:
 
 ```bash
-npm run nx -- run cli:prune
-node dist/apps/cli/main.js --help
+npm run build:release-cli
+node dist/publish/cli/main.js --help
 ```
 
-`cli:prune` is the correct packaged-build target. `cli:build` alone does not
-copy the workspace modules the runtime needs.
+`dist/publish/cli` is the self-contained npm release artifact for
+`@critiq/cli`.
 
 ## Recommended Project Layout
 
@@ -248,7 +255,7 @@ The workflow:
 
 - checks out the consumer repository
 - installs Node.js
-- installs the requested `critiq` package version
+- installs the requested `@critiq/cli` package version
 - optionally runs `check`, `validate`, and `test` with JSON output
 - uploads the JSON results as workflow artifacts
 

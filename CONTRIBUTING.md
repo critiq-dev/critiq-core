@@ -57,10 +57,10 @@ npm run verify
 Use the CLI against local rule files or the separate `critiq-rules` repo:
 
 ```bash
-npm run nx -- run cli:prune
-node dist/apps/cli/main.js rules validate ".critiq/rules/*.rule.yaml"
-node dist/apps/cli/main.js rules explain .critiq/rules/no-console.rule.yaml
-node dist/apps/cli/main.js rules test ".critiq/rules/*.spec.yaml"
+npm run build:release-cli
+node dist/publish/cli/main.js rules validate ".critiq/rules/*.rule.yaml"
+node dist/publish/cli/main.js rules explain .critiq/rules/no-console.rule.yaml
+node dist/publish/cli/main.js rules test ".critiq/rules/*.spec.yaml"
 ```
 
 ### Working On Runtime Packages
@@ -85,10 +85,13 @@ npm run verify
 If you touch package exports, schema artifacts, or publish behavior, also run:
 
 ```bash
-npm run check:schema-drift
-npm run check:package-exports
-npm run check:package-contents
-npm run release:dry-run
+npm run release:verify
+```
+
+If the change affects shipped CLI behavior, add a changeset:
+
+```bash
+npm run changeset
 ```
 
 ## Contribution Rules
@@ -115,7 +118,7 @@ If a change affects a documented public surface:
 
 1. update tests
 2. update the relevant reference doc
-3. update release notes inputs or changeset metadata as appropriate
+3. add or update the corresponding changeset
 
 ### OSS Rules Content
 
@@ -163,6 +166,9 @@ npm run verify
 ## Release And Compatibility
 
 This repo uses Changesets and explicit docs for compatibility guarantees.
+
+Use `npm run commit` for Commitizen-formatted commit messages when you want the
+release notes to classify your change cleanly.
 
 Read these before changing a public surface:
 

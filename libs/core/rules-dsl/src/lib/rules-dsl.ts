@@ -46,6 +46,7 @@ export type RuleDocumentValidationResult =
  */
 function loadRuleDocumentV0Alpha1JsonSchema(): Record<string, unknown> {
   const candidatePaths = [
+    resolve(__dirname, './schema/rule-document-v0alpha1.schema.json'),
     resolve(__dirname, '../../schema/rule-document-v0alpha1.schema.json'),
     resolve(
       __dirname,

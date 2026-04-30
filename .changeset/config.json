@@ -7,5 +7,25 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@critiq/example-starter-pack"]
+  "ignore": [
+    "@critiq/adapter-go",
+    "@critiq/adapter-java",
+    "@critiq/adapter-php",
+    "@critiq/adapter-python",
+    "@critiq/adapter-ruby",
+    "@critiq/adapter-rust",
+    "@critiq/adapter-shared",
+    "@critiq/adapter-typescript",
+    "@critiq/check-runner",
+    "@critiq/core-catalog",
+    "@critiq/core-config",
+    "@critiq/core-diagnostics",
+    "@critiq/core-finding-schema",
+    "@critiq/core-ir",
+    "@critiq/core-rules-dsl",
+    "@critiq/core-rules-engine",
+    "@critiq/testing-harness",
+    "@critiq/util-file-system",
+    "@critiq/util-yaml-loader"
+  ]
 }

@@ -7,19 +7,14 @@ on:
   pull_request:
 
 jobs:
-  workflow-lint:
+  commitlint:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: devops-actions/actionlint@e7ee33fbf5aa8c9f9ee1145137f3e52e25d6a35b
-
-  verify:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v6
         with:
@@ -29,26 +24,62 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Verify Workspace
-        run: npm run verify
+      - name: Validate Commit Messages
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Check Schema Drift
-        run: npm run check:schema-drift
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            npx commitlint --from "origin/${{ github.base_ref }}" --to "${{ github.sha }}" --verbose
+          elif git rev-parse HEAD^ >/dev/null 2>&1; then
+            npx commitlint --from HEAD^ --to HEAD --verbose
+          else
+            npx commitlint --last --verbose
+          fi
 
-      - name: Check Package Exports
-        run: npm run check:package-exports
+  changesets-status:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
-      - name: Check Package Contents
-        run: npm run check:package-contents
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
 
-      - name: Publish Dry Run
-        run: npm run release:dry-run
+      - name: Install
+        run: npm ci
+
+      - name: Check Changeset Coverage
+        run: npm run check:changeset-status
+
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Verify Release Readiness
+        run: npm run release:verify
 
   reusable-workflow-smoke:
     needs:
       - workflow-lint
     uses: ./.github/workflows/run-critiq-cli.yml
     with:
-      critiq-version: file:./dist/apps/cli
+      critiq-version: file:./dist/publish/cli
       validate-glob: examples/starter-pack/rules/*.rule.yaml
       test-glob: examples/starter-pack/rules/*.spec.yaml

@@ -1,7 +1,8 @@
 {
-  "name": "critiq",
+  "name": "@critiq/cli",
   "version": "0.0.1",
   "private": false,
+  "description": "Critiq CLI for deterministic repository checks, rule validation, and fixture-driven rule tests.",
   "type": "commonjs",
   "bin": {
     "critiq": "./main.js"
@@ -14,14 +15,15 @@
       "default": "./main.js"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
-    "@critiq/check-runner": "0.0.1",
-    "@critiq/core-diagnostics": "0.0.1",
-    "@critiq/core-finding-schema": "0.0.1",
-    "@critiq/core-ir": "0.0.1",
-    "@critiq/core-rules-dsl": "0.0.1",
-    "@critiq/testing-harness": "0.0.1",
+    "@typescript-eslint/typescript-estree": "^8.58.0",
     "minimatch": "^10.2.5",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "typescript": "~5.9.2",
+    "yaml": "^2.8.3",
+    "zod": "^3.25.76"
   }
 }

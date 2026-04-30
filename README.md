@@ -6,6 +6,11 @@
 <p align="center">
   <strong>Open source static code analysis contracts, rule runtime, and CLI for deterministic code review.<br/>Confident code, not just vibes.</strong>
 </p>
+<p align="center">
+  <a href="https://www.npmjs.com/package/@critiq/cli"><img src="https://img.shields.io/npm/v/%40critiq%2Fcli" alt="npm version" /></a>
+  <a href="https://github.com/critiq-dev/critiq-core/actions/workflows/ci.yml"><img src="https://github.com/critiq-dev/critiq-core/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status" /></a>
+  <a href="https://github.com/critiq-dev/critiq-core/blob/main/LICENSE"><img src="https://img.shields.io/github/license/critiq-dev/critiq-core" alt="License" /></a>
+</p>
 
 <p align="center">
   <img
@@ -15,7 +20,7 @@
 </p>
 
 <p align="center">
-  <code>critiq-core</code> is the public engine behind Critiq. It gives developers a readable rule DSL, canonical finding contracts, a reusable scan runtime, and a CLI that behaves the same way locally and in CI.
+  <code>critiq-core</code> builds and ships <code>@critiq/cli</code>. The workspace keeps the scanner runtime, adapters, and contracts together in one repository, but only the CLI package is published publicly from this repo.
 </p>
 
 ## Start In 60 Seconds
@@ -23,7 +28,7 @@
 Run Critiq on your repo without creating `.critiq/config.yaml` first:
 
 ```bash
-npm install -D @critiq/core @critiq/rules
+npm install -D @critiq/cli @critiq/rules
 npx critiq check .
 ```
 
@@ -35,8 +40,12 @@ npx critiq check . --base origin/main --head HEAD
 
 The npm package surface we are standardizing on is:
 
-- `@critiq/core` for the CLI, runtime, and public contracts in this repo
+- `@critiq/cli` for the CLI and bundled runtime in this repo
 - `@critiq/rules` for the default OSS catalog
+
+The low-level workspace libraries in `libs/`, `tools/`, and the language
+adapters are repo-internal implementation details and are not published
+publicly from this repository.
 
 When you want explicit repository policy later, add `.critiq/config.yaml`. You do not need it for the first run.
 
@@ -83,19 +92,19 @@ We only add rules when they are worth interrupting a developer for.
 Validate authored rules:
 
 ```bash
-node dist/apps/cli/main.js rules validate ".critiq/rules/*.rule.yaml"
+node dist/publish/cli/main.js rules validate ".critiq/rules/*.rule.yaml"
 ```
 
 Explain one rule:
 
 ```bash
-node dist/apps/cli/main.js rules explain .critiq/rules/no-console.rule.yaml
+node dist/publish/cli/main.js rules explain .critiq/rules/no-console.rule.yaml
 ```
 
 Run fixture-backed specs:
 
 ```bash
-node dist/apps/cli/main.js rules test ".critiq/rules/*.spec.yaml"
+node dist/publish/cli/main.js rules test ".critiq/rules/*.spec.yaml"
 ```
 
 If you cloned the separate `critiq-rules` repository, point the same commands at its rule packs instead of local `.critiq/rules/` files.
@@ -106,7 +115,7 @@ If you cloned the separate `critiq-rules` repository, point the same commands at
 ### Apps
 
 - `apps/cli`
-  The published `critiq` CLI for `check`, `rules validate`, `rules test`, `rules normalize`, and `rules explain`.
+  The published `@critiq/cli` package for `check`, `rules validate`, `rules test`, `rules normalize`, and `rules explain`.
 
 ### Core libraries
 

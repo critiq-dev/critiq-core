@@ -18,7 +18,7 @@ Use it when you need to answer:
 
 | Path | Import Path | Responsibility |
 | --- | --- | --- |
-| `apps/cli` | `critiq` | Published CLI package and composition root for `check`, `rules validate`, `rules test`, `rules normalize`, and `rules explain`. |
+| `apps/cli` | `@critiq/cli` | Published CLI package and composition root for `check`, `rules validate`, `rules test`, `rules normalize`, and `rules explain`. |
 | `libs/runtime/check-runner` | `@critiq/check-runner` | Reusable repository-scan runtime behind `critiq check`, including config loading, catalog resolution, scope discovery, adapter dispatch, and report assembly. |
 | `libs/core/config` | `@critiq/core-config` | `.critiq/config.yaml` contract, normalization, and config loading. |
 | `libs/core/catalog` | `@critiq/core-catalog` | Catalog manifests, catalog package resolution, preset filtering, and repository-language detection. |

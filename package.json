@@ -4,16 +4,24 @@
   "description": "Deterministic OSS core packages for critiq.dev scanning, findings, adapters, and CLI runtime.",
   "license": "Apache-2.0",
   "scripts": {
+    "changeset": "changeset",
+    "build:release-cli": "node scripts/build-release-cli.mjs",
+    "commit": "cz",
+    "commitlint": "commitlint --last",
     "nx": "nx",
     "build": "nx run-many -t build --all",
     "lint": "nx run-many -t lint --all",
     "test": "nx run-many -t test --all",
     "typecheck": "nx run-many -t typecheck --all",
     "verify": "npm run lint && npm run test && npm run build && npm run typecheck",
+    "release:status": "changeset status",
+    "version:packages": "changeset version",
+    "check:changeset-status": "node scripts/check-changeset-status.mjs",
     "check:schema-drift": "node scripts/check-schema-drift.mjs",
     "check:package-exports": "node scripts/check-package-exports.mjs",
     "check:package-contents": "node scripts/check-package-contents.mjs",
-    "release:dry-run": "node scripts/publish-dry-run.mjs"
+    "release:dry-run": "node scripts/publish-dry-run.mjs",
+    "release:verify": "npm run check:schema-drift && npm run check:package-exports && npm run check:package-contents && npm run release:dry-run"
   },
   "private": true,
   "workspaces": [
@@ -25,6 +33,8 @@
     "node": ">=20.0.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.5.3",
+    "@commitlint/config-conventional": "^20.5.3",
     "@eslint/js": "^9.39.1",
     "@nx/esbuild": "22.6.4",
     "@nx/eslint": "^22.6.4",
@@ -40,6 +50,8 @@
     "@types/node": "20.19.9",
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
     "esbuild": "^0.19.2",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.0.0",
