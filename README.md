@@ -1,24 +1,26 @@
-# Critiq Core
-
-![banner](./docs/assets/banner.png)
 
 <p align="center">
-  <a href="https://skillicons.dev">
+    <img src="./docs/assets/owl.png" alt="critiq.dev" style="max-height:200px" />
+</p>
+
+<h1 align="center">Critiq OSS Core</h1>
+<p align="center">
+  <strong>Open source static code analysis contracts, rule runtime, and CLI for deterministic code review. <br/>Confident code, not just vibes</strong>
+</p>
+<br/>
+<p align="center">
     <img
-      src="https://skillicons.dev/icons?i=ts,js,nodejs,go,java,python,php,ruby,rust&perline=9"
+      src="./docs/assets/languages.png"
       alt="TypeScript, JavaScript, Node.js, Go, Java, Python, PHP, Ruby, and Rust support"
     />
-  </a>
+</p>
+<br/>
+<p align="center">
+  <code>critiq-core</code> is the public engine behind Critiq. It gives developers a readable rule DSL, canonical finding contracts, a reusable scan runtime, and a CLI that behaves the same way locally and in CI. We support scanning of typescript, javascript, Node.Js, Go, Java, Python, PHP, Ruby, and Rust. 
 </p>
 
 <p align="center">
-  <strong>Open source static analysis contracts, rule runtime, and CLI for deterministic code review.</strong>
-</p>
-
-<p align="center">
-  <code>critiq-core</code> is the public engine behind Critiq. It gives developers a readable rule DSL, canonical finding contracts, a reusable scan runtime, and a CLI that behaves the same way locally and in CI.
-</p>
-
+We are constantly adding new rules and improving existing rules. We publish these rules via <code>@critiq/rules</code> on npm. There you will find the following: 
 <table>
   <tr>
     <td align="center"><strong>112</strong><br/>OSS rules via <code>@critiq/rules</code></td>
@@ -26,39 +28,31 @@
     <td align="center"><strong>4</strong><br/>presets</td>
   </tr>
 </table>
+</p>
 
 ## Start In 60 Seconds
 
-> Zero-config first run: `critiq check` falls back to the OSS `@critiq/rules` catalog and the `recommended` preset. You do not need `.critiq/config.yaml` for the first scan.
-
-Run Critiq from this repo today:
+Run Critiq on your repo:
 
 ```bash
-npm install
-npm run nx -- run cli:prune
-node dist/apps/cli/main.js check .
+npm install -D @critiq/critiq @critiq/rules
+npx critiq check .
 ```
 
-Run against a diff:
+Run Critiq against a diff:
 
 ```bash
-node dist/apps/cli/main.js check . --base origin/main --head HEAD
+npx critiq check . --base origin/main --head HEAD
 ```
 
 The npm package surface we are standardizing on is:
 
-- `critiq` for repository and diff-scoped scans
-- `@critiq/core` for the reusable engine and contracts in this repo
+- `@critiq/critiq` for the reusable engine and contracts in this repo
 - `@critiq/rules` for the default OSS catalog
 
-Once that package surface is published, the zero-config consumer flow becomes:
+When you want explicit repository policy later for more advance configurations, create `.critiq/config.yaml`. You do not need it to get started.
 
-```bash
-npm install -D critiq @critiq/rules
-npx critiq check .
-```
 
-When you want explicit repository policy later, commit `.critiq/config.yaml`. You do not need it to get started.
 
 ## What `critiq-core` Is For
 
@@ -67,26 +61,9 @@ When you want explicit repository policy later, commit `.critiq/config.yaml`. Yo
 - reuse the same finding schema, diagnostics, and runtime behavior in your own tooling
 - keep local runs and CI runs aligned instead of depending on black-box review behavior
 
-## OSS Catalog Snapshot
+## Developer Guide
 
-The default OSS catalog in `@critiq/rules` currently covers:
-
-| Category | Rules |
-| --- | ---: |
-| Security | 70 |
-| Correctness | 15 |
-| Performance | 10 |
-| Quality | 10 |
-| Logging | 2 |
-| Config | 1 |
-| Next | 1 |
-| Random | 1 |
-| React | 1 |
-| Runtime | 1 |
-
-Supported presets: `recommended`, `strict`, `security`, `experimental`
-
-## Rule Authoring Loop
+### Rule Authoring Loop
 
 Validate authored rules:
 
@@ -108,23 +85,7 @@ node dist/apps/cli/main.js rules test ".critiq/rules/*.spec.yaml"
 
 If you cloned the separate `critiq-rules` repository, point the same commands at its rule packs instead of local `.critiq/rules/` files.
 
-## CI Adoption
 
-Consumer repositories can call the reusable workflow published from this repo:
-
-```yaml
-jobs:
-  critiq:
-    uses: critiq-dev/critiq-core/.github/workflows/run-critiq-cli.yml@ref
-    with:
-      critiq-version: x.y.z
-      run-check: true
-      check-target: .
-      check-base: origin/main
-      check-head: HEAD
-```
-
-Pin both the workflow ref and `critiq-version` in production automation.
 
 <details>
 <summary><strong>Repository Layout</strong></summary>
