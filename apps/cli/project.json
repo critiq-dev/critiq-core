@@ -67,6 +67,22 @@
       "dependsOn": ["prune-lockfile", "copy-workspace-modules"],
       "executor": "nx:noop"
     },
+    "publish": {
+      "dependsOn": [],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm publish dist/publish/cli --access public",
+        "cwd": "."
+      }
+    },
+    "publish-dry-run": {
+      "dependsOn": [],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm publish dist/publish/cli --access public --dry-run",
+        "cwd": "."
+      }
+    },
     "serve": {
       "continuous": true,
       "executor": "@nx/js:node",

@@ -39,8 +39,7 @@ jobs:
           node scripts/generate-release-notes.mjs "${GITHUB_REF_NAME}" > "${RUNNER_TEMP}/release-notes.md"
 
       - name: Publish @critiq/cli
-        working-directory: dist/publish/cli
-        run: npm publish --access public
+        run: npx nx run cli:publish
 
       - name: Create GitHub Release
         env:
