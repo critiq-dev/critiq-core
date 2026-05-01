@@ -67,8 +67,16 @@
       "dependsOn": ["prune-lockfile", "copy-workspace-modules"],
       "executor": "nx:noop"
     },
+    "build-release": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/publish/cli"],
+      "options": {
+        "command": "node scripts/build-release-cli.mjs",
+        "cwd": "."
+      }
+    },
     "publish": {
-      "dependsOn": [],
+      "dependsOn": ["build-release"],
       "executor": "nx:run-commands",
       "options": {
         "command": "npm publish dist/publish/cli --access public",
@@ -76,7 +84,7 @@
       }
     },
     "publish-dry-run": {
-      "dependsOn": [],
+      "dependsOn": ["build-release"],
       "executor": "nx:run-commands",
       "options": {
         "command": "npm publish dist/publish/cli --access public --dry-run",
