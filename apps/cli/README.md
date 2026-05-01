@@ -1,54 +1,72 @@
-# critiq CLI
+<p align="center">
+  <img src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/owl.png" alt="critiq.dev" style="max-height:200px" />
+</p>
 
-`critiq` is the local developer interface for working with Critiq rules in your
-own repository.
+<h1 align="center">Critiq CLI</h1>
+<p align="center">
+  <strong>Open source deterministic static analysis for code review.<br/>Run high-signal checks on your codebase to identify security, performance, scaling issues before it goes to production</strong>
+</p>
+<p align="center">
+  <a href="https://www.npmjs.com/package/@critiq/cli"><img src="https://img.shields.io/npm/v/%40critiq%2Fcli" alt="npm version" /></a>
+  <a href="https://github.com/critiq-dev/critiq-core/tree/main/apps/cli"><img src="https://img.shields.io/badge/source-GitHub-181717?logo=github" alt="Source" /></a>
+  <a href="https://github.com/critiq-dev/critiq-core/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
+</p>
 
-Install it with the default OSS catalog:
+
+
+Think of Critiq as an extra code reviewer that scans your project for bugs, security issues, performance problems, and risky changes before they turn into production incidents. Instead of only checking style, it focuses on the kinds of problems that usually slip through review and cause real trouble later. You run it locally or in CI, and it gives you deterministic findings you can act on before merging code.
+
+
+It does this by parsing your code, matching it against a curated catalog of explicit rules, and reporting findings with concrete evidence tied to the code that triggered them. That means the output is based on repeatable checks for things like unsafe SQL, missing authorization, repeated IO in loops, and untested critical logic changes, not vague heuristics or style-only linting.
+
+<p align="center">
+  <img
+    src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/cli-architecture.png"
+    alt="Cli Architecture"
+  />
+</p>
+
+`@critiq/cli` runs Critiq checks against real code and exposes the public rule-pack commands for validation, testing, normalization, and explanation. By default it uses [`@critiq/rules`](https://www.npmjs.com/package/@critiq/rules) as the open source catalog with recommended rules. You can configure this by adding a `.critiq/config.yaml` configuration file.
+
+<br/>
+<p align="left">
+  <img
+    src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/languages.png"
+    alt="TypeScript, JavaScript, Node.js, Go, Java, Python, PHP, Ruby and Rust support"
+  />
+</p>
+
+`@critiq/cli` is capable of scanning codebases written in TypeScript, JavaScript, Node.js, Go, Java, Python, PHP, Ruby, and Rust. 
+
+## Start In 60 Seconds
+
+Run Critiq on your project:
 
 ```bash
 npm install -D @critiq/cli @critiq/rules
 npx critiq check .
 ```
 
-It is designed for two equally important modes:
-
-- manual invocation while a developer is authoring, debugging, or reviewing a rule
-- automated invocation in CI to increase confidence in a PR or run a broader repository scan
-
-Use it when you want to:
-
-- run rules against real repository code or a PR diff
-- validate authored rules before committing them
-- explain how a rule is interpreted
-- normalize a rule into the canonical internal form
-- run fixture-based `RuleSpec` tests for a rule pack
-- use the same deterministic checks locally and in automation
-
-The CLI now has two modes:
-
-- `critiq check` is catalog-first and loads rules from `.critiq/config.yaml`
-- `critiq rules ...` commands remain path-based for pack authors and maintainers
-
-If you want to run the built CLI from `dist/`, use:
+Run Critiq against a diff:
 
 ```bash
-npm run build:release-cli
-node dist/publish/cli/main.js --help
+npx critiq check . --base origin/main --head HEAD
 ```
 
-`dist/publish/cli` is the self-contained npm release artifact for
-`@critiq/cli`.
+## Public Commands
 
-## Recommended Project Layout
+| Command | What it does |
+| --- | --- |
+| `critiq check [target]` | Runs deterministic checks against a codebase, directory, or single file. |
+| `critiq check . --base origin/main --head HEAD` | Limits scanning to changed files and changed ranges in a diff. |
+| `critiq rules validate <glob>` | Validates rule YAML files and returns diagnostics. |
+| `critiq rules test [glob]` | Runs fixture-backed `RuleSpec` files end to end. |
+| `critiq rules normalize <file>` | Prints the canonical normalized form of one rule. |
+| `critiq rules explain <file>` | Shows a readable breakdown of how one rule is interpreted. |
 
-A common consumer setup is:
+## Runtime Config
 
-```text
-.critiq/
-  config.yaml
-```
-
-with:
+`critiq check` is catalog-first. When `.critiq/config.yaml` is present, it controls the catalog package, preset, and filters used for the run.
 
 ```yaml
 apiVersion: critiq.dev/v1alpha1
@@ -64,242 +82,48 @@ ignorePaths: []
 severityOverrides: {}
 ```
 
-If you are authoring your own rules, a common convention is:
-
-```text
-.critiq/
-  rules/
-    no-console.rule.yaml
-    no-console.spec.yaml
-  fixtures/
-    no-console/
-      valid.ts
-      invalid.ts
-```
-
-This is only a convention. Authoring commands work with any file path or glob
-you give them, so you can also:
-
-- keep rules in another local folder
-- vendor a shared rule pack into your repo
-- install a rule pack and reference it from `.critiq/config.yaml`
-
-## Commands
-
-- `critiq check [target]`
-- `critiq rules validate <glob>`
-- `critiq rules test [glob]`
-- `critiq rules normalize <file>`
-- `critiq rules explain <file>`
-
-## What Each Command Is For
-
-### `check`
-
-Use this to run the configured catalog against real source files in a
-repository.
-
-This is the runtime/CI entrypoint when you want Critiq to inspect application
-code rather than validate or test the rule pack itself. `check` reads
-`.critiq/config.yaml`, resolves the configured catalog package, applies preset
-selection and subtractive overrides, auto-detects repository languages from
-supported source files, and evaluates the active rules.
-
-Today that means:
-
-- deepest support for TypeScript and JavaScript
-- early phase-1 adapter coverage for Go, Java, PHP, Python, Ruby, and Rust
-- tests excluded from `check` by default unless `includeTests: true`
-
-Examples:
-
-```bash
-critiq check
-critiq check . --format json
-critiq check . --base origin/main --head HEAD --format json
-```
-
-Migration:
-
-```bash
-# old
-critiq check ".critiq/rules/*.rule.yaml" .
-
-# new
-critiq check .
-```
-
-### `validate`
-
-Use this while authoring rules.
-
-It loads the YAML, validates the public contract, runs semantic validation, and
-returns diagnostics only.
-
-This is the command you would commonly use in a PR-focused workflow to make
-sure authored rules are valid before the rules are executed elsewhere.
-
-Examples:
-
-```bash
-critiq rules validate ".critiq/rules/*.rule.yaml"
-critiq rules validate "packages/my-pack/rules/*.rule.yaml"
-```
-
-### `test`
-
-Use this to run `RuleSpec` fixtures and prove rule behavior end to end.
-
-This is the command that gives you confidence that a rule pack behaves the way
-you expect before using it in an automated PR check or a repository scan.
-
-If you omit the glob, it defaults to `**/*.spec.yaml` from the current working
-directory.
-
-Examples:
-
-```bash
-critiq rules test
-critiq rules test ".critiq/rules/*.spec.yaml"
-```
-
-### `normalize`
-
-Use this when you want to inspect the canonical normalized IR for one rule.
-
-Example:
-
-```bash
-critiq rules normalize .critiq/rules/no-console.rule.yaml --format json
-```
-
-### `explain`
-
-Use this when you want a readable breakdown of:
-
-- parsed rule metadata
-- validation status
-- normalized rule content
-- inferred template variables
-
-Example:
-
-```bash
-critiq rules explain .critiq/rules/no-console.rule.yaml
-```
-
-## Flags
-
-- `--format pretty|json`
-- `--help`
-
-`pretty` is the default.
-
-## Exit Codes
-
-- `0`: success
-- `1`: findings or non-internal command failures
-- `2`: internal/runtime errors
-
-## Typical Developer Workflow
-
-Authoring a new rule:
-
-```bash
-npm run nx -- run cli:prune
-critiq rules validate ".critiq/rules/*.rule.yaml"
-critiq rules explain .critiq/rules/no-console.rule.yaml
-critiq rules test ".critiq/rules/*.spec.yaml"
-```
-
-Working from the separate `critiq-rules` repo:
-
-```bash
-npm run nx -- run cli:prune
-critiq rules validate "../critiq-rules/examples/starter-pack/rules/*.rule.yaml"
-critiq rules explain ../critiq-rules/examples/starter-pack/rules/ts.logging.no-console-log.rule.yaml
-critiq rules test "../critiq-rules/examples/starter-pack/rules/*.spec.yaml"
-```
-
-Running in automation:
-
-```bash
-npm run nx -- run cli:prune
-critiq check . --format json
-critiq rules validate ".critiq/rules/*.rule.yaml" --format json
-critiq rules test ".critiq/rules/*.spec.yaml" --format json
-```
-
-### Reusable GitHub Workflow
-
-Consumer repositories can call the reusable workflow published from this repo
-instead of copying the CLI setup into every workflow file.
-
-Example:
-
-```yaml
-jobs:
-  critiq:
-    uses: critiq-dev/critiq-core/.github/workflows/run-critiq-cli.yml@ref
-    with:
-      critiq-version: x.y.z
-      run-check: true
-      check-target: .
-      check-base: origin/main
-      check-head: HEAD
-      validate-glob: .critiq/rules/*.rule.yaml
-      test-glob: .critiq/rules/*.spec.yaml
-```
-
-The workflow:
-
-- checks out the consumer repository
-- installs Node.js
-- installs the requested `@critiq/cli` package version
-- optionally runs `check`, `validate`, and `test` with JSON output
-- uploads the JSON results as workflow artifacts
-
-For production use, pin both the workflow ref and `critiq-version`.
-
-## JSON Output
-
-All commands support `--format json`.
-
-That makes the CLI usable as:
-
-- a terminal tool for humans
-- a machine-readable step in CI
-- a building block for custom wrappers
-
-That means the same CLI can sit behind:
-
-- a developer manually checking a rule before commit
-- a repository or PR gate that emits findings from real source files
-- a PR workflow that wants confidence before merge
-- a scheduled or on-demand full repository scan
-
-See [docs/reference/cli.md](../../docs/reference/cli.md) for the envelope
-shapes.
-
-## Relationship To The Rest Of The Repo
-
-The CLI is intentionally thin. It composes the OSS packages rather than
-re-implementing their logic.
-
-- repository scanning comes from `@critiq/check-runner`
-- adapter-backed source analysis comes from `@critiq/adapter-typescript`
-- rule loading and validation come from `@critiq/core-rules-dsl`
-- normalization comes from `@critiq/core-ir`
-- diagnostics rendering comes from `@critiq/core-diagnostics`
-- fixture-based testing comes from `@critiq/testing-harness`
-
-That means you can use the CLI directly, or use the underlying packages inside
-your own tooling if you need more control.
-
-## Development Commands
-
-- `npm run nx -- build cli`
-- `npm run nx -- run cli:prune`
-- `npm run nx -- test cli`
-- `npm run nx -- lint cli`
-- `npm run nx -- typecheck cli`
+Supported presets are `recommended`, `strict`, `security`, and `experimental`.
+
+## Default OSS Rule Catalog
+
+The default open source catalog in [`@critiq/rules`](https://www.npmjs.com/package/@critiq/rules) currently includes `112` rules across `10` categories.
+
+| Category | Rules | What it looks after |
+| --- | ---: | --- |
+| Security | 70 | Injection, auth and session gaps, unsafe transport, sensitive data exposure, unsafe file and HTML handling |
+| Correctness | 15 | Async bugs, null access, control-flow mistakes, missing fallbacks, race conditions |
+| Performance | 10 | Repeated IO, wasted async sequencing, hot-path loops, large retained objects, render churn |
+| Quality | 10 | Error handling gaps, oversized functions, coupling, duplicated logic, and weak test coverage |
+| Logging | 2 | Console usage and unsafe logging patterns |
+| Config | 1 | Configuration access boundaries |
+| Next | 1 | Server and client boundary leaks |
+| Random | 1 | Unsafe randomness in core logic |
+| React | 1 | Cascaded effect fetch patterns |
+| Runtime | 1 | Debug-only statements left in shipped code |
+
+## High-Value Rules In The Default Catalog
+
+| Rule title | Description |
+| --- | --- |
+| `Hardcoded API keys or credentials` | Source files should not embed credential-like string literals. |
+| `Avoid raw or interpolated SQL`| Database query sinks must not receive request-driven or dynamically interpolated SQL text. |
+| `Path traversal via user input` | File access calls must not use request-controlled paths directly. |
+| `Protect deserialization trust boundaries`| Deserializers should not consume untrusted payloads directly across a trust boundary. |
+| `Server-side request forgery` (`ts.security.ssrf`) | Outbound requests should not use attacker-controlled targets or private hosts. |
+| `Open redirect via request-controlled target`| Redirect and navigation sinks should not use request-controlled destinations without validation. |
+| `Missing authorization before sensitive action` | Sensitive backend actions should be guarded by an authorization or permission check. |
+| `Use authenticated encryption for secrets and tokens` | Session, cookie, and token encryption should provide integrity protection in the same helper. |
+| `Missing await on async call` | Async functions should not drop direct async calls without awaiting them. |
+| `Repeated IO call inside loop` | Database or network calls inside loops can multiply latency and load. |
+| `Logic change without corresponding test updates` | Diffs that change critical logic should usually update the matching tests in the same change. |
+| `Avoid server/client boundary leaks in Next.js` | Server components should not use browser-only APIs or client-only hooks without an explicit client boundary. |
+
+## Reference
+
+- [Getting started](https://github.com/critiq-dev/critiq-core/blob/main/docs/guides/getting-started.md)
+- [CLI reference](https://github.com/critiq-dev/critiq-core/blob/main/docs/reference/cli.md)
+- [`@critiq/rules` package](https://www.npmjs.com/package/@critiq/rules)
+
+## License
+
+`@critiq/cli` is licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0). See the source [LICENSE](https://github.com/critiq-dev/critiq-core/blob/main/LICENSE).

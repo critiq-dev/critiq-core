@@ -2,7 +2,8 @@
   "name": "@critiq/cli",
   "version": "0.0.1",
   "private": false,
-  "description": "Critiq CLI for deterministic repository checks, rule validation, and fixture-driven rule tests.",
+  "description": "Critiq CLI for deterministic codebase checks, rule validation, and fixture-driven rule tests.",
+  "license": "Apache-2.0",
   "type": "commonjs",
   "bin": {
     "critiq": "./main.js"

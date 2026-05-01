@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./docs/assets/owl.png" alt="critiq.dev" style="max-height:200px" />
+  <img src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/owl.png" alt="critiq.dev" style="max-height:200px" />
 </p>
 
 <h1 align="center">Critiq OSS Core</h1>
@@ -14,7 +14,7 @@
 
 <p align="center">
   <img
-    src="./docs/assets/languages.png"
+    src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/languages.png"
     alt="TypeScript, JavaScript, Node.js, Go, Java, Python, PHP, Ruby, and Rust support"
   />
 </p>
@@ -25,7 +25,7 @@
 
 ## Start In 60 Seconds
 
-Run Critiq on your repo without creating `.critiq/config.yaml` first:
+Run Critiq on your repo:
 
 ```bash
 npm install -D @critiq/cli @critiq/rules
