@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/owl.png" alt="critiq.dev" style="max-height:200px" />
+  <img src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/banner-cli-simple-solid.png" alt="critiq.dev" style="max-height:400px" />
 </p>
 
 <h1 align="center">Critiq OSS Core</h1>
@@ -19,7 +19,22 @@
   />
 </p>
 
+
+Think of Critiq as an extra code reviewer that scans your project for bugs, security issues, performance problems, and risky changes before they turn into production incidents. Instead of only checking style, it focuses on the kinds of problems that usually slip through review and cause real trouble later. You run it locally or in CI, and it gives you deterministic findings you can act on before merging code.
+
+
+It does this by parsing your code, matching it against a curated catalog of explicit rules, and reporting findings with concrete evidence tied to the code that triggered them. That means the output is based on repeatable checks for things like unsafe SQL, missing authorization, repeated IO in loops, and untested critical logic changes, not vague heuristics or style-only linting.
+
 <p align="center">
+  <img
+    src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/cli-architecture-transparent.png"
+    alt="Cli Architecture"
+  />
+</p>
+
+`@critiq/cli` runs Critiq checks against real code and exposes the public rule-pack commands for validation, testing, normalization, and explanation. By default it uses [`@critiq/rules`](https://www.npmjs.com/package/@critiq/rules) as the open source catalog with recommended rules. You can configure this by adding a `.critiq/config.yaml` configuration file.
+
+<p align="left">
   <code>critiq-core</code> builds and ships <code>@critiq/cli</code>. The workspace keeps the scanner runtime, adapters, and contracts together in one repository, but only the CLI package is published publicly from this repo.
 </p>
 
@@ -77,6 +92,22 @@ We only add rules when they are worth interrupting a developer for.
 - We avoid low-value rules that are already better enforced by compilers, such as TypeScript `tsconfig`, or a standard linter configuration. A blanket `any` detector is a good example: it creates noise, duplicates existing toolchains, and usually says less than the compiler already can.
 - A rule should produce an actionable finding with evidence, not just restate generic style guidance.
 
+## High-Value Rules In The Default Catalog
+
+| Rule title | Description |
+| --- | --- |
+| `Hardcoded API keys or credentials` | Source files should not embed credential-like string literals. |
+| `Avoid raw or interpolated SQL`| Database query sinks must not receive request-driven or dynamically interpolated SQL text. |
+| `Path traversal via user input` | File access calls must not use request-controlled paths directly. |
+| `Protect deserialization trust boundaries`| Deserializers should not consume untrusted payloads directly across a trust boundary. |
+| `Server-side request forgery` (`ts.security.ssrf`) | Outbound requests should not use attacker-controlled targets or private hosts. |
+| `Open redirect via request-controlled target`| Redirect and navigation sinks should not use request-controlled destinations without validation. |
+| `Missing authorization before sensitive action` | Sensitive backend actions should be guarded by an authorization or permission check. |
+| `Use authenticated encryption for secrets and tokens` | Session, cookie, and token encryption should provide integrity protection in the same helper. |
+| `Missing await on async call` | Async functions should not drop direct async calls without awaiting them. |
+| `Repeated IO call inside loop` | Database or network calls inside loops can multiply latency and load. |
+| `Logic change without corresponding test updates` | Diffs that change critical logic should usually update the matching tests in the same change. |
+| `Avoid server/client boundary leaks in Next.js` | Server components should not use browser-only APIs or client-only hooks without an explicit client boundary. |
 
 ## What `critiq-core` Is For
 

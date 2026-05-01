@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/owl.png" alt="critiq.dev" style="max-height:200px" />
+  <img src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/banner-cli-simple-transparent.png" alt="critiq.dev" style="max-height:400px" />
 </p>
 
 <h1 align="center">Critiq CLI</h1>
@@ -21,7 +21,7 @@ It does this by parsing your code, matching it against a curated catalog of expl
 
 <p align="center">
   <img
-    src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/cli-architecture.png"
+    src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/cli-architecture-transparent.png"
     alt="Cli Architecture"
   />
 </p>
