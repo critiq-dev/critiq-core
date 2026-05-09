@@ -11,8 +11,11 @@ import {
 
 const FACT_KIND = 'security.sensitive-data-in-logs-and-telemetry';
 
+// Recognize the warn/info levels of the common Node.js logger families plus
+// the broader telemetry sinks. Sensitive payloads on these sinks are flagged
+// regardless of which logger library the consumer wired in.
 const sensitiveSinkPattern =
-  /(^|\.)(console\.(warn|info)|logger\.(warn|info)|captureException|captureMessage|recordException|track|identify|logEvent|setAttribute|setAttributes|setUser)$/u;
+  /(^|\.)(console\.(warn|info)|logger\.(warn|info)|(?:pino|winston|bunyan|consola|log)\.(warn|info)|winston\.log|captureException|captureMessage|recordException|track|identify|logEvent|setAttribute|setAttributes|setUser)$/u;
 
 export function collectSensitiveLoggingFacts(
   context: TypeScriptFactDetectorContext,

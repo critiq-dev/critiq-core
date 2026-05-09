@@ -19,8 +19,11 @@ import {
 import { FACT_KINDS } from './constants';
 import { getLiteralString } from './literal-values';
 
+// Recognize the common Node.js logger families so disclosure findings catch
+// stack/header/cookie/env data leaked through pino, winston, bunyan, or
+// consola in addition to the built-in console/logger/log identifiers.
 const informationLeakageSinkPattern =
-  /^(?:console|logger|log)\.(?:debug|error|info|log|warn)$/u;
+  /^(?:console|logger|log|pino|winston|bunyan|consola)\.(?:debug|error|info|log|warn|trace)$/u;
 const responseLeakageSinks = new Set([
   'res.end',
   'res.json',
@@ -50,7 +53,7 @@ function isExplicitDevOnlyTest(
   );
 }
 
-function isExplicitDevOnlyContext(
+export function isExplicitDevOnlyContext(
   node: TSESTree.Node,
   ancestors: readonly TSESTree.Node[],
   sourceText: string,

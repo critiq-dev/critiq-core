@@ -110,4 +110,41 @@ describe('collectSensitiveLoggingFacts', () => {
 
     expect(facts).toHaveLength(0);
   });
+
+  it('flags sensitive payloads on broader logger families (pino, winston, bunyan, consola)', () => {
+    const sourceText = [
+      'declare const pino: { warn(value: unknown): void };',
+      'declare const winston: {',
+      '  info(value: unknown): void;',
+      '  log(level: string, value: unknown): void;',
+      '};',
+      'declare const bunyan: { info(value: unknown): void };',
+      'declare const consola: { warn(value: unknown): void };',
+      'declare const log: { info(value: unknown): void };',
+      '',
+      'declare const user: { email: string };',
+      'declare const session: { token: string };',
+      '',
+      'pino.warn({ email: user.email });',
+      'winston.info({ token: session.token });',
+      'winston.log("info", { email: user.email });',
+      'bunyan.info({ email: user.email });',
+      'consola.warn({ token: session.token });',
+      'log.info({ email: user.email });',
+    ].join('\n');
+
+    const facts = collectSensitiveLoggingFacts(buildContext(sourceText));
+
+    expect(facts).toHaveLength(6);
+    expect(facts.map((fact) => fact.props['sink'])).toEqual(
+      expect.arrayContaining([
+        'pino.warn',
+        'winston.info',
+        'winston.log',
+        'bunyan.info',
+        'consola.warn',
+        'log.info',
+      ]),
+    );
+  });
 });

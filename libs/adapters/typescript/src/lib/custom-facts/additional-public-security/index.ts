@@ -12,6 +12,7 @@ import {
   collectHardcodedAuthSecretFacts,
   collectRenderFacts,
 } from './application';
+import { collectDebugStatementInSourceFacts } from './debug-statements';
 import {
   collectDebugModeEnabledFacts,
   collectInformationLeakageFacts,
@@ -27,6 +28,7 @@ import {
   collectHtmlOutputFacts,
   collectHttpResponseFacts,
 } from './html';
+import { collectLogInjectionFacts } from './log-injection';
 import {
   collectBrowserOriginFacts,
   collectFormatStringFacts,
@@ -53,6 +55,7 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
     ...collectDynamodbQueryFacts(context, taintedNames, dynamodbClientNames),
     ...collectInformationLeakageFacts(context),
     ...collectFormatStringFacts(context, taintedNames),
+    ...collectLogInjectionFacts(context, taintedNames),
     ...collectBrowserOriginFacts(context, functionBindings),
     ...collectModuleLoadFacts(
       context,
@@ -73,5 +76,6 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
     ...collectDatadogBrowserFacts(context),
     ...collectExpressHardeningFacts(context, functionBindings),
     ...collectDebugModeEnabledFacts(context),
+    ...collectDebugStatementInSourceFacts(context),
   ];
 };

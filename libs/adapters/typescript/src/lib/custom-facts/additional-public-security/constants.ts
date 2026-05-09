@@ -52,6 +52,8 @@ export const FACT_KINDS = {
   informationLeakage: 'security.information-leakage',
   debugModeEnabled: 'security.debug-mode-enabled',
   unsanitizedHttpResponse: 'security.unsanitized-http-response',
+  logInjection: 'security.log-injection',
+  debugStatementInSource: 'security.debug-statement-in-source',
 } as const;
 
 export const requestSourcePattern = trustBoundaryRequestSourcePattern;

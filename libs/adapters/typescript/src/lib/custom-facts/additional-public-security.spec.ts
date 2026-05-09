@@ -577,6 +577,24 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     ).toHaveLength(0);
   });
 
+  it('flags information-leakage on broader logger families (pino, winston, bunyan, consola)', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'function handler(req, error) {',
+        '  pino.error({ stack: error.stack });',
+        '  winston.warn({ headers: req.headers });',
+        '  winston.log("info", { cookies: req.cookies });',
+        '  bunyan.info({ env: process.env });',
+        '  consola.debug({ stack: error.stack });',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.information-leakage'),
+    ).toHaveLength(5);
+  });
+
   it('flags debug middleware and diagnostic handlers but ignores explicit dev-only mounts', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([
