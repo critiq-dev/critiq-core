@@ -103,4 +103,223 @@ describe('pythonSourceAdapter', () => {
       'security.tls-verification-disabled',
     ]);
   });
+
+  it('emits Django unsafe production settings facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'production_settings.py',
+      [
+        'DEBUG = True',
+        'ALLOWED_HOSTS = ["*"]',
+        'SESSION_COOKIE_SECURE = False',
+        'CSRF_COOKIE_SECURE = False',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.filter(
+        (fact) => fact.kind === 'python.security.django-unsafe-production-settings',
+      ),
+    ).toHaveLength(4);
+  });
+
+  it('emits Django CSRF exemption facts when mutations touch unsafe methods', () => {
+    const result = pythonSourceAdapter.analyze(
+      'views.py',
+      [
+        '@csrf_exempt',
+        'def change_email(request):',
+        '    if request.method == "POST":',
+        '        request.user.email = request.POST["email"]',
+        '        request.user.save()',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.some(
+        (fact) => fact.kind === 'python.security.django-csrf-exempt-state-changing',
+      ),
+    ).toBe(true);
+  });
+
+  it('emits Django missing CSRF middleware facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'settings.py',
+      [
+        'MIDDLEWARE = [',
+        '    "django.middleware.security.SecurityMiddleware",',
+        ']',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.some(
+        (fact) => fact.kind === 'python.security.django-missing-csrf-middleware',
+      ),
+    ).toBe(true);
+  });
+
+  it('emits DRF permissive default permission facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'settings.py',
+      [
+        'REST_FRAMEWORK = {',
+        '    "DEFAULT_PERMISSION_CLASSES": [',
+        '        "rest_framework.permissions.AllowAny",',
+        '    ],',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.some(
+        (fact) => fact.kind === 'python.security.drf-allow-any-default',
+      ),
+    ).toBe(true);
+  });
+
+  it('emits DRF AllowAny facts on unsafe methods', () => {
+    const result = pythonSourceAdapter.analyze(
+      'views.py',
+      [
+        '@api_view(["POST"])',
+        '@permission_classes([AllowAny])',
+        'def create_widget(request):',
+        '    return Response({})',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.some(
+        (fact) => fact.kind === 'python.security.drf-allow-any-unsafe-method',
+      ),
+    ).toBe(true);
+  });
+
+  it('emits Flask unsafe HTML output facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'app.py',
+      [
+        '@app.route("/preview")',
+        'def preview():',
+        '    return Markup(request.args["html"])',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.some(
+        (fact) => fact.kind === 'python.security.flask-unsafe-html-output',
+      ),
+    ).toBe(true);
+  });
+
+  it('emits Flask unsafe upload filename facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'app.py',
+      [
+        '@app.post("/upload")',
+        'def upload():',
+        '    file = request.files["file"]',
+        '    file.save(os.path.join(app.config["UPLOAD_FOLDER"], file.filename))',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.some(
+        (fact) => fact.kind === 'python.security.flask-unsafe-upload-filename',
+      ),
+    ).toBe(true);
+  });
+
+  it('emits Flask missing upload body limit facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'app.py',
+      [
+        '@app.post("/upload")',
+        'def upload():',
+        '    file = request.files["file"]',
+        '    file.save(os.path.join("uploads", "blob.bin"))',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.some(
+        (fact) => fact.kind === 'python.security.flask-missing-upload-body-limit',
+      ),
+    ).toBe(true);
+  });
+
+  it('emits FastAPI insecure CORS facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'main.py',
+      [
+        'app.add_middleware(',
+        '    CORSMiddleware,',
+        '    allow_origins=["*"],',
+        '    allow_credentials=True,',
+        '    allow_methods=["*"],',
+        '    allow_headers=["*"],',
+        ')',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.some(
+        (fact) => fact.kind === 'python.security.fastapi-insecure-cors',
+      ),
+    ).toBe(true);
+  });
 });

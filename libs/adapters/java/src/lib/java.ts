@@ -31,7 +31,7 @@ type JavaScanState = TrackedIdentifierState;
 const requestSourcePattern =
   /\b(?:request|req)\.(?:getHeader|getParameter|getPathInfo|getQueryString|getRequestURI|getServletPath|getCookies)\s*\(/;
 const hardcodedCredentialPattern =
-  /(?:^|\n)\s*(?:private|protected|public|static|final|\s)*[A-Za-z_$][A-Za-z0-9_$<>\[\]]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*["'][^"'`\n]{8,}["']/g;
+  /(?:^|\n)\s*(?:private|protected|public|static|final|\s)*[A-Za-z_$][A-Za-z0-9_$<>\x5b\x5d]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*["'][^"'`\n]{8,}["']/g;
 const fileReadCallPattern =
   /\b(?:Files\.(?:readAllBytes|readAllLines|readString|newInputStream)|new\s+File(?:InputStream|Reader)?)\s*\(/g;
 const commandCallPattern = /\b(?:exec|ProcessBuilder)\s*\(/g;
@@ -40,7 +40,7 @@ const deserializeCallPattern =
 const logCallPattern =
   /\b(?:log|logger|LOGGER)\.(?:debug|error|info|trace|warn)\s*\(/g;
 const sqlCallPattern =
-  /\b(?:[A-Za-z_][A-Za-z0-9_\.]*\.)?(?:execute|executeQuery|executeUpdate|prepareStatement|query|update)\s*\(/g;
+  /\b(?:[A-Za-z_][A-Za-z0-9_.]*\.)?(?:execute|executeQuery|executeUpdate|prepareStatement|query|update)\s*\(/g;
 const insecureHttpCallPattern =
   /\b(?:HttpRequest\.newBuilder|new\s+URL)\s*\(/g;
 const hostnameVerifierPattern =
@@ -168,7 +168,7 @@ function collectJavaScanState(text: string): JavaScanState {
   return collectTrackedIdentifiers({
     text,
     assignmentPattern:
-      /^(?:private|protected|public|static|final|\s)*[A-Za-z_$][A-Za-z0-9_$<>\[\]]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+);$/u,
+      /^(?:private|protected|public|static|final|\s)*[A-Za-z_$][A-Za-z0-9_$<>\x5b\x5d]*\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+);$/u,
     stripLineComment: stripJavaLineComment,
     isTaintedExpression: (expression, identifiers) =>
       looksLikeJavaRequestSource(expression) ||

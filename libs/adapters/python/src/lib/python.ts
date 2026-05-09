@@ -2,6 +2,7 @@ import {
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
+  collectPythonFrameworkSecurityFacts,
   collectRequestPathFileReadFacts,
   collectSensitiveLoggingFacts,
   collectSqlInterpolationFacts,
@@ -34,7 +35,7 @@ const requestSourcePattern =
 const hardcodedCredentialPattern =
   /(?:^|\n)\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*["'][^"'\n]{8,}["']/g;
 const fileReadCallPattern =
-  /\b(?:open|[A-Za-z_][A-Za-z0-9_\.]*\.read_(?:bytes|text))\s*\(/g;
+  /\b(?:open|[A-Za-z_][A-Za-z0-9_.]*\.read_(?:bytes|text))\s*\(/g;
 const commandCallPattern =
   /\b(?:os\.popen|os\.system|subprocess\.(?:Popen|call|check_output|run))\s*\(/g;
 const deserializeCallPattern =
@@ -42,7 +43,7 @@ const deserializeCallPattern =
 const logCallPattern =
   /\b(?:app\.logger|logger|logging)\.(?:critical|debug|error|exception|info|warning)\s*\(/g;
 const sqlCallPattern =
-  /\b(?:[A-Za-z_][A-Za-z0-9_\.]*\.)?(?:execute|executemany)\s*\(/g;
+  /\b(?:[A-Za-z_][A-Za-z0-9_.]*\.)?(?:execute|executemany)\s*\(/g;
 const insecureHttpCallPattern =
   /\b(?:requests|httpx)\.(?:delete|get|head|options|patch|post|put|request)\s*\(|\burllib\.request\.urlopen\s*\(|\b[A-Za-z_][A-Za-z0-9_]*\.(?:delete|get|head|options|patch|post|put|request)\s*\(/g;
 const tlsVerificationCallPattern =
@@ -118,6 +119,10 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
       text,
       detector,
       pattern: weakHashCallPattern,
+    }),
+    ...collectPythonFrameworkSecurityFacts({
+      text,
+      detector,
     }),
   ],
 };

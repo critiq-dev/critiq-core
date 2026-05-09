@@ -18,3 +18,4 @@ export * from './polyglot/domains/sql-interpolation';
 export * from './polyglot/domains/tls-verification-disabled';
 export * from './polyglot/domains/unsafe-deserialization';
 export * from './polyglot/domains/weak-hash-algorithm';
+export * from './polyglot/domains/python-framework-security';
