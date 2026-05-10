@@ -9,7 +9,7 @@ Minimal first-party Java adapter for deterministic polyglot support.
 
 ## Supported Inputs
 
-- extensions: `.java`
+- extensions: `.java`, `.properties` (Spring-style configuration text analyzed with the same `java` language tag)
 - language: `java`
 
 ## Current Behavior

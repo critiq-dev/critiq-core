@@ -2,7 +2,12 @@ import {
   collectAndroidScreenshotExposureFacts,
   collectAndroidWorldReadableModeFacts,
   collectHardcodedCredentialFacts,
+  collectJavaInsecureCookieFacts,
+  collectJavaOpenRedirectFacts,
+  collectJavaResponseWriterXssFacts,
+  collectJavaSensitiveDataEgressFacts,
   collectSensitiveLoggingFacts,
+  collectSpringConfigDebugExposureFacts,
   collectTlsVerificationDisabledFacts,
   type TrackedIdentifierState,
 } from '../../shared';
@@ -112,6 +117,85 @@ describe('shared domain collectors', () => {
     expect(facts.map((fact) => fact.kind)).toEqual([
       'security.android-world-readable-mode',
       'security.android-world-readable-mode',
+    ]);
+  });
+
+  it('flags Java redirects fed by request sources', () => {
+    const state: TrackedIdentifierState = {
+      taintedIdentifiers: new Set(),
+      sqlInterpolatedIdentifiers: new Set(),
+    };
+    const facts = collectJavaOpenRedirectFacts({
+      detector: 'test-detector',
+      text: 'response.sendRedirect(request.getParameter("next"));',
+      state,
+      matchesTainted: (text) => /\brequest\.getParameter/u.test(text),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toEqual(['security.open-redirect']);
+  });
+
+  it('flags servlet cookies with risky defaults or explicit insecure flags', () => {
+    const state: TrackedIdentifierState = {
+      taintedIdentifiers: new Set(),
+      sqlInterpolatedIdentifiers: new Set(),
+    };
+    const facts = collectJavaInsecureCookieFacts({
+      detector: 'test-detector',
+      text: [
+        'Cookie session = new Cookie("JSESSIONID", token);',
+        'ResponseCookie.from("sid", value).httpOnly(false).build();',
+      ].join('\n'),
+      state,
+      matchesTainted: (text) => /\btoken\b/u.test(text),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toEqual([
+      'security.servlet-insecure-cookie',
+      'security.servlet-insecure-cookie',
+    ]);
+  });
+
+  it('flags RestTemplate calls that forward request-controlled payloads externally', () => {
+    const state: TrackedIdentifierState = {
+      taintedIdentifiers: new Set(),
+      sqlInterpolatedIdentifiers: new Set(),
+    };
+    const facts = collectJavaSensitiveDataEgressFacts({
+      detector: 'test-detector',
+      text: 'restTemplate.postForObject(uri, request.getParameter("body"), String.class);',
+      state,
+      matchesTainted: (text) => /\brequest\.getParameter/u.test(text),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toEqual([
+      'security.sensitive-data-egress',
+    ]);
+  });
+
+  it('flags servlet responses that write request parameters to the writer', () => {
+    const facts = collectJavaResponseWriterXssFacts({
+      detector: 'test-detector',
+      text: 'response.getWriter().print(request.getParameter("q"));',
+    });
+
+    expect(facts.map((fact) => fact.kind)).toEqual([
+      'security.java-reflected-output-from-request',
+    ]);
+  });
+
+  it('flags risky Spring Boot configuration in properties files', () => {
+    const facts = collectSpringConfigDebugExposureFacts({
+      detector: 'test-detector',
+      path: 'application.properties',
+      text: ['debug=true', 'management.endpoints.web.exposure.include=*'].join(
+        '\n',
+      ),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toEqual([
+      'security.spring-debug-exposure',
+      'security.spring-debug-exposure',
     ]);
   });
 });

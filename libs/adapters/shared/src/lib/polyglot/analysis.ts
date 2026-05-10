@@ -26,6 +26,7 @@ export function analyzePolyglotFile<TState>(
       detector: definition.detector,
       state,
       text,
+      path,
     }),
   );
 

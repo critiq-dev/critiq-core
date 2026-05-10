@@ -22,6 +22,7 @@ export interface PolyglotFactCollectorContext<TState> {
   detector: string;
   state: TState;
   text: string;
+  path: string;
 }
 
 export interface PolyglotAdapterDefinition<TState> {

@@ -4,8 +4,13 @@ import {
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
+  collectJavaInsecureCookieFacts,
+  collectJavaOpenRedirectFacts,
+  collectJavaResponseWriterXssFacts,
+  collectJavaSensitiveDataEgressFacts,
   collectRequestPathFileReadFacts,
   collectSensitiveLoggingFacts,
+  collectSpringConfigDebugExposureFacts,
   collectSqlInterpolationFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
@@ -54,7 +59,7 @@ const javaAdapterDefinition: PolyglotAdapterDefinition<JavaScanState> = {
   detector: 'java-detector',
   validate: validateJavaSource,
   collectState: collectJavaScanState,
-  collectFacts: ({ text, state, detector }) => [
+  collectFacts: ({ text, state, detector, path }) => [
     ...collectHardcodedCredentialFacts({
       text,
       detector,
@@ -126,18 +131,49 @@ const javaAdapterDefinition: PolyglotAdapterDefinition<JavaScanState> = {
       detector,
       pattern: weakHashCallPattern,
     }),
+    ...collectJavaOpenRedirectFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesJavaTainted,
+    }),
+    ...collectJavaInsecureCookieFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesJavaTainted,
+    }),
+    ...collectJavaSensitiveDataEgressFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesJavaTainted,
+    }),
+    ...collectJavaResponseWriterXssFacts({
+      text,
+      detector,
+    }),
+    ...collectSpringConfigDebugExposureFacts({
+      text,
+      detector,
+      path,
+    }),
   ],
 };
 
 export const { analyze: analyzeJavaFile, sourceAdapter: javaSourceAdapter } =
   createRegexPolyglotAdapter({
     packageName: '@critiq/adapter-java',
-    supportedExtensions: ['.java'] as const,
+    supportedExtensions: ['.java', '.properties'] as const,
     supportedLanguages: ['java'] as const,
     definition: javaAdapterDefinition,
   });
 
 function validateJavaSource(path: string, text: string): Diagnostic | undefined {
+  if (/\.properties$/iu.test(path)) {
+    return undefined;
+  }
+
   const unmatched = findFirstUnmatchedDelimiter(
     text,
     [
