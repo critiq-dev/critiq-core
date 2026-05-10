@@ -7,6 +7,7 @@ import {
   emitLogicChangeWithoutTestsFacts,
   emitMissingAuthorizationFacts,
   emitMissingBatchFacts,
+  emitMissingNextErrorBoundaryFacts,
   emitMissingOwnershipFacts,
   emitMissingTestsFacts,
   emitRepeatedIoFacts,
@@ -29,6 +30,7 @@ export function augmentProjectFacts(
   emitMissingBatchFacts(contexts);
   emitDuplicateCodeFacts(contexts);
   emitTightCouplingFacts(contexts);
+  emitMissingNextErrorBoundaryFacts(contexts);
   emitMissingTestsFacts(contexts, options.availableTestPaths);
 
   if (options.scopeMode === 'diff') {

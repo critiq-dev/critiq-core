@@ -4,7 +4,7 @@ import type {
   ObservedNode,
   ObservedRange,
 } from '@critiq/core-rules-engine';
-import { basename } from 'node:path/posix';
+import { basename, dirname } from 'node:path/posix';
 
 import {
   AUTH_GUARD_PATTERN,
@@ -602,6 +602,45 @@ export function emitMissingTestsFacts(
       range: createFileStartRange(context.file),
       text: basename(context.file.path),
       props: {},
+    });
+  }
+}
+
+const NEXT_APP_ROUTE_FILE_PATTERN =
+  /(?:^|\/)app\/(?:.+\/)?(?:page|layout)\.(?:tsx|jsx|ts|js)$/u;
+
+export function emitMissingNextErrorBoundaryFacts(
+  fileContexts: ReadonlyMap<string, FileContext>,
+): void {
+  const paths = new Set(fileContexts.keys());
+
+  for (const context of fileContexts.values()) {
+    const filePath = context.file.path;
+
+    if (!NEXT_APP_ROUTE_FILE_PATTERN.test(filePath)) {
+      continue;
+    }
+
+    const directory = dirname(filePath);
+    const hasLocalErrorFile = [
+      `${directory}/error.tsx`,
+      `${directory}/error.ts`,
+      `${directory}/error.jsx`,
+      `${directory}/error.js`,
+    ].some((candidate) => paths.has(candidate));
+
+    if (hasLocalErrorFile) {
+      continue;
+    }
+
+    appendFact(context, {
+      kind: 'ui.react.missing-error-boundary',
+      appliesTo: 'project',
+      range: createFileStartRange(context.file),
+      text: basename(filePath),
+      props: {
+        routeDirectory: directory,
+      },
     });
   }
 }

@@ -13,6 +13,7 @@ import { collectInsecureTransportFacts } from './insecure-transport';
 import { collectNetworkExposureFacts } from './network-exposure';
 import { collectOpenRedirectFacts } from './open-redirect';
 import { collectPhase1PolyglotSecurityFacts } from './phase1-polyglot-security';
+import { detectReactAccessibilityFacts } from './react-accessibility';
 import { detectReactNextBestPracticesFacts } from './react-next-best-practices';
 import { collectSensitiveEgressFacts } from './sensitive-egress';
 import { collectSensitiveLoggingFacts } from './sensitive-logging';
@@ -34,6 +35,7 @@ export function collectAdditionalTypeScriptFacts(
     ...collectQueryCommandDynamicExecutionFacts(context),
     ...collectPhase1PolyglotSecurityFacts(context),
     ...detectReactNextBestPracticesFacts(context),
+    ...detectReactAccessibilityFacts(context),
     ...collectSensitiveEgressFacts(context),
     ...collectSensitiveLoggingFacts(context),
     ...collectSsrfFacts(context),

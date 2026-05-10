@@ -11,6 +11,7 @@ import {
   emitLogicChangeWithoutTestsFacts,
   emitMissingAuthorizationFacts,
   emitMissingBatchFacts,
+  emitMissingNextErrorBoundaryFacts,
   emitMissingOwnershipFacts,
   emitMissingTestsFacts,
   emitRepeatedIoFacts,
@@ -271,5 +272,33 @@ describe('project analysis fact emitters', () => {
     expect(
       factsOf(files[3], 'quality.logic-change-without-test-updates'),
     ).toHaveLength(0);
+  });
+
+  it('emits missing Next.js segment error boundary facts when error.tsx is absent', () => {
+    const page = analyze(
+      'src/app/dashboard/page.tsx',
+      ['export default function Page() {', '  return null;', '}'].join('\n'),
+    );
+    const contexts = createFileContexts([page]);
+
+    emitMissingNextErrorBoundaryFacts(contexts);
+
+    expect(factsOf(page, 'ui.react.missing-error-boundary')).toHaveLength(1);
+  });
+
+  it('does not emit missing error boundary facts when error.tsx is present', () => {
+    const page = analyze(
+      'src/app/dashboard/page.tsx',
+      ['export default function Page() {', '  return null;', '}'].join('\n'),
+    );
+    const errorBoundary = analyze(
+      'src/app/dashboard/error.tsx',
+      ['export default function Error() {', '  return null;', '}'].join('\n'),
+    );
+    const contexts = createFileContexts([page, errorBoundary]);
+
+    emitMissingNextErrorBoundaryFacts(contexts);
+
+    expect(factsOf(page, 'ui.react.missing-error-boundary')).toHaveLength(0);
   });
 });
