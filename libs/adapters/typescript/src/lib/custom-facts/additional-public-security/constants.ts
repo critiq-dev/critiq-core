@@ -51,7 +51,14 @@ export const FACT_KINDS = {
   expressReduceFingerprint: 'security.express-reduce-fingerprint',
   expressUnboundedBodyParser: 'security.express-unbounded-body-parser',
   fastifyExcessiveBodyLimit: 'security.fastify-excessive-body-limit',
+  fastifyPublicBindWithoutTrustProxy:
+    'security.fastify-public-bind-without-trust-proxy',
   apolloServerCsrfDisabled: 'security.apollo-server-csrf-disabled',
+  apolloServerGraphqlDevToolingExposure:
+    'security.apollo-server-graphql-dev-tooling-exposure',
+  graphqlUploadWithoutCsrfGuard: 'security.graphql-upload-without-csrf-guard',
+  nuxtPublicRuntimeSecret: 'security.nuxt-public-runtime-secret',
+  astroVitePublicSecretDefine: 'security.astro-vite-public-secret-define',
   apolloServerIntrospectionExposure: 'security.apollo-server-introspection-exposure',
   apolloServerMissingQueryLimits: 'security.apollo-server-missing-query-limits',
   nestjsHelmetAfterRouteMount: 'security.nestjs-helmet-after-route-mount',

@@ -5,10 +5,13 @@ import {
 } from './additional-public-security';
 import { type TypeScriptFactDetectorContext } from './shared';
 
-function createContext(sourceText: string): TypeScriptFactDetectorContext {
+function createContext(
+  sourceText: string,
+  path = 'src/example.ts',
+): TypeScriptFactDetectorContext {
   return {
     nodeIds: new WeakMap<object, string>(),
-    path: 'src/example.ts',
+    path,
     program: parse(sourceText, {
       comment: false,
       errorOnUnknownASTType: false,
@@ -803,5 +806,147 @@ describe('collectAdditionalPublicSecurityFacts', () => {
         (fact) => fact.kind === 'security.apollo-server-missing-query-limits',
       ),
     ).toBe(false);
+  });
+
+  it('flags Fastify public listen without trustProxy', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext(
+        [
+          'import Fastify from "fastify";',
+          'const app = Fastify();',
+          'await app.listen({ port: 3000, host: "0.0.0.0" });',
+        ].join('\n'),
+      ),
+    );
+
+    expect(
+      facts.some(
+        (fact) => fact.kind === 'security.fastify-public-bind-without-trust-proxy',
+      ),
+    ).toBe(true);
+  });
+
+  it('suppresses Fastify public listen when trustProxy is enabled', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext(
+        [
+          'import Fastify from "fastify";',
+          'const app = Fastify({ trustProxy: true });',
+          'await app.listen({ port: 3000, host: "0.0.0.0" });',
+        ].join('\n'),
+      ),
+    );
+
+    expect(
+      facts.some(
+        (fact) => fact.kind === 'security.fastify-public-bind-without-trust-proxy',
+      ),
+    ).toBe(false);
+  });
+
+  it('flags Apollo dev tooling plugins without production guard', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext(
+        [
+          'import { ApolloServer } from "@apollo/server";',
+          'import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/disabled";',
+          'const server = new ApolloServer({',
+          '  typeDefs,',
+          '  resolvers,',
+          '  plugins: [ApolloServerPluginLandingPageLocalDefault()],',
+          '});',
+        ].join('\n'),
+      ),
+    );
+
+    expect(
+      facts.some(
+        (fact) =>
+          fact.kind === 'security.apollo-server-graphql-dev-tooling-exposure',
+      ),
+    ).toBe(true);
+  });
+
+  it('flags graphql upload middleware when Apollo CSRF is explicitly disabled', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext(
+        [
+          'import { graphqlUploadExpress } from "graphql-upload/graphqlUploadExpress.mjs";',
+          'import { ApolloServer } from "@apollo/server";',
+          'app.use(graphqlUploadExpress());',
+          'const server = new ApolloServer({ typeDefs, resolvers, csrfPrevention: false });',
+        ].join('\n'),
+      ),
+    );
+
+    expect(
+      facts.some(
+        (fact) => fact.kind === 'security.graphql-upload-without-csrf-guard',
+      ),
+    ).toBe(true);
+  });
+
+  it('suppresses graphql upload finding when Apollo uses default CSRF posture', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext(
+        [
+          'import { graphqlUploadExpress } from "graphql-upload/graphqlUploadExpress.mjs";',
+          'import { ApolloServer } from "@apollo/server";',
+          'app.use(graphqlUploadExpress());',
+          'const server = new ApolloServer({ typeDefs, resolvers });',
+        ].join('\n'),
+      ),
+    );
+
+    expect(
+      facts.some(
+        (fact) => fact.kind === 'security.graphql-upload-without-csrf-guard',
+      ),
+    ).toBe(false);
+  });
+
+  it('flags Nuxt public runtime keys that look like secrets', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext(
+        [
+          'export default defineNuxtConfig({',
+          '  runtimeConfig: {',
+          '    public: {',
+          '      stripeSecretKey: process.env.STRIPE_SECRET_KEY,',
+          '    },',
+          '  },',
+          '});',
+        ].join('\n'),
+        'nuxt.config.ts',
+      ),
+    );
+
+    expect(
+      facts.some((fact) => fact.kind === 'security.nuxt-public-runtime-secret'),
+    ).toBe(true);
+  });
+
+  it('flags Astro vite define mapping secrets into PUBLIC env keys', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext(
+        [
+          'import { defineConfig } from "astro/config";',
+          'export default defineConfig({',
+          '  vite: {',
+          '    define: {',
+          '      "import.meta.env.PUBLIC_DB_PASSWORD": JSON.stringify(process.env.DB_PASSWORD),',
+          '    },',
+          '  },',
+          '});',
+        ].join('\n'),
+        'astro.config.ts',
+      ),
+    );
+
+    expect(
+      facts.some(
+        (fact) => fact.kind === 'security.astro-vite-public-secret-define',
+      ),
+    ).toBe(true);
   });
 });

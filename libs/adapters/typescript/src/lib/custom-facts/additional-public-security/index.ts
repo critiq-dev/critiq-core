@@ -14,6 +14,7 @@ import {
   collectHardcodedAuthSecretFacts,
   collectRenderFacts,
 } from './application';
+import { collectFrameworkConfigSecurityFacts } from './framework-config-security';
 import { collectNodeFrameworkBootstrapFacts } from './node-framework-bootstrap';
 import { collectDebugStatementInSourceFacts } from './debug-statements';
 import {
@@ -81,6 +82,7 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
     ...collectExpressHardeningFacts(context, functionBindings),
     ...collectExpressBodyParserLimitsFacts(context, functionBindings),
     ...collectNodeFrameworkBootstrapFacts(context),
+    ...collectFrameworkConfigSecurityFacts(context),
     ...collectDebugModeEnabledFacts(context),
     ...collectDebugStatementInSourceFacts(context),
   ];
