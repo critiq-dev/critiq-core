@@ -31,4 +31,6 @@ Coverage is intentionally heuristic and text-driven. This adapter does not
 perform full AST or type-aware analysis. Rails CSRF and mass-assignment rules
 use path and class-name heuristics (for example `ActionController::API` or
 `controllers/api/`) to reduce noise on API-only surfaces; expect false positives
-and false negatives on edge layouts.
+and false negatives on edge layouts. Open-redirect detection inspects a bounded
+slice after `redirect_to` / `redirect_back` so `params[:key]` and
+`allow_other_host: true` pairs dedupe to a single fact when both apply.

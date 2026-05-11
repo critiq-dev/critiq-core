@@ -16,7 +16,10 @@ Minimal first-party Go adapter for deterministic polyglot support.
 
 This adapter uses `@critiq/adapter-shared` regex/polyglot helpers. It validates
 one file at a time, collects lightweight scan state, runs shared fact
-collectors, and returns an `AnalyzedFile` on success.
+collectors, the shared Go security collectors (`go-security` domain: SSRF,
+open redirect, egress, tar traversal, `net/http` timeouts, Gin/Echo/Fiber
+binding and upload heuristics, and template trusted-type misuse), and returns
+an `AnalyzedFile` on success.
 
 ## Failure Behavior
 

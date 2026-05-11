@@ -118,6 +118,30 @@ describe('rubySourceAdapter', () => {
     expect(kinds).toContain('ruby.security.rails-unsafe-render');
   });
 
+  it('flags redirect_to params[:key] without allow_other_host', () => {
+    const result = rubySourceAdapter.analyze(
+      'app/controllers/redirects_controller.rb',
+      [
+        'class RedirectsController < ApplicationController',
+        '  def back',
+        '    redirect_to params[:return_to]',
+        '  end',
+        'end',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.filter(
+        (f) => f.kind === 'ruby.security.rails-open-redirect',
+      ),
+    ).toHaveLength(1);
+  });
+
   it('suppresses CSRF findings for API controllers', () => {
     const result = rubySourceAdapter.analyze(
       'app/controllers/api/v1/items_controller.rb',

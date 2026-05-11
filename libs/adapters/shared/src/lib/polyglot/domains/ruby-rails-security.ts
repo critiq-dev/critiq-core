@@ -16,6 +16,29 @@ export const RUBY_RAILS_SECURITY_FACT_KINDS = {
   unsafeSessionOrCookieStore: 'ruby.security.rails-unsafe-session-or-cookie-store',
 } as const;
 
+/** Rightward slice so `redirect_to params` matches include `params[:key]` for taint checks. */
+const OPEN_REDIRECT_TAINT_RIGHT_PAD = 420;
+
+function sliceOpenRedirectTaintWindow(
+  text: string,
+  startOffset: number,
+  endOffset: number,
+): string {
+  return text.slice(
+    startOffset,
+    Math.min(text.length, endOffset + OPEN_REDIRECT_TAINT_RIGHT_PAD),
+  );
+}
+
+function isShortRedirectToParamsOrRequestPrefix(matchedText: string): boolean {
+  return (
+    /^redirect_to\s+params\b/u.test(matchedText) ||
+    /^redirect_to\s*\(\s*params\b/u.test(matchedText) ||
+    /^redirect_to\s+request\./u.test(matchedText) ||
+    /^redirect_to\s*\(\s*request\./u.test(matchedText)
+  );
+}
+
 const PRIVILEGED_PERMIT_SYMBOLS = new Set([
   'admin',
   'is_admin',
@@ -242,7 +265,24 @@ function collectOpenRedirectFacts<TState>(
         kind,
         appliesTo: 'block',
         pattern,
-        predicate: (match) => matchesTainted(match.matchedText, state),
+        predicate: (match) => {
+          const window = sliceOpenRedirectTaintWindow(
+            text,
+            match.startOffset,
+            match.endOffset,
+          );
+          if (!matchesTainted(window, state)) {
+            return false;
+          }
+          if (
+            isShortRedirectToParamsOrRequestPrefix(match.matchedText) &&
+            /\ballow_other_host:\s*true\b/u.test(window) &&
+            !/\ballow_other_host:\s*true\b/u.test(match.matchedText)
+          ) {
+            return false;
+          }
+          return true;
+        },
       }),
     );
   }

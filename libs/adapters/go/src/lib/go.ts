@@ -1,5 +1,18 @@
 import {
   collectCommandExecutionFacts,
+  collectGoEchoSensitiveBindingFacts,
+  collectGoEchoUnsafeUploadFacts,
+  collectGoFiberSensitiveBindingFacts,
+  collectGoFiberUnsafeUploadFacts,
+  collectGoGinSensitiveBindingFacts,
+  collectGoGinTrustAllProxiesFacts,
+  collectGoGinWildcardCorsWithCredentialsFacts,
+  collectGoNetHttpMissingTimeoutFacts,
+  collectGoOpenRedirectFacts,
+  collectGoSensitiveDataEgressFacts,
+  collectGoSsrfFacts,
+  collectGoTarPathTraversalFacts,
+  collectGoTemplateUnescapedRequestFacts,
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
   collectRequestPathFileReadFacts,
@@ -12,6 +25,7 @@ import {
   containsIdentifier,
   createRegexPolyglotAdapter,
   findFirstUnmatchedDelimiter,
+  looksLikeGoExtendedRequestSource,
   type PolyglotAdapterDefinition,
   type SourceAnalysisFailure,
   type SourceAnalysisResult,
@@ -26,8 +40,6 @@ export type GoAnalysisResult = SourceAnalysisResult;
 
 type GoScanState = TrackedIdentifierState;
 
-const requestSourcePattern =
-  /\br\.(?:Body|FormValue|PostFormValue|URL\.(?:Path|RawPath|RawQuery|Query\(\)\.Get)|Header\.Get|Cookie)\b/;
 const hardcodedCredentialPattern =
   /(?:^|\n)\s*(?:const|var)?\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?::=|=)\s*["'`][^"'`\n]{8,}["'`]/g;
 const fileReadCallPattern = /\b(?:os|ioutil)\.ReadFile\s*\(/g;
@@ -37,7 +49,7 @@ const deserializeCallPattern =
 const logCallPattern =
   /\b(?:log\.(?:Fatal|Fatalf|Print|Printf|Println)|logger\.(?:Error|Info|Warn)|slog\.(?:Error|Info|Warn))\s*\(/g;
 const sqlCallPattern =
-  /\b(?:[A-Za-z_][A-Za-z0-9_]*\.)?(?:Exec|ExecContext|Query|QueryContext)\s*\(/g;
+  /\b(?:[A-Za-z_][A-Za-z0-9_]*\.)?(?:Exec|ExecContext|Query|QueryContext|Raw|RawContext)\s*\(/g;
 const insecureHttpCallPattern =
   /\b(?:http\.(?:Get|Head|Post|PostForm|NewRequest|NewRequestWithContext)|[A-Za-z_][A-Za-z0-9_]*\.(?:Get|Head|Post|PostForm))\s*\(/g;
 const weakHashCallPattern = /\b(?:md5|sha1)\.(?:New|Sum)\s*\(/g;
@@ -49,7 +61,7 @@ const goAdapterDefinition: PolyglotAdapterDefinition<GoScanState> = {
   detector: 'go-detector',
   validate: validateGoSource,
   collectState: collectGoScanState,
-  collectFacts: ({ text, state, detector }) => [
+  collectFacts: ({ text, state, detector, path }) => [
     ...collectHardcodedCredentialFacts({
       text,
       detector,
@@ -108,6 +120,43 @@ const goAdapterDefinition: PolyglotAdapterDefinition<GoScanState> = {
       detector,
       pattern: weakHashCallPattern,
     }),
+    ...collectGoOpenRedirectFacts({
+      text,
+      path,
+      detector,
+      state,
+      matchesTainted: matchesGoTainted,
+    }),
+    ...collectGoSsrfFacts({
+      text,
+      path,
+      detector,
+      state,
+      matchesTainted: matchesGoTainted,
+    }),
+    ...collectGoSensitiveDataEgressFacts({
+      text,
+      path,
+      detector,
+      state,
+      matchesTainted: matchesGoTainted,
+    }),
+    ...collectGoTarPathTraversalFacts({ text, path, detector }),
+    ...collectGoNetHttpMissingTimeoutFacts({ text, path, detector }),
+    ...collectGoGinWildcardCorsWithCredentialsFacts({ text, path, detector }),
+    ...collectGoGinTrustAllProxiesFacts({ text, path, detector }),
+    ...collectGoGinSensitiveBindingFacts({ text, path, detector }),
+    ...collectGoEchoSensitiveBindingFacts({ text, path, detector }),
+    ...collectGoEchoUnsafeUploadFacts({ text, path, detector }),
+    ...collectGoFiberSensitiveBindingFacts({ text, path, detector }),
+    ...collectGoFiberUnsafeUploadFacts({ text, path, detector }),
+    ...collectGoTemplateUnescapedRequestFacts({
+      text,
+      path,
+      detector,
+      state,
+      matchesTainted: matchesGoTainted,
+    }),
   ],
 };
 
@@ -163,7 +212,7 @@ function collectGoScanState(text: string): GoScanState {
       /^(?:var\s+)?([A-Za-z_][A-Za-z0-9_]*)(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)?\s*(?::=|=)\s*(.+)$/u,
     stripLineComment: stripGoLineComment,
     isTaintedExpression: (expression, identifiers) =>
-      looksLikeGoRequestSource(expression) ||
+      looksLikeGoExtendedRequestSource(expression) ||
       containsIdentifier(expression, identifiers),
     isSqlInterpolatedExpression: (expression, identifiers) =>
       looksLikeGoSqlInterpolation(expression) ||
@@ -180,7 +229,7 @@ function matchesGoTainted(
   state: GoScanState,
 ): boolean {
   return (
-    looksLikeGoRequestSource(expression) ||
+    looksLikeGoExtendedRequestSource(expression) ||
     containsIdentifier(expression, state.taintedIdentifiers)
   );
 }
@@ -193,10 +242,6 @@ function matchesGoSqlInterpolation(
     looksLikeGoSqlInterpolation(expression) ||
     containsIdentifier(expression, state.sqlInterpolatedIdentifiers)
   );
-}
-
-function looksLikeGoRequestSource(expression: string): boolean {
-  return requestSourcePattern.test(expression);
 }
 
 function looksLikeGoSqlInterpolation(expression: string): boolean {
