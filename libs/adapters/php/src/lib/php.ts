@@ -1,4 +1,6 @@
 import {
+  collectPhpFrameworkSecurityFacts,
+  collectPhpSensitiveDataEgressFacts,
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
@@ -51,7 +53,7 @@ const phpAdapterDefinition: PolyglotAdapterDefinition<PhpScanState> = {
   detector: 'php-detector',
   validate: validatePhpSource,
   collectState: collectPhpScanState,
-  collectFacts: ({ text, state, detector }) => [
+  collectFacts: ({ text, state, detector, path }) => [
     ...collectHardcodedCredentialFacts({
       text,
       detector,
@@ -115,6 +117,19 @@ const phpAdapterDefinition: PolyglotAdapterDefinition<PhpScanState> = {
       text,
       detector,
       pattern: weakHashCallPattern,
+    }),
+    ...collectPhpFrameworkSecurityFacts({
+      text,
+      path,
+      detector,
+      state,
+      matchesTainted: matchesPhpTainted,
+    }),
+    ...collectPhpSensitiveDataEgressFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesPhpTainted,
     }),
   ],
 };

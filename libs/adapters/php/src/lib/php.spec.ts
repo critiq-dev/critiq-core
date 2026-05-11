@@ -58,14 +58,18 @@ describe('phpSourceAdapter', () => {
       throw new Error('Expected analysis success.');
     }
 
-    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toEqual([
-      'security.hardcoded-credentials',
-      'security.sensitive-data-in-logs-and-telemetry',
-      'security.request-path-file-read',
-      'security.command-execution-with-request-input',
-      'security.sql-interpolation',
-      'security.unsafe-deserialization',
-    ]);
+    expect(
+      result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind),
+    ).toEqual(
+      expect.arrayContaining([
+        'security.hardcoded-credentials',
+        'security.sensitive-data-in-logs-and-telemetry',
+        'security.request-path-file-read',
+        'security.command-execution-with-request-input',
+        'security.sql-interpolation',
+        'security.unsafe-deserialization',
+      ]),
+    );
   });
 
   it('emits transport and crypto security facts', () => {
@@ -85,10 +89,49 @@ describe('phpSourceAdapter', () => {
       throw new Error('Expected analysis success.');
     }
 
-    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toEqual([
-      'security.insecure-http-transport',
-      'security.tls-verification-disabled',
-      'security.weak-hash-algorithm',
-    ]);
+    expect(
+      result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind),
+    ).toEqual(
+      expect.arrayContaining([
+        'security.insecure-http-transport',
+        'security.tls-verification-disabled',
+        'security.weak-hash-algorithm',
+      ]),
+    );
+  });
+
+  it('emits php framework and wordpress facts', () => {
+    const result = phpSourceAdapter.analyze(
+      'framework.php',
+      [
+        '<?php',
+        '$user->update($request->all());',
+        "protected $except = ['account/*'];",
+        '$builder->setMethod("POST");',
+        '$builder->setAttribute("csrf_protection", false);',
+        'add_action("wp_ajax_delete_invoice", function () {',
+        '  delete_invoice($_POST["invoice_id"]);',
+        '});',
+        '$wpdb->query("DELETE FROM wp_meta WHERE id = " . $_GET["id"]);',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map(
+      (fact) => fact.kind,
+    );
+    expect(kinds).toEqual(
+      expect.arrayContaining([
+        'php.security.laravel-unsafe-mass-assignment',
+        'php.security.laravel-sensitive-csrf-exclusion',
+        'php.security.symfony-csrf-disabled',
+        'php.security.wordpress-missing-nonce-or-capability',
+        'php.security.wordpress-unprepared-sql',
+      ]),
+    );
   });
 });
