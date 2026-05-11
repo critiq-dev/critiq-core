@@ -99,6 +99,32 @@ describe('javaSourceAdapter', () => {
     ]);
   });
 
+  it('analyzes Spring YAML without Java delimiter validation', () => {
+    const result = javaSourceAdapter.analyze(
+      'src/main/resources/application.yml',
+      [
+        'management:',
+        '  endpoints:',
+        '    web:',
+        '      exposure:',
+        '        include: "*"',
+        '  endpoint:',
+        '    health:',
+        '      show-details: always',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind) ?? [];
+    expect(kinds).toContain('java.security.spring-actuator-sensitive-exposure');
+    expect(kinds).toContain('java.security.spring-actuator-health-details-always');
+  });
+
   it('emits Android client-safety facts', () => {
     const result = javaSourceAdapter.analyze(
       'LoginActivity.java',

@@ -188,9 +188,7 @@ describe('shared domain collectors', () => {
     const facts = collectSpringConfigDebugExposureFacts({
       detector: 'test-detector',
       path: 'application.properties',
-      text: ['debug=true', 'management.endpoints.web.exposure.include=*'].join(
-        '\n',
-      ),
+      text: ['debug=true', 'logging.level.root=DEBUG'].join('\n'),
     });
 
     expect(facts.map((fact) => fact.kind)).toEqual([

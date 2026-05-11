@@ -3,6 +3,7 @@ import {
   collectAndroidWorldReadableModeFacts,
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
+  collectJavaFrameworkSecurityFacts,
   collectInsecureHttpTransportFacts,
   collectJavaInsecureCookieFacts,
   collectJavaOpenRedirectFacts,
@@ -158,19 +159,24 @@ const javaAdapterDefinition: PolyglotAdapterDefinition<JavaScanState> = {
       detector,
       path,
     }),
+    ...collectJavaFrameworkSecurityFacts({
+      text,
+      detector,
+      path,
+    }),
   ],
 };
 
 export const { analyze: analyzeJavaFile, sourceAdapter: javaSourceAdapter } =
   createRegexPolyglotAdapter({
     packageName: '@critiq/adapter-java',
-    supportedExtensions: ['.java', '.properties'] as const,
+    supportedExtensions: ['.java', '.properties', '.yml', '.html', '.htm'] as const,
     supportedLanguages: ['java'] as const,
     definition: javaAdapterDefinition,
   });
 
 function validateJavaSource(path: string, text: string): Diagnostic | undefined {
-  if (/\.properties$/iu.test(path)) {
+  if (/\.(?:properties|ya?ml|html?)$/iu.test(path)) {
     return undefined;
   }
 

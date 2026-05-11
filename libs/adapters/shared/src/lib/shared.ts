@@ -26,5 +26,6 @@ export * from './polyglot/domains/java-insecure-cookie';
 export * from './polyglot/domains/java-sensitive-data-egress';
 export * from './polyglot/domains/java-response-writer-xss';
 export * from './polyglot/domains/spring-config-debug-exposure';
+export * from './polyglot/domains/java-framework-security';
 export * from './polyglot/domains/go-security';
 export * from './polyglot/domains/rust-framework-security';

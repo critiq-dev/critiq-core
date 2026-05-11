@@ -35,16 +35,5 @@ export function collectSpringConfigDebugExposureFacts(
     textValue: ({ matchedText }) => matchedText.trim(),
   });
 
-  const actuatorWildcard = collectMatchedFacts({
-    text: options.text,
-    detector: options.detector,
-    kind: 'security.spring-debug-exposure',
-    pattern:
-      /^\s*management\.endpoints\.web\.exposure\.include\s*=\s*\*\s*$/gm,
-    appliesTo: 'file',
-    props: () => ({ reason: 'actuator-expose-all' }),
-    textValue: ({ matchedText }) => matchedText.trim(),
-  });
-
-  return [...debugPairs, ...verboseLogging, ...actuatorWildcard];
+  return [...debugPairs, ...verboseLogging];
 }

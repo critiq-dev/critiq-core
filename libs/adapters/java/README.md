@@ -9,8 +9,10 @@ Minimal first-party Java adapter for deterministic polyglot support.
 
 ## Supported Inputs
 
-- extensions: `.java`, `.properties` (Spring-style configuration text analyzed with the same `java` language tag)
+- extensions: `.java`, `.properties`, Spring Boot `application*.yml` / `bootstrap*.yml`, and `.html` / `.htm` (templates analyzed with the same `java` language tag)
 - language: `java`
+
+Note: `.yaml` is intentionally omitted so repository tooling such as `.critiq/config.yaml` is not routed through this adapter.
 
 ## Current Behavior
 
