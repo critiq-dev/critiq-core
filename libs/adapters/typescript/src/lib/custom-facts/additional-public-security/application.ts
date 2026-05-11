@@ -13,6 +13,23 @@ import {
   walkFunctionBodySkippingNestedFunctions,
   type TypeScriptFactDetectorContext,
 } from '../shared';
+
+const EXPRESS_BODY_PARSER_CALLEES = new Set([
+  'express.json',
+  'express.urlencoded',
+  'express.raw',
+  'express.text',
+  'bodyParser.json',
+  'bodyParser.urlencoded',
+  'bodyParser.raw',
+  'bodyParser.text',
+]);
+
+function objectHasExplicitBodyLimitProperty(
+  objectExpression: TSESTree.ObjectExpression | undefined,
+): boolean {
+  return Boolean(objectExpression && getObjectProperty(objectExpression, 'limit'));
+}
 import {
   isRequestDerivedExpression,
   isValidatedTrustBoundaryExpression,
@@ -747,6 +764,113 @@ export function collectExpressHardeningFacts(
       }),
     );
   }
+
+  return facts;
+}
+
+export function collectExpressBodyParserLimitsFacts(
+  context: TypeScriptFactDetectorContext,
+  functionBindings: ReadonlyMap<string, FunctionLikeNode>,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+  const objectBindings = collectObjectBindings(context);
+
+  walkAst(context.program, (node) => {
+    if (node.type !== 'CallExpression') {
+      return;
+    }
+
+    const resolved =
+      resolveMiddlewareCallExpression(node, functionBindings) ?? node;
+
+    if (resolved.type !== 'CallExpression') {
+      return;
+    }
+
+    const calleeText = getCalleeText(resolved.callee, context.sourceText);
+
+    if (!calleeText) {
+      return;
+    }
+
+    if (EXPRESS_BODY_PARSER_CALLEES.has(calleeText)) {
+      const optionsArg = resolved.arguments[0];
+
+      if (!optionsArg || optionsArg.type === 'SpreadElement') {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: FACT_KINDS.expressUnboundedBodyParser,
+            node: resolved,
+            nodeIds: context.nodeIds,
+            text: calleeText,
+          }),
+        );
+
+        return;
+      }
+
+      const config = resolveObjectExpression(optionsArg, objectBindings);
+
+      if (!objectHasExplicitBodyLimitProperty(config)) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: FACT_KINDS.expressUnboundedBodyParser,
+            node: resolved,
+            nodeIds: context.nodeIds,
+            text: calleeText,
+          }),
+        );
+      }
+
+      return;
+    }
+
+    if (calleeText !== 'multer') {
+      return;
+    }
+
+    const multerArg = resolved.arguments[0];
+
+    if (!multerArg || multerArg.type === 'SpreadElement') {
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: FACT_KINDS.expressUnboundedBodyParser,
+          node: resolved,
+          nodeIds: context.nodeIds,
+          text: calleeText,
+        }),
+      );
+
+      return;
+    }
+
+    const multerConfig = resolveObjectExpression(multerArg, objectBindings);
+    const limitsProperty =
+      multerConfig && getObjectProperty(multerConfig, 'limits');
+    const limitsObject =
+      limitsProperty?.value.type === 'ObjectExpression'
+        ? limitsProperty.value
+        : undefined;
+    const hasUploadCap =
+      limitsObject &&
+      (Boolean(getObjectProperty(limitsObject, 'fileSize')) ||
+        Boolean(getObjectProperty(limitsObject, 'fieldSize')));
+
+    if (!hasUploadCap) {
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: FACT_KINDS.expressUnboundedBodyParser,
+          node: resolved,
+          nodeIds: context.nodeIds,
+          text: calleeText,
+        }),
+      );
+    }
+  });
 
   return facts;
 }

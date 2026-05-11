@@ -5,6 +5,7 @@ import {
   createObservedFact,
   getCalleeText,
   getNodeText,
+  getObjectProperty,
   isNode,
   walkAst,
   type TypeScriptFactDetectorContext,
@@ -60,6 +61,190 @@ function isLikelyNextServerFile(path: string): boolean {
 
 function isFetchLikeCallText(text: string | undefined): boolean {
   return Boolean(text && FETCH_LIKE_CALLEES.has(text));
+}
+
+function effectUsesDataLoadingPrimitives(bodyText: string): boolean {
+  return (
+    /\buseSWR\b/u.test(bodyText) ||
+    /\buseQuery\b/u.test(bodyText) ||
+    /\buseInfiniteQuery\b/u.test(bodyText) ||
+    /\buseMutation\b/u.test(bodyText) ||
+    /\bpreloadQuery\b/u.test(bodyText) ||
+    /\bfetchQuery\b/u.test(bodyText)
+  );
+}
+
+function networkCallUsesAbortSignal(
+  call: TSESTree.CallExpression,
+): boolean {
+  for (const argument of call.arguments) {
+    if (argument.type === 'ObjectExpression') {
+      if (getObjectProperty(argument, 'signal')) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function collectUnsafeFetchCallsInEffectBody(
+  effectBody: TSESTree.Node,
+  sourceText: string,
+): TSESTree.CallExpression[] {
+  const unsafe: TSESTree.CallExpression[] = [];
+
+  walkAst(effectBody, (candidate: TSESTree.Node) => {
+    if (candidate.type !== 'CallExpression') {
+      return;
+    }
+
+    const calleeText = getCalleeText(candidate.callee, sourceText);
+
+    if (!isFetchLikeCallText(calleeText)) {
+      return;
+    }
+
+    if (!networkCallUsesAbortSignal(candidate)) {
+      unsafe.push(candidate);
+    }
+  });
+
+  return unsafe;
+}
+
+function effectAppearsToHydrateStateFromNetwork(
+  effectBody: TSESTree.Node,
+  sourceText: string,
+): boolean {
+  let usesStatefulSetter = false;
+
+  walkAst(effectBody, (candidate: TSESTree.Node) => {
+    if (candidate.type !== 'CallExpression') {
+      return;
+    }
+
+    if (
+      candidate.callee.type === 'Identifier' &&
+      /^set[A-Z]/u.test(candidate.callee.name)
+    ) {
+      usesStatefulSetter = true;
+    }
+
+    for (const argument of candidate.arguments) {
+      if (
+        argument.type === 'Identifier' &&
+        /^set[A-Z]/u.test(argument.name)
+      ) {
+        usesStatefulSetter = true;
+      }
+    }
+  });
+
+  if (!usesStatefulSetter) {
+    return false;
+  }
+
+  let issuesNetworkRequest = false;
+
+  walkAst(effectBody, (candidate: TSESTree.Node) => {
+    if (candidate.type !== 'CallExpression') {
+      return;
+    }
+
+    const calleeText = getCalleeText(candidate.callee, sourceText);
+
+    if (isFetchLikeCallText(calleeText)) {
+      issuesNetworkRequest = true;
+    }
+
+    if (
+      candidate.callee.type === 'MemberExpression' &&
+      candidate.callee.property.type === 'Identifier' &&
+      candidate.callee.property.name === 'then' &&
+      candidate.callee.object.type === 'CallExpression'
+    ) {
+      const nestedCallee = getCalleeText(
+        candidate.callee.object.callee,
+        sourceText,
+      );
+
+      if (isFetchLikeCallText(nestedCallee)) {
+        issuesNetworkRequest = true;
+      }
+    }
+  });
+
+  return issuesNetworkRequest;
+}
+
+function collectEffectFetchCancellationFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+
+  if (/\.(?:test|spec)\.[tj]sx?$/iu.test(context.path)) {
+    return facts;
+  }
+
+  walkAst(context.program, (node: TSESTree.Node) => {
+    if (node.type !== 'CallExpression') {
+      return;
+    }
+
+    const calleeText = getCalleeText(node.callee, context.sourceText);
+
+    if (calleeText !== 'useEffect' && calleeText !== 'React.useEffect') {
+      return;
+    }
+
+    const callback = node.arguments[0];
+
+    if (
+      !callback ||
+      (callback.type !== 'ArrowFunctionExpression' &&
+        callback.type !== 'FunctionExpression')
+    ) {
+      return;
+    }
+
+    const effectBody: TSESTree.Node =
+      callback.body.type === 'BlockStatement' ? callback.body : callback.body;
+
+    const bodyText = getNodeText(effectBody, context.sourceText) ?? '';
+
+    if (effectUsesDataLoadingPrimitives(bodyText)) {
+      return;
+    }
+
+    const unsafeFetches = collectUnsafeFetchCallsInEffectBody(
+      effectBody,
+      context.sourceText,
+    );
+
+    if (unsafeFetches.length === 0) {
+      return;
+    }
+
+    if (!effectAppearsToHydrateStateFromNetwork(effectBody, context.sourceText)) {
+      return;
+    }
+
+    facts.push(
+      createObservedFact({
+        appliesTo: 'function',
+        kind: 'performance.react-effect-fetch-without-cancellation',
+        node: unsafeFetches[0],
+        nodeIds: context.nodeIds,
+        props: {
+          effectHook: calleeText,
+        },
+        text: getNodeText(unsafeFetches[0], context.sourceText),
+      }),
+    );
+  });
+
+  return facts;
 }
 
 function collectEffectWaterfallFacts(
@@ -233,6 +418,7 @@ export function detectReactNextBestPracticesFacts(
 ): ObservedFact[] {
   return [
     ...collectEffectWaterfallFacts(context),
+    ...collectEffectFetchCancellationFacts(context),
     ...collectNextBoundaryLeakFacts(context),
   ];
 }

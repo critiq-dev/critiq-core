@@ -708,6 +708,100 @@ describe('collectAdditionalPublicSecurityFacts', () => {
           'security.permissive-file-permissions',
         ].includes(fact.kind),
       ),
-    ).toEqual([]);
+    ).toHaveLength(0);
+  });
+
+  it('flags Express body parsers and multer uploads without explicit size limits', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'const express = require("express");',
+        'const bodyParser = require("body-parser");',
+        'const multer = require("multer");',
+        'const app = express();',
+        'app.use(express.json());',
+        'app.use(express.urlencoded({ extended: true }));',
+        'app.use(bodyParser.text());',
+        'app.use(multer());',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === 'security.express-unbounded-body-parser',
+      ),
+    ).toHaveLength(4);
+  });
+
+  it('accepts Express body parsers with explicit limits and capped multer uploads', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'const express = require("express");',
+        'const multer = require("multer");',
+        'const app = express();',
+        'app.use(express.json({ limit: "1mb" }));',
+        'app.use(multer({ limits: { fileSize: 1024 * 1024 } }));',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === 'security.express-unbounded-body-parser',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags excessive Fastify body limits and risky Apollo Server bootstrap options', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'import Fastify from "fastify";',
+        'import { ApolloServer } from "@apollo/server";',
+        'const app = Fastify({ bodyLimit: 104857600 });',
+        'const server = new ApolloServer({',
+        '  typeDefs,',
+        '  resolvers,',
+        '  csrfPrevention: false,',
+        '  introspection: true,',
+        '});',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.some(
+        (fact) => fact.kind === 'security.fastify-excessive-body-limit',
+      ),
+    ).toBe(true);
+    expect(
+      facts.some((fact) => fact.kind === 'security.apollo-server-csrf-disabled'),
+    ).toBe(true);
+    expect(
+      facts.some(
+        (fact) => fact.kind === 'security.apollo-server-introspection-exposure',
+      ),
+    ).toBe(true);
+    expect(
+      facts.some(
+        (fact) => fact.kind === 'security.apollo-server-missing-query-limits',
+      ),
+    ).toBe(true);
+  });
+
+  it('suppresses Apollo missing query limits when validation rules are configured', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'import { ApolloServer } from "@apollo/server";',
+        'import depthLimit from "graphql-depth-limit";',
+        'const server = new ApolloServer({',
+        '  typeDefs,',
+        '  resolvers,',
+        '  validationRules: [depthLimit(8)],',
+        '});',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.some(
+        (fact) => fact.kind === 'security.apollo-server-missing-query-limits',
+      ),
+    ).toBe(false);
   });
 });

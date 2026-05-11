@@ -15,6 +15,8 @@ import { collectOpenRedirectFacts } from './open-redirect';
 import { collectPhase1PolyglotSecurityFacts } from './phase1-polyglot-security';
 import { detectReactAccessibilityFacts } from './react-accessibility';
 import { detectReactNextBestPracticesFacts } from './react-next-best-practices';
+import { collectNestJsSecurityFacts } from './nestjs-security';
+import { collectNextServerActionFacts } from './next-server-actions';
 import { collectSensitiveEgressFacts } from './sensitive-egress';
 import { collectSensitiveLoggingFacts } from './sensitive-logging';
 import { collectSsrfFacts } from './ssrf';
@@ -34,11 +36,13 @@ export function collectAdditionalTypeScriptFacts(
     ...collectOpenRedirectFacts(context),
     ...collectQueryCommandDynamicExecutionFacts(context),
     ...collectPhase1PolyglotSecurityFacts(context),
+    ...collectNextServerActionFacts(context),
     ...detectReactNextBestPracticesFacts(context),
     ...detectReactAccessibilityFacts(context),
     ...collectSensitiveEgressFacts(context),
     ...collectSensitiveLoggingFacts(context),
     ...collectSsrfFacts(context),
+    ...collectNestJsSecurityFacts(context),
     ...collectWeakCryptoFacts(context),
   ];
   const uniqueFacts = new Map<string, ObservedFact>();

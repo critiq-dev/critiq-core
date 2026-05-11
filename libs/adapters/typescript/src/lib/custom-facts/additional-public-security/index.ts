@@ -6,12 +6,15 @@ import {
   collectValidatedTrustBoundaryState,
   resolveFunctionBindings,
 } from './analysis';
+import { collectAngularDomSanitizerFacts } from './angular-dom-sanitizer';
 import {
   collectDatadogBrowserFacts,
+  collectExpressBodyParserLimitsFacts,
   collectExpressHardeningFacts,
   collectHardcodedAuthSecretFacts,
   collectRenderFacts,
 } from './application';
+import { collectNodeFrameworkBootstrapFacts } from './node-framework-bootstrap';
 import { collectDebugStatementInSourceFacts } from './debug-statements';
 import {
   collectDebugModeEnabledFacts,
@@ -74,7 +77,10 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
       validatedTrustBoundaries,
     ),
     ...collectDatadogBrowserFacts(context),
+    ...collectAngularDomSanitizerFacts(context),
     ...collectExpressHardeningFacts(context, functionBindings),
+    ...collectExpressBodyParserLimitsFacts(context, functionBindings),
+    ...collectNodeFrameworkBootstrapFacts(context),
     ...collectDebugModeEnabledFacts(context),
     ...collectDebugStatementInSourceFacts(context),
   ];

@@ -84,6 +84,66 @@ describe('detectReactNextBestPracticesFacts', () => {
     );
   });
 
+  it('flags fetch-driven effects that never cancel inflight requests', () => {
+    const context = createContext(
+      'src/components/user-card.tsx',
+      [
+        "import { useEffect, useState } from 'react';",
+        '',
+        'export function UserCard({ userId }: { userId: string }) {',
+        '  const [user, setUser] = useState<User | null>(null);',
+        '',
+        '  useEffect(() => {',
+        '    fetch(`/api/users/${userId}`)',
+        '      .then((res) => res.json())',
+        '      .then(setUser);',
+        '  }, [userId]);',
+        '',
+        '  return null;',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(detectReactNextBestPracticesFacts(context)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'performance.react-effect-fetch-without-cancellation',
+        }),
+      ]),
+    );
+  });
+
+  it('ignores effects that abort fetch when dependencies change', () => {
+    const context = createContext(
+      'src/components/user-card.tsx',
+      [
+        "import { useEffect, useState } from 'react';",
+        '',
+        'export function UserCard({ userId }: { userId: string }) {',
+        '  const [user, setUser] = useState<User | null>(null);',
+        '',
+        '  useEffect(() => {',
+        '    const controller = new AbortController();',
+        '',
+        '    fetch(`/api/users/${userId}`, { signal: controller.signal })',
+        '      .then((res) => res.json())',
+        '      .then(setUser);',
+        '',
+        '    return () => controller.abort();',
+        '  }, [userId]);',
+        '',
+        '  return null;',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(
+      detectReactNextBestPracticesFacts(context).filter(
+        (fact) => fact.kind === 'performance.react-effect-fetch-without-cancellation',
+      ),
+    ).toHaveLength(0);
+  });
+
   it('ignores client files with the same APIs', () => {
     const context = createContext(
       'src/app/page.tsx',
