@@ -3,6 +3,7 @@ import {
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
   collectRequestPathFileReadFacts,
+  collectRustFrameworkSecurityFacts,
   collectSensitiveLoggingFacts,
   collectSqlInterpolationFacts,
   collectTlsVerificationDisabledFacts,
@@ -48,7 +49,7 @@ const rustAdapterDefinition: PolyglotAdapterDefinition<RustScanState> = {
   detector: 'rust-detector',
   validate: validateRustSource,
   collectState: collectRustScanState,
-  collectFacts: ({ text, state, detector }) => [
+  collectFacts: ({ text, path, state, detector }) => [
     ...collectHardcodedCredentialFacts({
       text,
       detector,
@@ -111,6 +112,7 @@ const rustAdapterDefinition: PolyglotAdapterDefinition<RustScanState> = {
       detector,
       pattern: weakHashCallPattern,
     }),
+    ...collectRustFrameworkSecurityFacts({ text, path, detector }),
   ],
 };
 
