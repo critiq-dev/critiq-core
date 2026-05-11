@@ -348,7 +348,40 @@ function collectSkipThrottleFacts(
       (decorator) => decoratorCalleeName(decorator, context.sourceText) === 'Throttle',
     );
 
-    if (hasThrottleDecorator) {
+    const hasCompensatingDecorator = decorators.some((decorator) => {
+      const decoratorName = decoratorCalleeName(decorator, context.sourceText);
+      if (!decoratorName) {
+        return false;
+      }
+
+      if (decoratorName === 'Throttle') {
+        return true;
+      }
+
+      if (decorator.expression.type !== 'CallExpression') {
+        return false;
+      }
+
+      if (
+        decoratorName !== 'UseGuards' &&
+        decoratorName !== 'UseInterceptors' &&
+        decoratorName !== 'SetMetadata'
+      ) {
+        return false;
+      }
+
+      return decorator.expression.arguments.some((argument) => {
+        if (argument.type === 'SpreadElement') {
+          return false;
+        }
+
+        const snippet = getCalleeText(argument as TSESTree.Expression, context.sourceText);
+        const text = snippet ?? context.sourceText.slice(argument.range[0], argument.range[1]);
+        return /(rate|throttle|limit|auth|guard)/iu.test(text);
+      });
+    });
+
+    if (hasThrottleDecorator || hasCompensatingDecorator) {
       return;
     }
 

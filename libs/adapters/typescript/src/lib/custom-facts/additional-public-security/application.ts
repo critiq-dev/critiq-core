@@ -10,9 +10,11 @@ import {
   getObjectProperty,
   resolveObjectExpression,
   walkAst,
+  walkAstWithAncestors,
   walkFunctionBodySkippingNestedFunctions,
   type TypeScriptFactDetectorContext,
 } from '../shared';
+import { isExplicitDevOnlyContext } from './disclosure';
 
 const EXPRESS_BODY_PARSER_CALLEES = new Set([
   'express.json',
@@ -238,7 +240,8 @@ function hasExplicitCookieAttributes(
     cookiePropertyNames.has('path') &&
     cookiePropertyNames.has('domain') &&
     cookiePropertyNames.has('secure') &&
-    cookiePropertyNames.has('httpOnly')
+    cookiePropertyNames.has('httpOnly') &&
+    cookiePropertyNames.has('sameSite')
   );
 }
 
@@ -260,12 +263,25 @@ function getPermissiveCookieReasons(
   if (sameSiteValue === 'none') {
     reasons.push('sameSite');
   }
+  if (!sameSiteValue) {
+    reasons.push('sameSite');
+  }
 
   if (domainValue && (domainValue.includes('*') || domainValue.startsWith('.'))) {
     reasons.push('domain');
   }
 
   return reasons;
+}
+
+function isDefaultExpressSessionName(
+  config: TSESTree.ObjectExpression,
+): boolean {
+  const nameValue = getLiteralString(
+    getObjectProperty(config, 'name')?.value as TSESTree.Expression | undefined,
+  )?.toLowerCase();
+
+  return nameValue === 'connect.sid';
 }
 
 export function collectHardcodedAuthSecretFacts(
@@ -634,7 +650,10 @@ export function collectExpressHardeningFacts(
           );
         }
 
-        if (calleeText === 'session' && !getObjectProperty(config, 'name')) {
+        if (
+          calleeText === 'session' &&
+          (!getObjectProperty(config, 'name') || isDefaultExpressSessionName(config))
+        ) {
           facts.push(
             createObservedFact({
               appliesTo: 'block',
@@ -775,8 +794,12 @@ export function collectExpressBodyParserLimitsFacts(
   const facts: ObservedFact[] = [];
   const objectBindings = collectObjectBindings(context);
 
-  walkAst(context.program, (node) => {
+  walkAstWithAncestors(context.program, (node, ancestors) => {
     if (node.type !== 'CallExpression') {
+      return;
+    }
+
+    if (isExplicitDevOnlyContext(node, ancestors, context.sourceText)) {
       return;
     }
 

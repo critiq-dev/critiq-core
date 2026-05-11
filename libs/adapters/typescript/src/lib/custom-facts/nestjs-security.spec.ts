@@ -112,4 +112,30 @@ describe('collectNestJsSecurityFacts', () => {
       facts.some((f) => f.kind === 'security.nestjs-skip-throttle-sensitive-route'),
     ).toBe(true);
   });
+
+  it('suppresses SkipThrottle finding when compensating guard controls are present', () => {
+    const facts = collectNestJsSecurityFacts(
+      createContext(
+        'src/auth/auth.controller.ts',
+        [
+          'import { Controller, Post, UseGuards } from "@nestjs/common";',
+          'import { SkipThrottle } from "@nestjs/throttler";',
+          'declare const AuthRateLimitGuard: unknown;',
+          '@Controller("auth")',
+          'export class AuthController {',
+          '  @SkipThrottle()',
+          '  @UseGuards(AuthRateLimitGuard)',
+          '  @Post("login")',
+          '  login() {',
+          '    return { ok: true };',
+          '  }',
+          '}',
+        ].join('\n'),
+      ),
+    );
+
+    expect(
+      facts.some((f) => f.kind === 'security.nestjs-skip-throttle-sensitive-route'),
+    ).toBe(false);
+  });
 });

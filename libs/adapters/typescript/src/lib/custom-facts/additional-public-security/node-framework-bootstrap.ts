@@ -17,6 +17,16 @@ import { FACT_KINDS } from './constants';
 import { objectBooleanFlagFalse } from './object-flags';
 
 const FASTIFY_EXCESSIVE_BODY_LIMIT = 10 * 1024 * 1024;
+const FASTIFY_ROUTE_METHOD_NAMES = new Set([
+  'delete',
+  'get',
+  'head',
+  'options',
+  'patch',
+  'post',
+  'put',
+  'route',
+]);
 
 const APOLLO_DEV_TOOLING_PATTERN =
   /ApolloServerPluginLandingPageLocalDefault|ApolloServerPluginLandingPageGraphQLPlayground|ApolloSandbox|PluginGraphiQL|GraphiQLPlugin|graphql-playground-html|@as-integrations\/.*[Pp]layground/u;
@@ -108,7 +118,8 @@ function fastifyTrustProxyEnabled(
 function sourceHasFastifyProxyCompensation(sourceText: string): boolean {
   return (
     sourceText.includes('@fastify/http-proxy') ||
-    sourceText.includes('@fastify/proxy')
+    sourceText.includes('@fastify/proxy') ||
+    /\b(API_GATEWAY|INGRESS|EDGE_PROXY|REVERSE_PROXY)\b/u.test(sourceText)
   );
 }
 
@@ -273,6 +284,14 @@ function apolloBootstrapIndicatesLimits(
   return false;
 }
 
+function sourceIndicatesInternalOnlyGraphql(sourceText: string): boolean {
+  return (
+    /\b(?:127\.0\.0\.1|localhost)\b/u.test(sourceText) ||
+    /host\s*:\s*['"](?:127\.0\.0\.1|localhost)['"]/u.test(sourceText) ||
+    /\binternal[-_. ]only\b/iu.test(sourceText)
+  );
+}
+
 function sourceIndicatesExternalGraphqlProtection(sourceText: string): boolean {
   return (
     sourceText.includes('ApolloGateway') ||
@@ -432,6 +451,23 @@ export function collectNodeFrameworkBootstrapFacts(
   const facts: ObservedFact[] = [];
   const objectBindings = collectObjectBindings(context);
   const sourceText = context.sourceText;
+  const fastifyAppNames = new Set<string>();
+
+  walkAst(context.program, (node) => {
+    if (node.type !== 'VariableDeclarator' || node.id.type !== 'Identifier') {
+      return;
+    }
+
+    const init = unwrapAwaitExpression(node.init as TSESTree.Expression | undefined);
+    if (!init || (init.type !== 'CallExpression' && init.type !== 'NewExpression')) {
+      return;
+    }
+
+    const calleeName = getFastifyCalleeName(init.callee);
+    if (calleeName === 'Fastify' || calleeName === 'fastify') {
+      fastifyAppNames.add(node.id.name);
+    }
+  });
 
   walkAst(context.program, (node) => {
     if (node.type === 'CallExpression' || node.type === 'NewExpression') {
@@ -469,6 +505,44 @@ export function collectNodeFrameworkBootstrapFacts(
             }),
           );
         }
+      }
+    }
+
+    if (
+      node.type === 'CallExpression' &&
+      node.callee.type === 'MemberExpression' &&
+      node.callee.object.type === 'Identifier' &&
+      node.callee.property.type === 'Identifier' &&
+      fastifyAppNames.has(node.callee.object.name) &&
+      FASTIFY_ROUTE_METHOD_NAMES.has(node.callee.property.name)
+    ) {
+      const routeOptionsArg = node.arguments.find(
+        (argument) => argument.type === 'ObjectExpression',
+      );
+      const bodyLimitProp =
+        routeOptionsArg?.type === 'ObjectExpression'
+          ? getObjectProperty(routeOptionsArg, 'bodyLimit')
+          : undefined;
+      const limitValue = readPositiveNumericLiteral(
+        bodyLimitProp?.value as TSESTree.Expression | undefined,
+      );
+
+      if (
+        typeof limitValue === 'number' &&
+        (limitValue >= FASTIFY_EXCESSIVE_BODY_LIMIT || limitValue === 0)
+      ) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: FACT_KINDS.fastifyExcessiveBodyLimit,
+            node,
+            nodeIds: context.nodeIds,
+            text: `${node.callee.object.name}.${node.callee.property.name}`,
+            props: {
+              bodyLimit: limitValue,
+            },
+          }),
+        );
       }
     }
 
@@ -521,8 +595,9 @@ export function collectNodeFrameworkBootstrapFacts(
     );
     const hasExternalProtection =
       sourceIndicatesExternalGraphqlProtection(sourceText);
+    const internalOnly = sourceIndicatesInternalOnlyGraphql(sourceText);
 
-    if (config && !hasBootstrapLimits && !hasExternalProtection) {
+    if (config && !hasBootstrapLimits && !hasExternalProtection && !internalOnly) {
       facts.push(
         createObservedFact({
           appliesTo: 'block',

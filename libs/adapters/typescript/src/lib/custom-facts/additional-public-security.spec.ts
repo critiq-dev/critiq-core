@@ -648,6 +648,7 @@ describe('collectAdditionalPublicSecurityFacts', () => {
         '    domain: "example.com",',
         '    secure: true,',
         '    httpOnly: true,',
+        '    sameSite: "lax",',
         '  },',
         '};',
         'app.use(session(sessionOptions));',
@@ -659,6 +660,7 @@ describe('collectAdditionalPublicSecurityFacts', () => {
         '  keys: [process.env.COOKIE_SESSION_KEY],',
         '  secure: true,',
         '  httpOnly: true,',
+        '  sameSite: "lax",',
         '});',
         'expressjwt({ secret: getSecret(), isRevoked: revokeJwt });',
         'window.addEventListener("message", (event) => {',
@@ -753,6 +755,47 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     ).toHaveLength(0);
   });
 
+  it('suppresses Express parser findings in explicit dev-only branches', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'if (process.env.NODE_ENV !== "production") {',
+        '  app.use(express.json());',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === 'security.express-unbounded-body-parser',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags express-session default cookie name and missing sameSite as default-cookie posture', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'session({',
+        '  name: "connect.sid",',
+        '  cookie: {',
+        '    name: "connect.sid",',
+        '    maxAge: 60_000,',
+        '    path: "/",',
+        '    domain: "example.com",',
+        '    secure: true,',
+        '    httpOnly: true,',
+        '  },',
+        '});',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.some((fact) => fact.kind === 'security.express-default-session-config'),
+    ).toBe(true);
+    expect(
+      facts.some((fact) => fact.kind === 'security.express-default-cookie-config'),
+    ).toBe(true);
+  });
+
   it('flags excessive Fastify body limits and risky Apollo Server bootstrap options', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([
@@ -808,6 +851,22 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     ).toBe(false);
   });
 
+  it('suppresses Apollo missing-query-limits finding for internal-only localhost bootstrap', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'import { ApolloServer } from "@apollo/server";',
+        'const server = new ApolloServer({ typeDefs, resolvers });',
+        'await app.listen({ host: "127.0.0.1", port: 4000 });',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.some(
+        (fact) => fact.kind === 'security.apollo-server-missing-query-limits',
+      ),
+    ).toBe(false);
+  });
+
   it('flags Fastify public listen without trustProxy', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext(
@@ -842,6 +901,22 @@ describe('collectAdditionalPublicSecurityFacts', () => {
         (fact) => fact.kind === 'security.fastify-public-bind-without-trust-proxy',
       ),
     ).toBe(false);
+  });
+
+  it('flags excessive Fastify route-level body limits', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext(
+        [
+          'import Fastify from "fastify";',
+          'const app = Fastify();',
+          'app.post("/upload", { bodyLimit: 104857600 }, async () => ({ ok: true }));',
+        ].join('\n'),
+      ),
+    );
+
+    expect(
+      facts.some((fact) => fact.kind === 'security.fastify-excessive-body-limit'),
+    ).toBe(true);
   });
 
   it('flags Apollo dev tooling plugins without production guard', () => {
