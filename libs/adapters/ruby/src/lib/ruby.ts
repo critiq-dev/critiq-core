@@ -3,6 +3,8 @@ import {
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
   collectRequestPathFileReadFacts,
+  collectRubyRailsSecurityFacts,
+  collectRubySensitiveDataEgressFacts,
   collectSensitiveLoggingFacts,
   collectSqlInterpolationFacts,
   collectTlsVerificationDisabledFacts,
@@ -40,7 +42,7 @@ const deserializeCallPattern =
 const logCallPattern =
   /\b(?:logger|Rails\.logger)\.(?:debug|error|fatal|info|warn)\s*\(/g;
 const sqlCallPattern =
-  /\b(?:find_by_sql|execute|exec_query|where)\s*\(/g;
+  /\b(?:find_by_sql|execute|exec_query|where|joins|order|reorder|connection\.execute)\s*\(/g;
 const insecureHttpCallPattern =
   /\b(?:URI\.open|OpenURI\.open_uri|Net::HTTP\.get(?:_response)?|Faraday\.(?:delete|get|patch|post|put))\s*\(/g;
 const tlsVerifyNonePattern = /\bOpenSSL::SSL::VERIFY_NONE\b/g;
@@ -52,7 +54,7 @@ const rubyAdapterDefinition: PolyglotAdapterDefinition<RubyScanState> = {
   detector: 'ruby-detector',
   validate: validateRubySource,
   collectState: collectRubyScanState,
-  collectFacts: ({ text, state, detector }) => [
+  collectFacts: ({ text, state, detector, path }) => [
     ...collectHardcodedCredentialFacts({
       text,
       detector,
@@ -110,13 +112,26 @@ const rubyAdapterDefinition: PolyglotAdapterDefinition<RubyScanState> = {
       detector,
       pattern: weakHashCallPattern,
     }),
+    ...collectRubyRailsSecurityFacts({
+      text,
+      detector,
+      path,
+      state,
+      matchesTainted: matchesRubyTainted,
+    }),
+    ...collectRubySensitiveDataEgressFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesRubyTainted,
+    }),
   ],
 };
 
 export const { analyze: analyzeRubyFile, sourceAdapter: rubySourceAdapter } =
   createRegexPolyglotAdapter({
     packageName: '@critiq/adapter-ruby',
-    supportedExtensions: ['.rb'] as const,
+    supportedExtensions: ['.rb', '.erb'] as const,
     supportedLanguages: ['ruby'] as const,
     definition: rubyAdapterDefinition,
   });
