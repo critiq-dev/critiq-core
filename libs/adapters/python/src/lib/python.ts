@@ -4,7 +4,11 @@ import {
   collectInsecureHttpTransportFacts,
   collectPythonFrameworkSecurityFacts,
   collectRequestPathFileReadFacts,
+  collectSharedArchivePathTraversalFacts,
+  collectSharedExternalFileUploadFacts,
+  collectSharedPermissiveFilePermissionFacts,
   collectSensitiveLoggingFacts,
+  collectSharedSensitiveDataEgressFacts,
   collectSqlInterpolationFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
@@ -123,6 +127,30 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
     ...collectPythonFrameworkSecurityFacts({
       text,
       detector,
+    }),
+    ...collectSharedExternalFileUploadFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesPythonTainted,
+    }),
+    ...collectSharedArchivePathTraversalFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesPythonTainted,
+    }),
+    ...collectSharedPermissiveFilePermissionFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesPythonTainted,
+    }),
+    ...collectSharedSensitiveDataEgressFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesPythonTainted,
     }),
   ],
 };

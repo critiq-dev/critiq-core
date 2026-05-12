@@ -5,6 +5,10 @@ import {
   collectRequestPathFileReadFacts,
   collectRustFrameworkSecurityFacts,
   collectSensitiveLoggingFacts,
+  collectSharedArchivePathTraversalFacts,
+  collectSharedExternalFileUploadFacts,
+  collectSharedPermissiveFilePermissionFacts,
+  collectSharedSensitiveDataEgressFacts,
   collectSqlInterpolationFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
@@ -113,6 +117,30 @@ const rustAdapterDefinition: PolyglotAdapterDefinition<RustScanState> = {
       pattern: weakHashCallPattern,
     }),
     ...collectRustFrameworkSecurityFacts({ text, path, detector }),
+    ...collectSharedExternalFileUploadFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesRustTainted,
+    }),
+    ...collectSharedArchivePathTraversalFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesRustTainted,
+    }),
+    ...collectSharedPermissiveFilePermissionFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesRustTainted,
+    }),
+    ...collectSharedSensitiveDataEgressFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesRustTainted,
+    }),
   ],
 };
 

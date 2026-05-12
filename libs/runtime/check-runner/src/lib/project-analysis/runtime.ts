@@ -13,6 +13,7 @@ import {
   emitRepeatedIoFacts,
   emitTightCouplingFacts,
 } from './fact-emitters';
+import { appendDependencyFacts } from './dependencies';
 
 export function augmentProjectFacts(
   analyzedFiles: readonly AnalyzedFile[],
@@ -39,6 +40,8 @@ export function augmentProjectFacts(
       options.availableChangedTestPaths,
     );
   }
+
+  appendDependencyFacts(analyzedFiles, options.dependencyFacts ?? []);
 
   return [...analyzedFiles];
 }

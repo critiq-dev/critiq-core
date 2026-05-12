@@ -49,6 +49,11 @@ import {
   type RunCheckCommandResult,
 } from './shared';
 import { augmentProjectFacts } from '../project-analysis';
+import {
+  collectProjectDependencyFacts,
+  isDependencyManifestPath,
+  type DependencyManifestInput,
+} from '../project-analysis';
 import { isTestPath } from '../project-analysis/context';
 
 const CHECK_ENGINE_KIND = 'critiq-cli' as const;
@@ -458,8 +463,29 @@ export function runCheckCommand(
   const seenFingerprints = new Set<string>();
   const sourceTextsByPath = new Map<string, string>();
   const analyzedFiles: AnalyzedFile[] = [];
+  const dependencyManifestInputs: DependencyManifestInput[] = [];
   let processedFileCount = 0;
   const generatedAt = new Date().toISOString();
+
+  for (const absolutePath of analysisScope.files) {
+    const displayPath = toDisplayPath(
+      resolvedTarget.data.displayRoot,
+      absolutePath,
+    );
+
+    if (!isDependencyManifestPath(displayPath)) {
+      continue;
+    }
+
+    const textResult = readTextFileSafe(absolutePath);
+
+    if (textResult.success) {
+      dependencyManifestInputs.push({
+        path: displayPath,
+        text: textResult.text,
+      });
+    }
+  }
 
   for (const absolutePath of filteredScope.files) {
     const displayPath = toDisplayPath(
@@ -573,6 +599,7 @@ export function runCheckCommand(
         )
         .map((file) => file.path),
     ),
+    dependencyFacts: collectProjectDependencyFacts(dependencyManifestInputs),
   });
 
   for (const analyzedFile of projectAugmentedFiles) {

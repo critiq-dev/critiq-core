@@ -66,6 +66,12 @@ function isExternalProcessorCall(calleeText: string | undefined): boolean {
   return Boolean(matchPrivacyProcessorRecipe(calleeText));
 }
 
+function getObjectName(calleeText: string | undefined): string | undefined {
+  const match = /^([A-Za-z_$][A-Za-z0-9_$]*)\./u.exec(calleeText ?? '');
+
+  return match?.[1];
+}
+
 interface EgressProcessorMatch {
   processorId: string;
   processorCategory: PrivacyProcessorCategory;
@@ -75,10 +81,12 @@ interface EgressProcessorMatch {
 function collectFactForCall(
   context: TypeScriptFactDetectorContext,
   callExpression: TSESTree.CallExpression,
+  sdkBindings: ReadonlyMap<string, EgressProcessorMatch>,
 ): ObservedFact | undefined {
   const calleeText = getCallCalleeText(callExpression, context.sourceText);
+  const boundProcessor = sdkBindings.get(getObjectName(calleeText) ?? '');
 
-  if (!calleeText || !isExternalProcessorCall(calleeText)) {
+  if (!calleeText || (!isExternalProcessorCall(calleeText) && !boundProcessor)) {
     return undefined;
   }
 
@@ -92,7 +100,9 @@ function collectFactForCall(
 
   let processor: EgressProcessorMatch | undefined;
 
-  if (recipe) {
+  if (boundProcessor) {
+    processor = boundProcessor;
+  } else if (recipe) {
     processor = {
       processorId: recipe.id,
       processorCategory: recipe.category,
@@ -150,10 +160,100 @@ function collectFactForCall(
   });
 }
 
+function collectSdkBindings(sourceText: string): Map<string, EgressProcessorMatch> {
+  const bindings = new Map<string, EgressProcessorMatch>();
+  const recipes: Array<{
+    pattern: RegExp;
+    processor: EgressProcessorMatch;
+  }> = [
+    {
+      pattern:
+        /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:new\s+)?(?:Analytics|AnalyticsBrowser\.load|Segment|analytics)\b/gu,
+      processor: {
+        processorId: 'segment',
+        processorCategory: 'analytics',
+        sinkKind: 'sdk',
+      },
+    },
+    {
+      pattern:
+        /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:new\s+)?(?:StatsD|Datadog|DD_RUM|tracer)\b/gu,
+      processor: {
+        processorId: 'datadog',
+        processorCategory: 'observability',
+        sinkKind: 'sdk',
+      },
+    },
+    {
+      pattern:
+        /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:new\s+)?(?:Bugsnag|bugsnag)\b/gu,
+      processor: {
+        processorId: 'bugsnag',
+        processorCategory: 'error-monitoring',
+        sinkKind: 'sdk',
+      },
+    },
+    {
+      pattern:
+        /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:new\s+)?(?:Notifier|Airbrake|airbrake)\b/gu,
+      processor: {
+        processorId: 'airbrake',
+        processorCategory: 'error-monitoring',
+        sinkKind: 'sdk',
+      },
+    },
+    {
+      pattern:
+        /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:algoliasearch|.*\.initIndex)\s*\(/gu,
+      processor: {
+        processorId: 'algolia',
+        processorCategory: 'search',
+        sinkKind: 'sdk',
+      },
+    },
+    {
+      pattern:
+        /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:new\s+)?(?:Client|Elasticsearch|elastic)\b/gu,
+      processor: {
+        processorId: 'elasticsearch',
+        processorCategory: 'search',
+        sinkKind: 'sdk',
+      },
+    },
+    {
+      pattern:
+        /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:trace\.getTracer|tracer\.startSpan|new\s+Span|span)\b/gu,
+      processor: {
+        processorId: 'open_telemetry',
+        processorCategory: 'observability',
+        sinkKind: 'sdk',
+      },
+    },
+    {
+      pattern:
+        /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:new\s+)?(?:NewRelic|newrelic|newRelic)\b/gu,
+      processor: {
+        processorId: 'new_relic',
+        processorCategory: 'apm',
+        sinkKind: 'sdk',
+      },
+    },
+  ];
+
+  for (const recipe of recipes) {
+    for (const match of sourceText.matchAll(recipe.pattern)) {
+      bindings.set(match[1], recipe.processor);
+    }
+  }
+
+  return bindings;
+}
+
 export const collectSensitiveEgressFacts: TypeScriptFactDetector = (
   context,
 ) => {
   const facts: ObservedFact[] = [];
+  const sdkBindings = collectSdkBindings(context.sourceText);
 
   walkAst(context.program, (candidate) => {
     if (!isCallExpression(candidate)) {
@@ -164,7 +264,7 @@ export const collectSensitiveEgressFacts: TypeScriptFactDetector = (
       return;
     }
 
-    const fact = collectFactForCall(context, candidate);
+    const fact = collectFactForCall(context, candidate, sdkBindings);
 
     if (fact) {
       facts.push(fact);

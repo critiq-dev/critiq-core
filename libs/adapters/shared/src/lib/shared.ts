@@ -29,3 +29,5 @@ export * from './polyglot/domains/spring-config-debug-exposure';
 export * from './polyglot/domains/java-framework-security';
 export * from './polyglot/domains/go-security';
 export * from './polyglot/domains/rust-framework-security';
+export * from './polyglot/domains/privacy-processors';
+export * from './polyglot/domains/filesystem-depth';

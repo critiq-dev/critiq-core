@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -330,6 +330,24 @@ describe('check runner', () => {
       'rust',
       'typescript',
     ]);
+  });
+
+  it('declares every adapter imported by the default registry', () => {
+    const manifest = JSON.parse(
+      readFileSync(join(__dirname, '../../package.json'), 'utf8'),
+    ) as { dependencies?: Record<string, string> };
+
+    expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual(
+      expect.arrayContaining([
+        '@critiq/adapter-go',
+        '@critiq/adapter-java',
+        '@critiq/adapter-php',
+        '@critiq/adapter-python',
+        '@critiq/adapter-ruby',
+        '@critiq/adapter-rust',
+        '@critiq/adapter-typescript',
+      ]),
+    );
   });
 
   it('runs the catalog-backed check workflow through the adapter registry', () => {

@@ -13,7 +13,11 @@
   },
   "dependencies": {
     "@critiq/adapter-go": "0.0.1",
+    "@critiq/adapter-java": "0.0.1",
+    "@critiq/adapter-php": "0.0.1",
     "@critiq/adapter-python": "0.0.1",
+    "@critiq/adapter-ruby": "0.0.1",
+    "@critiq/adapter-rust": "0.0.1",
     "@critiq/adapter-typescript": "0.0.1",
     "@critiq/core-catalog": "0.0.1",
     "@critiq/core-config": "0.0.1",

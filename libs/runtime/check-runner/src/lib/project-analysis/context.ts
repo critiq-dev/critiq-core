@@ -17,6 +17,7 @@ export interface ProjectAnalysisOptions {
   scopeMode: ProjectAnalysisScopeMode;
   availableTestPaths?: ReadonlySet<string>;
   availableChangedTestPaths?: ReadonlySet<string>;
+  dependencyFacts?: readonly import('./dependencies').ProjectDependencyFact[];
 }
 
 export interface ImportEdge {
