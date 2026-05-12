@@ -23,13 +23,18 @@ export function parseArguments(
     if (value.startsWith('--format=')) {
       const nextFormat = value.slice('--format='.length);
 
-      if (nextFormat !== 'pretty' && nextFormat !== 'json') {
+      if (
+        nextFormat !== 'pretty' &&
+        nextFormat !== 'json' &&
+        nextFormat !== 'sarif' &&
+        nextFormat !== 'html'
+      ) {
         return {
           code: 'cli.argument.invalid',
           severity: 'error',
           message: `Unsupported format: ${nextFormat}`,
           details: {
-            expected: ['pretty', 'json'],
+            expected: ['pretty', 'json', 'sarif', 'html'],
             received: nextFormat,
           },
         };
@@ -42,13 +47,19 @@ export function parseArguments(
     if (value === '--format') {
       const nextFormat = args[index + 1];
 
-      if (nextFormat !== 'pretty' && nextFormat !== 'json') {
+      if (
+        nextFormat !== 'pretty' &&
+        nextFormat !== 'json' &&
+        nextFormat !== 'sarif' &&
+        nextFormat !== 'html'
+      ) {
         return {
           code: 'cli.argument.invalid',
           severity: 'error',
-          message: 'Expected `--format` to be followed by `pretty` or `json`.',
+          message:
+            'Expected `--format` to be followed by `pretty`, `json`, `sarif`, or `html`.',
           details: {
-            expected: ['pretty', 'json'],
+            expected: ['pretty', 'json', 'sarif', 'html'],
             received: nextFormat ?? null,
           },
         };

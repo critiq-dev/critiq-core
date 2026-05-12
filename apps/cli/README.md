@@ -68,6 +68,8 @@ npx critiq check . --base origin/main --head HEAD
 | `critiq check [target]` | Runs deterministic checks against a codebase, directory, or single file. |
 | `critiq check . --base origin/main --head HEAD` | Limits scanning to changed files and changed ranges in a diff. |
 | `critiq check . --staged` | Rule scan unchanged; the advisory secret scan reads only what is staged in Git index (`git diff --cached`). |
+| `critiq check . --format sarif` | Exports findings as SARIF 2.1.0 for code scanning and security platforms. |
+| `critiq check . --format html` | Exports a shareable HTML report for human review and audit handoff. |
 | `critiq audit secrets [target]` | Runs the dedicated secret-pattern scanner (exit non-zero when matches are found). |
 | `critiq audit secrets . --base origin/main --head HEAD` | Secret scan over changed files only (includes non-code paths such as `.env`). |
 | `critiq audit secrets . --staged` | Secret scan over staged paths/blobs from Git index (`git diff --cached`) (pre-commit friendly). |

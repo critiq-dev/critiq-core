@@ -3,7 +3,8 @@ import { normalizeRuleDocument } from '@critiq/core-ir';
 import { formatRuleSpecRunAsJson, runRuleSpec } from '@critiq/testing-harness';
 import { type RuleTemplateVariableMap } from '@critiq/core-rules-dsl';
 
-export type OutputFormat = 'pretty' | 'json';
+export type OutputFormat = 'pretty' | 'json' | 'sarif' | 'html';
+export type StructuredOutputFormat = Extract<OutputFormat, 'pretty' | 'json'>;
 export type PhaseStatus = 'success' | 'failure' | 'skipped';
 export type NormalizedRule = ReturnType<typeof normalizeRuleDocument>['rule'];
 export type RuleSpecRun = ReturnType<typeof runRuleSpec>;

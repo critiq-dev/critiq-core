@@ -369,6 +369,42 @@ describe('cli', () => {
     expect(output).toContain('Findings:    1 total');
   });
 
+  it('exports check findings as SARIF', () => {
+    writeCritiqConfig(tempDirectory);
+    writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
+
+    const result = runCommand(['check', '.', '--format=sarif'], tempDirectory);
+
+    expect(result.exitCode).toBe(1);
+    const sarif = JSON.parse(result.stdout) as {
+      version: string;
+      runs: Array<{
+        tool: { driver: { name: string } };
+        results: Array<{ ruleId: string; partialFingerprints?: { primary?: string } }>;
+      }>;
+    };
+
+    expect(sarif.version).toBe('2.1.0');
+    expect(sarif.runs[0]?.tool.driver.name).toBe('critiq-cli');
+    expect(sarif.runs[0]?.results[0]?.ruleId).toBe('ts.logging.no-console-log');
+    expect(sarif.runs[0]?.results[0]?.partialFingerprints?.primary).toEqual(
+      expect.any(String),
+    );
+  });
+
+  it('exports check findings as HTML', () => {
+    writeCritiqConfig(tempDirectory);
+    writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
+
+    const result = runCommand(['check', '.', '--format=html'], tempDirectory);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('<!doctype html>');
+    expect(result.stdout).toContain('<h1>Critiq Check Report</h1>');
+    expect(result.stdout).toContain('ts.logging.no-console-log');
+    expect(result.stdout).toContain('src/invalid.ts:1:1');
+  });
+
   it('defaults to the public rules catalog when config omits catalog.package', () => {
     writeCritiqConfig(tempDirectory, ['preset: recommended']);
     writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
@@ -714,6 +750,16 @@ describe('cli', () => {
         severity: 'info',
       }),
     ]);
+  });
+
+  it('rejects SARIF format for audit secrets', () => {
+    const result = runCommand(
+      ['audit', 'secrets', '.', '--format=sarif'],
+      tempDirectory,
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Expected `--format` to be `pretty` or `json`');
   });
 
   it('rejects legacy rules-glob check usage with a migration error', () => {

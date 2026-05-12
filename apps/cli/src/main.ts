@@ -16,6 +16,10 @@ import { renderAuditHelpMessage, renderHelpMessage } from './rendering/rules.ren
 import { type CliRuntime } from './cli.types';
 import { isLegacyRulesArgument } from './utils/is-legacy-rules-argument.util';
 
+function isPrettyOrJson(format: string): format is 'pretty' | 'json' {
+  return format === 'pretty' || format === 'json';
+}
+
 /**
  * Runs the Critiq CLI and returns a stable exit code.
  */
@@ -90,6 +94,13 @@ export function runCli(
     }
 
     if (subcommand === 'secrets') {
+      if (!isPrettyOrJson(parsed.format)) {
+        resolvedRuntime.writeStderr(
+          'Expected `--format` to be `pretty` or `json` for `critiq audit secrets`.',
+        );
+        return 1;
+      }
+
       if (parsed.positionals.length > 1) {
         resolvedRuntime.writeStderr(
           'Expected `critiq audit secrets [path]` with at most one target path.',
@@ -137,6 +148,13 @@ export function runCli(
   }
 
   if (subcommand === 'validate') {
+    if (!isPrettyOrJson(parsed.format)) {
+      resolvedRuntime.writeStderr(
+        'Expected `--format` to be `pretty` or `json` for `critiq rules validate`.',
+      );
+      return 1;
+    }
+
     if (parsed.positionals.length !== 1) {
       resolvedRuntime.writeStderr(
         'Expected `critiq rules validate <glob>` with exactly one target.',
@@ -152,6 +170,13 @@ export function runCli(
   }
 
   if (subcommand === 'test') {
+    if (!isPrettyOrJson(parsed.format)) {
+      resolvedRuntime.writeStderr(
+        'Expected `--format` to be `pretty` or `json` for `critiq rules test`.',
+      );
+      return 1;
+    }
+
     if (parsed.positionals.length > 1) {
       resolvedRuntime.writeStderr(
         'Expected `critiq rules test [glob]` with zero or one target.',
@@ -163,6 +188,13 @@ export function runCli(
   }
 
   if (subcommand === 'normalize') {
+    if (!isPrettyOrJson(parsed.format)) {
+      resolvedRuntime.writeStderr(
+        'Expected `--format` to be `pretty` or `json` for `critiq rules normalize`.',
+      );
+      return 1;
+    }
+
     if (parsed.positionals.length !== 1) {
       resolvedRuntime.writeStderr(
         'Expected `critiq rules normalize <file>` with exactly one file.',
@@ -179,6 +211,13 @@ export function runCli(
   }
 
   if (subcommand === 'explain') {
+    if (!isPrettyOrJson(parsed.format)) {
+      resolvedRuntime.writeStderr(
+        'Expected `--format` to be `pretty` or `json` for `critiq rules explain`.',
+      );
+      return 1;
+    }
+
     if (parsed.positionals.length !== 1) {
       resolvedRuntime.writeStderr(
         'Expected `critiq rules explain <file>` with exactly one file.',

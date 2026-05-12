@@ -9,7 +9,7 @@ import { isAbsolute, resolve } from 'node:path';
 
 import { type CliRuntime, type OutputFormat } from '../cli.types';
 import { renderAuditSecretsPretty } from '../rendering/check.rendering';
-import { renderJson } from '../rendering/rules.rendering';
+import { renderJson } from '../rendering/json.rendering';
 
 function collectSourceTextsForFindings(
   displayRoot: string,

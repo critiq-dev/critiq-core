@@ -6,11 +6,13 @@ import {
 import { formatDiagnosticsForTerminal } from '@critiq/core-diagnostics';
 
 import { type CliRuntime, type OutputFormat } from '../cli.types';
+import { renderCheckHtml } from '../rendering/check/check-html.rendering';
+import { renderCheckJson } from '../rendering/check/check-json.rendering';
+import { renderCheckPretty } from '../rendering/check/check-print.rendering';
+import { renderCheckSarif } from '../rendering/check/check-sarif.rendering';
 import {
   createScanProgressRenderer,
-  renderCheckPretty,
 } from '../rendering/check.rendering';
-import { renderJson } from '../rendering/rules.rendering';
 
 export function handleCheck(
   target: string | undefined,
@@ -22,10 +24,11 @@ export function handleCheck(
 ): number {
   const progressRenderer =
     format === 'pretty' ? createScanProgressRenderer(runtime) : null;
+  const runnerFormat = format === 'pretty' ? 'pretty' : 'json';
   const result = runCheckCommand({
     cwd: runtime.cwd,
     target,
-    format,
+    format: runnerFormat,
     baseRef,
     headRef,
     catalogResolverBasePaths: [runtime.cwd],
@@ -52,7 +55,11 @@ export function handleCheck(
   };
 
   if (format === 'json') {
-    runtime.writeStdout(renderJson(envelopeWithSecrets));
+    runtime.writeStdout(renderCheckJson(envelopeWithSecrets));
+  } else if (format === 'sarif') {
+    runtime.writeStdout(renderCheckSarif(envelopeWithSecrets));
+  } else if (format === 'html') {
+    runtime.writeStdout(renderCheckHtml(envelopeWithSecrets));
   } else if (
     result.envelope.exitCode > 0 &&
     result.envelope.findingCount === 0

@@ -21,7 +21,8 @@ developer at a terminal and for CI guarding code on the way to production.
 
 ## Shared Flags
 
-- `--format pretty|json`
+- `--format pretty|json` for all commands
+- `--format sarif|html` additionally for `critiq check`
 - `--help`
 
 `pretty` is the default.
@@ -103,6 +104,8 @@ Examples:
 ```bash
 critiq check
 critiq check . --format json
+critiq check . --format sarif
+critiq check . --format html
 critiq check . --base origin/main --head HEAD --format json
 ```
 

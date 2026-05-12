@@ -7,6 +7,7 @@ import {
   type TestCommandEnvelope,
   type ValidateCommandEnvelope,
 } from '../cli.types';
+import { renderJson } from './json.rendering';
 
 function formatTemplateVariablesForTerminal(
   templateVariables: ExplainCommandEnvelope['templateVariables'],
@@ -32,7 +33,7 @@ export function renderHelpMessage(): string {
     'critiq CLI',
     '',
     'Usage:',
-    '  critiq check [target] [--base <git-ref>] [--head <git-ref>] [--staged] [--format pretty|json]',
+    '  critiq check [target] [--base <git-ref>] [--head <git-ref>] [--staged] [--format pretty|json|sarif|html]',
     '  critiq audit secrets [target] [--base <git-ref>] [--head <git-ref>] [--staged] [--format pretty|json]',
     '  critiq audit [--help]',
     '  critiq rules validate <glob> [--format pretty|json]',
@@ -65,9 +66,7 @@ export function renderAuditHelpMessage(): string {
   ].join('\n');
 }
 
-export function renderJson(value: unknown): string {
-  return JSON.stringify(value, null, 2);
-}
+export { renderJson } from './json.rendering';
 
 export function renderValidatePretty(
   envelope: ValidateCommandEnvelope,
