@@ -113,6 +113,105 @@ describe('detectReactNextBestPracticesFacts', () => {
     );
   });
 
+  it('flags Apollo-style client.query chains that hydrate state without AbortSignal', () => {
+    const context = createContext(
+      'src/components/gql-user-card.tsx',
+      [
+        "import { useEffect, useState } from 'react';",
+        '',
+        'declare const apolloClient: { query: (opts: unknown) => Promise<{ data: { u: unknown } }> };',
+        '',
+        'export function GqlUserCard({ id }: { id: string }) {',
+        '  const [user, setUser] = useState<unknown>(null);',
+        '',
+        '  useEffect(() => {',
+        '    apolloClient',
+        '      .query({ query: {}, variables: { id } })',
+        '      .then((r) => setUser(r.data.u));',
+        '  }, [id]);',
+        '',
+        '  return null;',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(detectReactNextBestPracticesFacts(context)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'performance.react-effect-fetch-without-cancellation',
+        }),
+      ]),
+    );
+  });
+
+  it('ignores effects guarded with a cancelled flag before committing state', () => {
+    const context = createContext(
+      'src/components/user-card.tsx',
+      [
+        "import { useEffect, useState } from 'react';",
+        '',
+        'export function UserCard({ userId }: { userId: string }) {',
+        '  const [user, setUser] = useState<User | null>(null);',
+        '',
+        '  useEffect(() => {',
+        '    let cancelled = false;',
+        '',
+        '    fetch(`/api/users/${userId}`)',
+        '      .then((res) => res.json())',
+        '      .then((data) => {',
+        '        if (!cancelled) {',
+        '          setUser(data);',
+        '        }',
+        '      });',
+        '',
+        '    return () => {',
+        '      cancelled = true;',
+        '    };',
+        '  }, [userId]);',
+        '',
+        '  return null;',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(
+      detectReactNextBestPracticesFacts(context).filter(
+        (fact) => fact.kind === 'performance.react-effect-fetch-without-cancellation',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('ignores fetch effects when the component uses route loader data', () => {
+    const context = createContext(
+      'src/routes/user.tsx',
+      [
+        "import { useEffect, useState } from 'react';",
+        "import { useLoaderData } from 'react-router-dom';",
+        '',
+        'type User = { id: string };',
+        '',
+        'export function UserRoute() {',
+        '  const route = useLoaderData() as { userId: string };',
+        '  const [user, setUser] = useState<User | null>(null);',
+        '',
+        '  useEffect(() => {',
+        '    fetch(`/api/users/${route.userId}`)',
+        '      .then((res) => res.json())',
+        '      .then(setUser);',
+        '  }, [route.userId]);',
+        '',
+        '  return null;',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(
+      detectReactNextBestPracticesFacts(context).filter(
+        (fact) => fact.kind === 'performance.react-effect-fetch-without-cancellation',
+      ),
+    ).toHaveLength(0);
+  });
+
   it('ignores effects that abort fetch when dependencies change', () => {
     const context = createContext(
       'src/components/user-card.tsx',

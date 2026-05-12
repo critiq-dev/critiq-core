@@ -8,6 +8,7 @@ import {
   getObjectProperty,
   isNode,
   walkAst,
+  walkAstWithAncestors,
   type TypeScriptFactDetectorContext,
 } from './shared';
 
@@ -82,7 +83,347 @@ function networkCallUsesAbortSignal(
       if (getObjectProperty(argument, 'signal')) {
         return true;
       }
+
+      const contextProp = getObjectProperty(argument, 'context');
+
+      if (contextProp?.value.type === 'ObjectExpression') {
+        const fetchOptions = getObjectProperty(
+          contextProp.value,
+          'fetchOptions',
+        );
+
+        if (
+          fetchOptions?.value.type === 'ObjectExpression' &&
+          getObjectProperty(fetchOptions.value, 'signal')
+        ) {
+          return true;
+        }
+      }
     }
+  }
+
+  return false;
+}
+
+function objectTextMatchesGraphQlClientHint(objectText: string): boolean {
+  const lower = objectText.toLowerCase();
+
+  return (
+    lower.includes('apollo') ||
+    lower.includes('graphql') ||
+    lower.includes('relay') ||
+    /\bclient\b/u.test(objectText) ||
+    /\bgql\b/u.test(lower)
+  );
+}
+
+function isLikelyGraphQlClientCall(
+  call: TSESTree.CallExpression,
+  sourceText: string,
+): boolean {
+  if (call.callee.type !== 'MemberExpression') {
+    return false;
+  }
+
+  if (call.callee.property.type !== 'Identifier') {
+    return false;
+  }
+
+  const method = call.callee.property.name;
+
+  if (method !== 'query' && method !== 'mutate') {
+    return false;
+  }
+
+  const objectText = getNodeText(call.callee.object, sourceText) ?? '';
+
+  return objectTextMatchesGraphQlClientHint(objectText);
+}
+
+function collectGraphqlRequestCalleeNames(
+  program: TSESTree.Program,
+): Set<string> {
+  const names = new Set<string>();
+
+  walkAst(program, (node: TSESTree.Node) => {
+    if (node.type !== 'ImportDeclaration') {
+      return;
+    }
+
+    if (node.source.value !== 'graphql-request') {
+      return;
+    }
+
+    for (const specifier of node.specifiers) {
+      if (specifier.type === 'ImportDefaultSpecifier') {
+        names.add(specifier.local.name);
+      }
+
+      if (specifier.type === 'ImportSpecifier') {
+        const imported =
+          specifier.imported.type === 'Identifier'
+            ? specifier.imported.name
+            : specifier.imported.value;
+
+        if (imported === 'request') {
+          names.add(specifier.local.name);
+        }
+      }
+    }
+  });
+
+  return names;
+}
+
+function effectCallbackUsesStaleResponseGuard(
+  callback:
+    | TSESTree.ArrowFunctionExpression
+    | TSESTree.FunctionExpression,
+): boolean {
+  if (callback.body.type !== 'BlockStatement') {
+    return false;
+  }
+
+  const block = callback.body;
+  const falseInitFlags = new Map<string, string>();
+  const trueInitFlags = new Map<string, string>();
+
+  for (const statement of block.body) {
+    if (statement.type !== 'VariableDeclaration' || statement.kind !== 'let') {
+      continue;
+    }
+
+    for (const declarator of statement.declarations) {
+      if (declarator.id.type !== 'Identifier' || !declarator.init) {
+        continue;
+      }
+
+      const name = declarator.id.name;
+
+      if (
+        declarator.init.type === 'Literal' &&
+        declarator.init.value === false
+      ) {
+        falseInitFlags.set(name, name);
+      }
+
+      if (
+        declarator.init.type === 'Literal' &&
+        declarator.init.value === true
+      ) {
+        trueInitFlags.set(name, name);
+      }
+    }
+  }
+
+  let cleanupBody: TSESTree.BlockStatement | undefined;
+
+  for (const statement of block.body) {
+    if (statement.type !== 'ReturnStatement' || !statement.argument) {
+      continue;
+    }
+
+    const argument = statement.argument;
+
+    if (argument.type === 'ArrowFunctionExpression') {
+      if (argument.body.type === 'BlockStatement') {
+        cleanupBody = argument.body;
+      }
+
+      continue;
+    }
+
+    if (argument.type === 'FunctionExpression') {
+      cleanupBody = argument.body;
+    }
+  }
+
+  if (!cleanupBody) {
+    return false;
+  }
+
+  const toggledFalseInit = new Set<string>();
+  const toggledTrueInit = new Set<string>();
+
+  walkAst(cleanupBody, (node: TSESTree.Node) => {
+    if (node.type !== 'AssignmentExpression' || node.operator !== '=') {
+      return;
+    }
+
+    if (node.left.type !== 'Identifier') {
+      return;
+    }
+
+    if (node.right.type !== 'Literal') {
+      return;
+    }
+
+    const leftName = node.left.name;
+
+    if (falseInitFlags.has(leftName) && node.right.value === true) {
+      toggledFalseInit.add(leftName);
+    }
+
+    if (trueInitFlags.has(leftName) && node.right.value === false) {
+      toggledTrueInit.add(leftName);
+    }
+  });
+
+  const guardedFalseInit = [...toggledFalseInit].some((flagName) =>
+    blockUsesConditionalBeforeStatefulSetter(block, flagName, 'negated'),
+  );
+  const guardedTrueInit = [...toggledTrueInit].some((flagName) =>
+    blockUsesConditionalBeforeStatefulSetter(block, flagName, 'truthy'),
+  );
+
+  return guardedFalseInit || guardedTrueInit;
+}
+
+function blockUsesConditionalBeforeStatefulSetter(
+  block: TSESTree.BlockStatement,
+  flagName: string,
+  mode: 'negated' | 'truthy',
+): boolean {
+  let found = false;
+
+  walkAst(block, (node: TSESTree.Node) => {
+    if (found) {
+      return;
+    }
+
+    if (node.type !== 'IfStatement') {
+      return;
+    }
+
+    if (!ifStatementTestsFlag(node.test, flagName, mode)) {
+      return;
+    }
+
+    const thenBranch = node.consequent;
+
+    if (containsStatefulSetterCall(thenBranch)) {
+      found = true;
+    }
+  });
+
+  return found;
+}
+
+function ifStatementTestsFlag(
+  test: TSESTree.Expression,
+  flagName: string,
+  mode: 'negated' | 'truthy',
+): boolean {
+  if (mode === 'negated') {
+    if (test.type === 'UnaryExpression' && test.operator === '!') {
+      return expressionReferencesIdentifier(test.argument, flagName);
+    }
+
+    return false;
+  }
+
+  return expressionReferencesIdentifier(test, flagName);
+}
+
+function expressionReferencesIdentifier(
+  expression: TSESTree.Expression,
+  identifier: string,
+): boolean {
+  if (expression.type === 'Identifier') {
+    return expression.name === identifier;
+  }
+
+  if (expression.type === 'MemberExpression') {
+    return (
+      expression.property.type === 'Identifier' &&
+      expression.property.name === identifier &&
+      expression.object.type === 'ThisExpression'
+    );
+  }
+
+  return false;
+}
+
+function containsStatefulSetterCall(node: TSESTree.Node): boolean {
+  let found = false;
+
+  walkAst(node, (candidate: TSESTree.Node) => {
+    if (found) {
+      return;
+    }
+
+    if (candidate.type !== 'CallExpression') {
+      return;
+    }
+
+    if (
+      candidate.callee.type === 'Identifier' &&
+      /^set[A-Z]/u.test(candidate.callee.name)
+    ) {
+      found = true;
+    }
+  });
+
+  return found;
+}
+
+function innermostEnclosingFunctionLike(
+  ancestors: readonly TSESTree.Node[],
+):
+  | TSESTree.ArrowFunctionExpression
+  | TSESTree.FunctionExpression
+  | TSESTree.FunctionDeclaration
+  | undefined {
+  for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+    const candidate = ancestors[index];
+
+    if (
+      candidate.type === 'FunctionDeclaration' ||
+      candidate.type === 'FunctionExpression' ||
+      candidate.type === 'ArrowFunctionExpression'
+    ) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+function enclosingFunctionUsesRouteLoaderData(
+  ancestors: readonly TSESTree.Node[],
+  sourceText: string,
+): boolean {
+  const enclosing = innermostEnclosingFunctionLike(ancestors);
+
+  if (!enclosing || enclosing.body.type !== 'BlockStatement') {
+    return false;
+  }
+
+  return /\buse(?:Loader|RouteLoader)Data\b/u.test(
+    getNodeText(enclosing.body, sourceText) ?? '',
+  );
+}
+
+function isEffectNetworkCall(
+  call: TSESTree.CallExpression,
+  sourceText: string,
+  graphqlRequestCalleeNames: Set<string>,
+): boolean {
+  const calleeText = getCalleeText(call.callee, sourceText);
+
+  if (isFetchLikeCallText(calleeText)) {
+    return true;
+  }
+
+  if (isLikelyGraphQlClientCall(call, sourceText)) {
+    return true;
+  }
+
+  if (
+    call.callee.type === 'Identifier' &&
+    graphqlRequestCalleeNames.has(call.callee.name)
+  ) {
+    return true;
   }
 
   return false;
@@ -91,6 +432,7 @@ function networkCallUsesAbortSignal(
 function collectUnsafeFetchCallsInEffectBody(
   effectBody: TSESTree.Node,
   sourceText: string,
+  graphqlRequestCalleeNames: Set<string>,
 ): TSESTree.CallExpression[] {
   const unsafe: TSESTree.CallExpression[] = [];
 
@@ -99,9 +441,7 @@ function collectUnsafeFetchCallsInEffectBody(
       return;
     }
 
-    const calleeText = getCalleeText(candidate.callee, sourceText);
-
-    if (!isFetchLikeCallText(calleeText)) {
+    if (!isEffectNetworkCall(candidate, sourceText, graphqlRequestCalleeNames)) {
       return;
     }
 
@@ -116,6 +456,7 @@ function collectUnsafeFetchCallsInEffectBody(
 function effectAppearsToHydrateStateFromNetwork(
   effectBody: TSESTree.Node,
   sourceText: string,
+  graphqlRequestCalleeNames: Set<string>,
 ): boolean {
   let usesStatefulSetter = false;
 
@@ -152,9 +493,7 @@ function effectAppearsToHydrateStateFromNetwork(
       return;
     }
 
-    const calleeText = getCalleeText(candidate.callee, sourceText);
-
-    if (isFetchLikeCallText(calleeText)) {
+    if (isEffectNetworkCall(candidate, sourceText, graphqlRequestCalleeNames)) {
       issuesNetworkRequest = true;
     }
 
@@ -164,12 +503,9 @@ function effectAppearsToHydrateStateFromNetwork(
       candidate.callee.property.name === 'then' &&
       candidate.callee.object.type === 'CallExpression'
     ) {
-      const nestedCallee = getCalleeText(
-        candidate.callee.object.callee,
-        sourceText,
-      );
+      const innerCall = candidate.callee.object;
 
-      if (isFetchLikeCallText(nestedCallee)) {
+      if (isEffectNetworkCall(innerCall, sourceText, graphqlRequestCalleeNames)) {
         issuesNetworkRequest = true;
       }
     }
@@ -187,7 +523,11 @@ function collectEffectFetchCancellationFacts(
     return facts;
   }
 
-  walkAst(context.program, (node: TSESTree.Node) => {
+  const graphqlRequestCalleeNames = collectGraphqlRequestCalleeNames(
+    context.program,
+  );
+
+  walkAstWithAncestors(context.program, (node, ancestors) => {
     if (node.type !== 'CallExpression') {
       return;
     }
@@ -217,16 +557,31 @@ function collectEffectFetchCancellationFacts(
       return;
     }
 
+    if (enclosingFunctionUsesRouteLoaderData(ancestors, context.sourceText)) {
+      return;
+    }
+
+    if (effectCallbackUsesStaleResponseGuard(callback)) {
+      return;
+    }
+
     const unsafeFetches = collectUnsafeFetchCallsInEffectBody(
       effectBody,
       context.sourceText,
+      graphqlRequestCalleeNames,
     );
 
     if (unsafeFetches.length === 0) {
       return;
     }
 
-    if (!effectAppearsToHydrateStateFromNetwork(effectBody, context.sourceText)) {
+    if (
+      !effectAppearsToHydrateStateFromNetwork(
+        effectBody,
+        context.sourceText,
+        graphqlRequestCalleeNames,
+      )
+    ) {
       return;
     }
 
