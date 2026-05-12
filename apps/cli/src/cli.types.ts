@@ -23,6 +23,8 @@ export interface ParsedArguments {
   help: boolean;
   baseRef?: string;
   headRef?: string;
+  /** When true, secret scans use staged index content (`git diff --cached`). */
+  staged: boolean;
 }
 
 export interface CliResultEnvelope {

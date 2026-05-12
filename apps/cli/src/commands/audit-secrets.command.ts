@@ -44,6 +44,7 @@ export function handleAuditSecrets(
   runtime: Required<CliRuntime>,
   baseRef?: string,
   headRef?: string,
+  staged = false,
 ): number {
   const resolvedTarget = resolveCheckTarget(runtime.cwd, target ?? '.');
 
@@ -62,6 +63,7 @@ export function handleAuditSecrets(
     target,
     baseRef,
     headRef,
+    staged,
     failOnFindings: true,
   });
 

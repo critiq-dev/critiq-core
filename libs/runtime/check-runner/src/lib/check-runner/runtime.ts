@@ -7,6 +7,7 @@ import {
 } from '@critiq/core-catalog';
 import {
   loadCritiqConfigForDirectory,
+  normalizeSecretsScanConfig,
   type NormalizedCritiqConfig,
 } from '@critiq/core-config';
 import {
@@ -246,6 +247,7 @@ export function runCheckCommand(
     includeTests: false,
     ignorePaths: [],
     severityOverrides: {},
+    secretsScan: normalizeSecretsScanConfig(undefined),
   };
 
   let effectiveConfig: NormalizedCritiqConfig = defaultConfig;
@@ -547,7 +549,11 @@ export function runCheckCommand(
   });
 
   const projectAugmentedFiles = augmentProjectFacts(analyzedFiles, {
-    scopeMode: resolvedScope.data.scope.mode,
+    scopeMode:
+      resolvedScope.data.scope.mode === 'diff' ||
+      resolvedScope.data.scope.mode === 'staged'
+        ? 'diff'
+        : 'repo',
     availableTestPaths: new Set(
       analysisScope.files
         .map((absolutePath) =>

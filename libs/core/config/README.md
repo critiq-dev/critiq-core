@@ -9,6 +9,7 @@ configuration used by the catalog-first `check` workflow.
 - `CRITIQ_CONFIG_KIND`
 - `critiqConfigSchema`
 - `normalizeCritiqConfig()`
+- `normalizeSecretsScanConfig()`
 - `validateCritiqConfig()`
 - `loadCritiqConfigText()`
 - `loadCritiqConfigFile()`
@@ -30,7 +31,13 @@ disableLanguages: []
 includeTests: false
 ignorePaths: []
 severityOverrides: {}
+secretsScan:
+  ignorePaths: []
+  disabledDetectors: []
+  suppressFingerprints: []
 ```
+
+`secretsScan` is optional. When omitted, all three arrays behave as empty. `suppressFingerprints` entries must be 64-character hexadecimal strings (the `fingerprint` field from `critiq audit secrets --format json`).
 
 Supported presets:
 

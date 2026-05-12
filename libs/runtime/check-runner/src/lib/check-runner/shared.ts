@@ -90,7 +90,15 @@ export interface CheckCommandScopeDiff {
   changedFileCount: number;
 }
 
-export type CheckCommandScope = CheckCommandScopeRepo | CheckCommandScopeDiff;
+export interface CheckCommandScopeStaged {
+  mode: 'staged';
+  changedFileCount: number;
+}
+
+export type CheckCommandScope =
+  | CheckCommandScopeRepo
+  | CheckCommandScopeDiff
+  | CheckCommandScopeStaged;
 
 export interface CheckSecretsScanFindingLocation {
   path: string;

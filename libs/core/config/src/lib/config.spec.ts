@@ -50,6 +50,11 @@ describe('core config', () => {
       includeTests: false,
       ignorePaths: [],
       severityOverrides: {},
+      secretsScan: {
+        ignorePaths: [],
+        disabledDetectors: [],
+        suppressFingerprints: [],
+      },
     });
   });
 
@@ -82,6 +87,11 @@ describe('core config', () => {
         includeTests: false,
         ignorePaths: ['**/dist/**'],
         severityOverrides: {},
+        secretsScan: {
+          ignorePaths: [],
+          disabledDetectors: [],
+          suppressFingerprints: [],
+        },
       },
       path: expect.stringContaining(CRITIQ_CONFIG_DEFAULT_PATH),
       uri: expect.stringContaining(CRITIQ_CONFIG_DEFAULT_PATH),
@@ -108,6 +118,11 @@ describe('core config', () => {
       includeTests: false,
       ignorePaths: [],
       severityOverrides: {},
+      secretsScan: {
+        ignorePaths: [],
+        disabledDetectors: [],
+        suppressFingerprints: [],
+      },
     });
   });
 
@@ -147,6 +162,11 @@ describe('core config', () => {
       includeTests: false,
       ignorePaths: [],
       severityOverrides: {},
+      secretsScan: {
+        ignorePaths: [],
+        disabledDetectors: [],
+        suppressFingerprints: [],
+      },
     });
   });
 
@@ -168,6 +188,48 @@ describe('core config', () => {
       includeTests: true,
       ignorePaths: [],
       severityOverrides: {},
+      secretsScan: {
+        ignorePaths: [],
+        disabledDetectors: [],
+        suppressFingerprints: [],
+      },
+    });
+  });
+
+  it('normalizes secretsScan paths, disabled detectors, and suppress fingerprints', () => {
+    expect(
+      normalizeCritiqConfig({
+        apiVersion: 'critiq.dev/v1alpha1',
+        kind: 'CritiqConfig',
+        secretsScan: {
+          ignorePaths: ['**/secrets-fixtures/**', '**/secrets-fixtures/**'],
+          disabledDetectors: ['secrets.aws-access-key-id'],
+          suppressFingerprints: [
+            'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+            'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+            'tooshort',
+          ],
+        },
+      }),
+    ).toEqual({
+      apiVersion: 'critiq.dev/v1alpha1',
+      kind: 'CritiqConfig',
+      catalogPackage: undefined,
+      preset: 'recommended',
+      disableRules: [],
+      disableCategories: [],
+      disableLanguages: [],
+      includeTests: false,
+      ignorePaths: [],
+      severityOverrides: {},
+      secretsScan: {
+        ignorePaths: ['**/secrets-fixtures/**'],
+        disabledDetectors: ['secrets.aws-access-key-id'],
+        suppressFingerprints: [
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        ],
+      },
     });
   });
 

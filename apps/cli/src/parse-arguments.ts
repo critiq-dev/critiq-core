@@ -10,6 +10,7 @@ export function parseArguments(
   let help = false;
   let baseRef: string | undefined;
   let headRef: string | undefined;
+  let staged = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const value = args[index];
@@ -132,6 +133,11 @@ export function parseArguments(
       continue;
     }
 
+    if (value === '--staged') {
+      staged = true;
+      continue;
+    }
+
     if (value.startsWith('--')) {
       return {
         code: 'cli.argument.invalid',
@@ -143,11 +149,20 @@ export function parseArguments(
     positionals.push(value);
   }
 
+  if (staged && (baseRef !== undefined || headRef !== undefined)) {
+    return {
+      code: 'cli.argument.invalid',
+      severity: 'error',
+      message: 'Cannot combine `--staged` with `--base` / `--head`.',
+    };
+  }
+
   return {
     positionals,
     format,
     help,
     baseRef,
     headRef,
+    staged,
   };
 }

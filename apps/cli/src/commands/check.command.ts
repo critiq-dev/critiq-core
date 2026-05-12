@@ -18,6 +18,7 @@ export function handleCheck(
   runtime: Required<CliRuntime>,
   baseRef?: string,
   headRef?: string,
+  staged = false,
 ): number {
   const progressRenderer =
     format === 'pretty' ? createScanProgressRenderer(runtime) : null;
@@ -41,6 +42,7 @@ export function handleCheck(
     target,
     baseRef,
     headRef,
+    staged,
     failOnFindings: false,
   });
   const secretsPayload = toCheckSecretsScanPayload(secretsResult);

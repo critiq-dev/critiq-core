@@ -66,6 +66,7 @@ export function runCli(
       resolvedRuntime,
       parsed.baseRef,
       parsed.headRef,
+      parsed.staged,
     );
   }
 
@@ -102,6 +103,7 @@ export function runCli(
         resolvedRuntime,
         parsed.baseRef,
         parsed.headRef,
+        parsed.staged,
       );
     }
 

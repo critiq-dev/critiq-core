@@ -6,6 +6,7 @@ import {
 import type { DiffRange } from '@critiq/core-rules-engine';
 import {
   loadCritiqConfigForDirectory,
+  normalizeSecretsScanConfig,
   type NormalizedCritiqConfig,
 } from '@critiq/core-config';
 import { statSync } from 'node:fs';
@@ -28,9 +29,23 @@ import {
 } from '../check-runner/shared';
 import {
   filterIgnoredPaths,
+  readGitStagedFileText,
   resolveCheckTarget,
   resolveSecretsScanScope,
 } from '../check-runner/scope';
+
+function mergeSecretsIgnorePaths(
+  config: NormalizedCritiqConfig,
+  optionPaths: readonly string[] | undefined,
+): string[] {
+  return Array.from(
+    new Set([
+      ...config.ignorePaths,
+      ...config.secretsScan.ignorePaths,
+      ...(optionPaths ?? []),
+    ]),
+  ).sort((left, right) => left.localeCompare(right));
+}
 
 function lineOverlapsDiffRanges(
   startLine: number,
@@ -55,6 +70,13 @@ function buildSecretScanScope(
       base: scopeData.scope.base,
       head: scopeData.scope.head,
       changedFileCount: scopeData.scope.changedFileCount,
+    };
+  }
+
+  if (scopeData.scope.mode === 'staged') {
+    return {
+      mode: 'staged',
+      changedFileCount: scopeData.scope.changedFileCount ?? 0,
     };
   }
 
@@ -99,6 +121,7 @@ export function runSecretsScan(
     includeTests: false,
     ignorePaths: [],
     severityOverrides: {},
+    secretsScan: normalizeSecretsScanConfig(undefined),
   };
 
   let effectiveConfig: NormalizedCritiqConfig = defaultConfig;
@@ -130,12 +153,19 @@ export function runSecretsScan(
 
   const includeTests =
     options.includeTests ?? effectiveConfig.includeTests;
-  const ignorePaths = options.ignorePaths ?? effectiveConfig.ignorePaths;
+  const ignorePaths = mergeSecretsIgnorePaths(effectiveConfig, options.ignorePaths);
+  const disabledDetectors = new Set(
+    effectiveConfig.secretsScan.disabledDetectors,
+  );
+  const suppressedFingerprints = new Set(
+    effectiveConfig.secretsScan.suppressFingerprints,
+  );
 
   const resolvedScope = resolveSecretsScanScope(
     resolvedTarget.data,
     options.baseRef,
     options.headRef,
+    options.staged ?? false,
   );
 
   if (!resolvedScope.success) {
@@ -164,7 +194,10 @@ export function runSecretsScan(
   );
 
   const scope = buildSecretScanScope(resolvedScope.data);
-  const isDiffMode = resolvedScope.data.scope.mode === 'diff';
+  const isStagedScope = resolvedScope.data.scope.mode === 'staged';
+  const isDiffMode =
+    resolvedScope.data.scope.mode === 'diff' || isStagedScope;
+  const repoRoot = resolvedTarget.data.repoRoot;
   const findings: RunSecretsScanResult['findings'] = [];
   const seenFingerprints = new Set<string>();
   let scannedFileCount = 0;
@@ -179,44 +212,66 @@ export function runSecretsScan(
       continue;
     }
 
-    let size = 0;
+    let text: string;
 
-    try {
-      size = statSync(absolutePath).size;
-    } catch {
-      continue;
-    }
+    if (isStagedScope) {
+      if (!repoRoot) {
+        continue;
+      }
 
-    if (size > SECRETS_SCAN_MAX_FILE_BYTES) {
-      diagnostics.push(
-        createDiagnostic({
-          code: 'secrets.scan.file.skipped',
-          severity: 'info',
-          message: `Skipped secrets scan for \`${displayPath}\` (file larger than ${String(SECRETS_SCAN_MAX_FILE_BYTES)} bytes).`,
-          details: {
-            path: displayPath,
-            size,
-            maxBytes: SECRETS_SCAN_MAX_FILE_BYTES,
-          },
-        }),
-      );
-      continue;
-    }
+      const stagedRead = readGitStagedFileText(repoRoot, absolutePath);
 
-    const textResult = readTextFileSafe(absolutePath);
+      if (!stagedRead.success) {
+        const { diagnostics: readDiag } = stagedRead as Extract<
+          typeof stagedRead,
+          { success: false }
+        >;
+        diagnostics.push(...readDiag);
+        continue;
+      }
 
-    if (!textResult.success) {
-      const { diagnostics: readDiag } = textResult as Extract<
-        typeof textResult,
-        { success: false }
-      >;
-      diagnostics.push(...readDiag);
-      continue;
+      text = stagedRead.text;
+    } else {
+      let size = 0;
+
+      try {
+        size = statSync(absolutePath).size;
+      } catch {
+        continue;
+      }
+
+      if (size > SECRETS_SCAN_MAX_FILE_BYTES) {
+        diagnostics.push(
+          createDiagnostic({
+            code: 'secrets.scan.file.skipped',
+            severity: 'info',
+            message: `Skipped secrets scan for \`${displayPath}\` (file larger than ${String(SECRETS_SCAN_MAX_FILE_BYTES)} bytes).`,
+            details: {
+              path: displayPath,
+              size,
+              maxBytes: SECRETS_SCAN_MAX_FILE_BYTES,
+            },
+          }),
+        );
+        continue;
+      }
+
+      const textResult = readTextFileSafe(absolutePath);
+
+      if (!textResult.success) {
+        const { diagnostics: readDiag } = textResult as Extract<
+          typeof textResult,
+          { success: false }
+        >;
+        diagnostics.push(...readDiag);
+        continue;
+      }
+
+      text = textResult.text;
     }
 
     scannedFileCount += 1;
-    const text = textResult.text;
-    const raw = collectRawSecretMatches(text);
+    const raw = collectRawSecretMatches(text, { disabledDetectors });
     const changedRanges =
       filtered.changedRangesByAbsolutePath.get(absolutePath) ?? [];
 
@@ -227,6 +282,10 @@ export function runSecretsScan(
         isDiffMode &&
         !lineOverlapsDiffRanges(startLine, endLine, changedRanges)
       ) {
+        continue;
+      }
+
+      if (suppressedFingerprints.has(finding.fingerprint)) {
         continue;
       }
 
@@ -270,7 +329,12 @@ export function toCheckSecretsScanPayload(
           head: result.scope.head ?? '',
           changedFileCount: result.scope.changedFileCount ?? 0,
         }
-      : { mode: 'repo' };
+      : result.scope.mode === 'staged'
+        ? {
+            mode: 'staged',
+            changedFileCount: result.scope.changedFileCount ?? 0,
+          }
+        : { mode: 'repo' };
 
   return {
     scope,

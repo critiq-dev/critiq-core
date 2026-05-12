@@ -85,6 +85,10 @@ const DETECTOR_DEFINITIONS: ReadonlyArray<{
   },
 ];
 
+/** Stable ids for `secretsScan.disabledDetectors` in `.critiq/config.yaml`. */
+export const SECRETS_SCAN_DETECTOR_IDS: readonly string[] =
+  DETECTOR_DEFINITIONS.map((def) => def.id);
+
 function fingerprintForMatch(
   detectorId: string,
   displayPath: string,
@@ -109,11 +113,18 @@ function overlaps(
 /**
  * Collect non-overlapping matches; earlier detectors win over later overlapping spans.
  */
-export function collectRawSecretMatches(text: string): RawSecretMatch[] {
+export function collectRawSecretMatches(
+  text: string,
+  options?: { disabledDetectors?: ReadonlySet<string> },
+): RawSecretMatch[] {
+  const disabled = options?.disabledDetectors;
   const claimed: { start: number; end: number }[] = [];
   const matches: RawSecretMatch[] = [];
 
   for (const def of DETECTOR_DEFINITIONS) {
+    if (disabled?.has(def.id)) {
+      continue;
+    }
     const regex = new RegExp(def.regex.source, def.regex.flags);
     let match: RegExpExecArray | null;
 

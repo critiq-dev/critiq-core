@@ -296,4 +296,62 @@ describe('scope resolution', () => {
     expect(secretsRel).toContain('.env');
     expect(secretsRel).toContain(appRel);
   });
+
+  it('lists staged files for resolveSecretsScanScope when staged mode is enabled', () => {
+    initializeGitRepository(tempDirectory);
+    writeWorkspaceFile(tempDirectory, 'README.md', 'hello\n');
+    commitAll(tempDirectory, 'init');
+    writeWorkspaceFile(
+      tempDirectory,
+      'staged-only.txt',
+      "KEY=AKIAIOSFODNN7EXAMPLE\n",
+    );
+    runGitCommand(tempDirectory, ['add', 'staged-only.txt']);
+
+    const target = resolveCheckTarget(tempDirectory, '.');
+
+    expect(target.success).toBe(true);
+
+    if (!target.success) {
+      throw new Error('Expected repository target resolution to succeed.');
+    }
+
+    const stagedScope = resolveSecretsScanScope(
+      target.data,
+      undefined,
+      undefined,
+      true,
+    );
+
+    expect(stagedScope.success).toBe(true);
+
+    if (!stagedScope.success) {
+      throw new Error('Expected staged scope resolution to succeed.');
+    }
+
+    const rel = stagedScope.data.files
+      .map((file) => relative(workspaceRoot, file))
+      .sort();
+
+    expect(rel).toEqual(['staged-only.txt']);
+    expect(stagedScope.data.scope).toEqual({
+      mode: 'staged',
+      changedFileCount: 1,
+    });
+  });
+
+  it('rejects staged secrets scope combined with base or head refs', () => {
+    initializeGitRepository(tempDirectory);
+    const target = resolveCheckTarget(tempDirectory, '.');
+
+    expect(target.success).toBe(true);
+
+    if (!target.success) {
+      throw new Error('Expected repository target resolution to succeed.');
+    }
+
+    const bad = resolveSecretsScanScope(target.data, 'HEAD', 'HEAD', true);
+
+    expect(bad.success).toBe(false);
+  });
 });

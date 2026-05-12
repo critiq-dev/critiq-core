@@ -32,8 +32,8 @@ export function renderHelpMessage(): string {
     'critiq CLI',
     '',
     'Usage:',
-    '  critiq check [target] [--base <git-ref>] [--head <git-ref>] [--format pretty|json]',
-    '  critiq audit secrets [target] [--base <git-ref>] [--head <git-ref>] [--format pretty|json]',
+    '  critiq check [target] [--base <git-ref>] [--head <git-ref>] [--staged] [--format pretty|json]',
+    '  critiq audit secrets [target] [--base <git-ref>] [--head <git-ref>] [--staged] [--format pretty|json]',
     '  critiq audit [--help]',
     '  critiq rules validate <glob> [--format pretty|json]',
     '  critiq rules test [glob] [--format pretty|json]',
@@ -53,7 +53,7 @@ export function renderAuditHelpMessage(): string {
     'critiq audit',
     '',
     'Usage:',
-    '  critiq audit secrets [target] [--base <git-ref>] [--head <git-ref>] [--format pretty|json]',
+    '  critiq audit secrets [target] [--base <git-ref>] [--head <git-ref>] [--staged] [--format pretty|json]',
     '',
     'Subcommands:',
     '  secrets   Scan the repository or diff for leaked credentials and high-risk patterns.',
@@ -61,6 +61,7 @@ export function renderAuditHelpMessage(): string {
     'Examples:',
     '  critiq audit secrets .',
     '  critiq audit secrets . --base origin/main --head HEAD',
+    '  critiq audit secrets . --staged',
   ].join('\n');
 }
 

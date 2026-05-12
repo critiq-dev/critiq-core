@@ -30,11 +30,12 @@ developer at a terminal and for CI guarding code on the way to production.
 
 - `--base <git-ref>`
 - `--head <git-ref>`
+- `--staged` (secret advisory scan only: reads the git index like `git diff --cached`; mutually exclusive with `--base` / `--head`)
 
 Provide `--base` and `--head` together when you want a diff-scoped scan.
 
-The same `--base`, `--head`, and `--format pretty|json` flags work for
-`critiq audit secrets` when you want a diff-scoped secret scan or machine-readable
+The same `--base`, `--head`, `--staged`, and `--format pretty|json` flags work for
+`critiq audit secrets` when you want a diff-scoped or staged secret scan or machine-readable
 output.
 
 ## Exit Codes
@@ -60,7 +61,14 @@ disableLanguages: []
 includeTests: false
 ignorePaths: []
 severityOverrides: {}
+# Optional: tune the built-in secret scanner (also used by `critiq audit secrets`)
+# secretsScan:
+#   ignorePaths: ["**/test/fixtures/**"]
+#   disabledDetectors: ["secrets.stripe-test-secret"]
+#   suppressFingerprints: ["<64-char hex fingerprint from JSON output>"]
 ```
+
+Detector ids for `secretsScan.disabledDetectors` match the `detectorId` field on secret findings (for example `secrets.aws-access-key-id`). Use `secretsScan.suppressFingerprints` only for reviewed repository-local fixtures; values are 64-character hex strings from `--format json` output.
 
 Behavior notes:
 
@@ -146,9 +154,12 @@ Abridged shape:
 ## `audit secrets`
 
 Use `audit secrets` when you want **only** the text-based secret scanner (not
-the full rule catalog). It respects the same `.critiq/config.yaml` ignore paths
-and test inclusion as `check`, uses the same optional diff scope, and exits
-non-zero when secret findings exist (unlike the advisory block on `critiq check`).
+the full rule catalog). It respects `.critiq/config.yaml` ignore paths,
+optional `secretsScan` tuning (extra ignores, disabled detectors, suppressed
+fingerprints), and test inclusion like `check`. Use `--base` / `--head` for a
+diff scope, or `--staged` to scan **staged index** content (`git diff --cached`)
+without changing working-tree files. It exits non-zero when secret findings
+exist (unlike the advisory block on `critiq check`).
 
 Examples:
 
@@ -156,6 +167,7 @@ Examples:
 critiq audit secrets
 critiq audit secrets . --format json
 critiq audit secrets . --base origin/main --head HEAD --format json
+critiq audit secrets . --staged
 ```
 
 ### `audit secrets` JSON envelope
@@ -181,6 +193,8 @@ Abridged shape:
   "exitCode": 0
 }
 ```
+
+`scope.mode` is `repo`, `diff` (includes `base`, `head`, and `changedFileCount`), or `staged` (includes `changedFileCount` for the staged index scan).
 
 ## `rules validate`
 

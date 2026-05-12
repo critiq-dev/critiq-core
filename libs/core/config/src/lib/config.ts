@@ -49,6 +49,20 @@ export const critiqPresetSchema = z.enum([
 ]);
 export type CritiqPreset = z.infer<typeof critiqPresetSchema>;
 
+const secretsScanFingerprintSchema = z
+  .string()
+  .regex(/^[0-9a-fA-F]{64}$/, 'Expected a 64-character hex secret-scan fingerprint.');
+
+export const secretsScanConfigSchema = z
+  .object({
+    ignorePaths: z.array(z.string().min(1)).optional(),
+    disabledDetectors: z.array(z.string().min(1)).optional(),
+    suppressFingerprints: z.array(secretsScanFingerprintSchema).optional(),
+  })
+  .strict();
+
+export type SecretsScanConfig = z.infer<typeof secretsScanConfigSchema>;
+
 export const critiqConfigSchema = z
   .object({
     apiVersion: z.literal(configApiVersion),
@@ -68,11 +82,18 @@ export const critiqConfigSchema = z
     severityOverrides: z
       .record(z.string().min(1), findingSeveritySchema)
       .optional(),
+    secretsScan: secretsScanConfigSchema.optional(),
   })
   .strict();
 
 export type CritiqConfig = z.infer<typeof critiqConfigSchema>;
 export type CritiqConfigLanguage = z.infer<typeof configLanguageSchema>;
+
+export interface NormalizedSecretsScanConfig {
+  ignorePaths: string[];
+  disabledDetectors: string[];
+  suppressFingerprints: string[];
+}
 
 export interface NormalizedCritiqConfig {
   apiVersion: typeof configApiVersion;
@@ -94,6 +115,7 @@ export interface NormalizedCritiqConfig {
   includeTests: boolean;
   ignorePaths: string[];
   severityOverrides: Record<string, FindingSeverity>;
+  secretsScan: NormalizedSecretsScanConfig;
 }
 
 export type CritiqConfigValidationResult =
@@ -119,6 +141,40 @@ function normalizeStringArray(values: readonly string[] | undefined): string[] {
         .filter((value) => value.length > 0),
     ),
   ).sort();
+}
+
+function normalizeSecretsFingerprints(
+  values: readonly string[] | undefined,
+): string[] {
+  if (!values) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => /^[0-9a-f]{64}$/.test(value)),
+    ),
+  ).sort();
+}
+
+export function normalizeSecretsScanConfig(
+  config: SecretsScanConfig | undefined,
+): NormalizedSecretsScanConfig {
+  if (!config) {
+    return {
+      ignorePaths: [],
+      disabledDetectors: [],
+      suppressFingerprints: [],
+    };
+  }
+
+  return {
+    ignorePaths: normalizeStringArray(config.ignorePaths),
+    disabledDetectors: normalizeStringArray(config.disabledDetectors),
+    suppressFingerprints: normalizeSecretsFingerprints(config.suppressFingerprints),
+  };
 }
 
 function normalizeLanguage(
@@ -195,6 +251,7 @@ export function normalizeCritiqConfig(
         left.localeCompare(right),
       ),
     ),
+    secretsScan: normalizeSecretsScanConfig(config.secretsScan),
   };
 }
 

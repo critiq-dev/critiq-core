@@ -6,6 +6,7 @@ import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import type { Diagnostic } from '@critiq/core-diagnostics';
 import type { DiffRange } from '@critiq/core-rules-engine';
 
+import { SECRETS_SCAN_MAX_FILE_BYTES } from '../secrets-scanner/eligibility';
 import {
   createCheckRuntimeDiagnostic,
   createCliInputDiagnostic,
@@ -313,6 +314,175 @@ export function resolveCheckScope(
   return diffScope;
 }
 
+export function readGitStagedFileText(
+  repoRoot: string,
+  absolutePath: string,
+):
+  | { success: true; text: string }
+  | { success: false; diagnostics: Diagnostic[] } {
+  const relPath = toPosixPath(relative(repoRoot, absolutePath));
+
+  if (!relPath || relPath.startsWith('..') || isAbsolute(relPath)) {
+    return {
+      success: false,
+      diagnostics: [
+        createCheckRuntimeDiagnostic(
+          'cli.git.staged.read.invalid-path',
+          'Expected a staged file path inside the git repository root.',
+          {
+            repoRoot,
+            absolutePath,
+          },
+        ),
+      ],
+    };
+  }
+
+  try {
+    const text = execFileSync('git', ['show', `:${relPath}`], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: SECRETS_SCAN_MAX_FILE_BYTES + 1,
+    });
+
+    if (Buffer.byteLength(text, 'utf8') > SECRETS_SCAN_MAX_FILE_BYTES) {
+      return {
+        success: false,
+        diagnostics: [
+          createCheckRuntimeDiagnostic(
+            'secrets.scan.file.skipped',
+            `Skipped secrets scan for staged \`${relPath}\` (blob larger than ${String(SECRETS_SCAN_MAX_FILE_BYTES)} bytes).`,
+            {
+              path: relPath,
+              maxBytes: SECRETS_SCAN_MAX_FILE_BYTES,
+            },
+          ),
+        ],
+      };
+    }
+
+    return { success: true, text };
+  } catch (error) {
+    return {
+      success: false,
+      diagnostics: [
+        createCheckRuntimeDiagnostic(
+          'cli.git.staged.read.failed',
+          error instanceof Error
+            ? error.message
+            : 'Unexpected failure while reading a staged file from the git index.',
+          {
+            path: relPath,
+          },
+        ),
+      ],
+    };
+  }
+}
+
+function resolveStagedSecretsScope(
+  target: CheckResolvedTarget,
+):
+  | { success: true; data: CheckResolvedScope }
+  | { success: false; diagnostics: Diagnostic[] } {
+  if (!target.repoRoot) {
+    return {
+      success: false,
+      diagnostics: [
+        createCheckRuntimeDiagnostic(
+          'cli.git.not-repository',
+          'Staged scan requires the target path to be inside a git repository.',
+          {
+            target: target.absolutePath,
+          },
+        ),
+      ],
+    };
+  }
+
+  const changedFilesResult = runGitCommand(target.repoRoot, [
+    'diff',
+    '--cached',
+    '--name-only',
+    '--diff-filter=ACM',
+  ]);
+
+  if (!changedFilesResult.success) {
+    const { diagnostics } = changedFilesResult as Extract<
+      typeof changedFilesResult,
+      { success: false }
+    >;
+
+    return {
+      success: false,
+      diagnostics,
+    };
+  }
+
+  const diffResult = runGitCommand(target.repoRoot, [
+    'diff',
+    '--cached',
+    '--no-color',
+    '--no-ext-diff',
+    '--unified=0',
+  ]);
+
+  if (!diffResult.success) {
+    const { diagnostics } = diffResult as Extract<
+      typeof diffResult,
+      { success: false }
+    >;
+
+    return {
+      success: false,
+      diagnostics,
+    };
+  }
+
+  const changedRangesByRelativePath = parseGitDiffChangedRanges(diffResult.stdout);
+  const files = changedFilesResult.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => resolve(target.repoRoot as string, line))
+    .filter(
+      (absolutePath) =>
+        target.isDirectory
+          ? isPathWithinDirectory(target.absolutePath, absolutePath)
+          : resolve(absolutePath) === target.absolutePath,
+    )
+    .filter((absolutePath) => {
+      try {
+        return statSync(absolutePath).isFile();
+      } catch {
+        return true;
+      }
+    })
+    .sort((left, right) => left.localeCompare(right));
+  const changedRangesByAbsolutePath = new Map<string, DiffRange[]>();
+
+  for (const absolutePath of files) {
+    const relativePath = toPosixPath(relative(target.repoRoot, absolutePath));
+    changedRangesByAbsolutePath.set(
+      absolutePath,
+      changedRangesByRelativePath.get(relativePath) ?? [],
+    );
+  }
+
+  return {
+    success: true,
+    data: {
+      scope: {
+        mode: 'staged',
+        changedFileCount: files.length,
+      },
+      files,
+      changedRangesByAbsolutePath,
+    },
+  };
+}
+
 /**
  * Lists changed files for a git diff without filtering to source-adapter extensions.
  * Used by the secrets scanner so `.env`, keys, and config files are not skipped.
@@ -321,9 +491,26 @@ export function resolveSecretsScanScope(
   target: CheckResolvedTarget,
   baseRef: string | undefined,
   headRef: string | undefined,
+  staged = false,
 ):
   | { success: true; data: CheckResolvedScope }
   | { success: false; diagnostics: Diagnostic[] } {
+  if (staged && (baseRef || headRef)) {
+    return {
+      success: false,
+      diagnostics: [
+        createCheckRuntimeDiagnostic(
+          'cli.argument.invalid',
+          'Cannot combine `--staged` with `--base` / `--head`.',
+        ),
+      ],
+    };
+  }
+
+  if (staged) {
+    return resolveStagedSecretsScope(target);
+  }
+
   if ((baseRef && !headRef) || (!baseRef && headRef)) {
     return {
       success: false,

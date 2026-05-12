@@ -55,14 +55,22 @@ npx critiq check . --base origin/main --head HEAD
 
 ## Public Commands
 
-`critiq check` also runs an **advisory** built-in secret scan (same scope as the rule engine) and prints a short summary before rule results. That scan does **not** change the `critiq check` exit code; use `critiq audit secrets` for full output and for gating in CI.
+`critiq check` also runs an **advisory** built-in secret scan (same scope as the rule engine, plus optional `--staged` for index-only staging review) and prints a short summary before rule results. That scan does **not** change the `critiq check` exit code; use `critiq audit secrets` for full output and for gating in CI.
+
+**What "staged review" means**
+
+- "Staged" means Git index content (what `git add` has queued), not all local edits.
+- Critiq reads staged content the same way Git does for commit previews (`git diff --cached`).
+- Use this when you want pre-commit checks to match exactly what will be committed.
 
 | Command | What it does |
 | --- | --- |
 | `critiq check [target]` | Runs deterministic checks against a codebase, directory, or single file. |
 | `critiq check . --base origin/main --head HEAD` | Limits scanning to changed files and changed ranges in a diff. |
+| `critiq check . --staged` | Rule scan unchanged; the advisory secret scan reads only what is staged in Git index (`git diff --cached`). |
 | `critiq audit secrets [target]` | Runs the dedicated secret-pattern scanner (exit non-zero when matches are found). |
 | `critiq audit secrets . --base origin/main --head HEAD` | Secret scan over changed files only (includes non-code paths such as `.env`). |
+| `critiq audit secrets . --staged` | Secret scan over staged paths/blobs from Git index (`git diff --cached`) (pre-commit friendly). |
 | `critiq audit` / `critiq audit --help` | Lists audit subcommands. |
 | `critiq rules validate <glob>` | Validates rule YAML files and returns diagnostics. |
 | `critiq rules test [glob]` | Runs fixture-backed `RuleSpec` files end to end. |
@@ -88,6 +96,12 @@ severityOverrides: {}
 ```
 
 Supported presets are `recommended`, `strict`, `security`, and `experimental`.
+
+Optional `secretsScan` in the same file merges extra `ignorePaths` (in addition to top-level `ignorePaths`), disables individual detectors by id (match the `detectorId` field in JSON output; published ids are exported as `SECRETS_SCAN_DETECTOR_IDS` from `@critiq/check-runner`), and drops findings listed under `suppressFingerprints` (64 lowercase hex characters from JSON `fingerprint`).
+
+## Git hooks
+
+Sample scripts ship under `scripts/hooks/` in this package (for example `pre-commit.sample.sh` runs `critiq audit secrets . --staged`; `pre-push.sample.sh` runs a diff against `origin/main` or `CRITIQ_PRE_PUSH_BASE`). Copy one to `.git/hooks/` and mark it executable, or wire the same commands into Husky.
 
 ## Default OSS Rule Catalog
 
