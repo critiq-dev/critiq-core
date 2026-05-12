@@ -4,6 +4,7 @@ import { formatDiagnosticsForTerminal } from '@critiq/core-diagnostics';
 import { resolve } from 'node:path';
 
 import { resolveRuntime } from './cli-runtime';
+import { handleAuditSecrets } from './commands/audit-secrets.command';
 import { handleCheck } from './commands/check.command';
 import {
   handleNormalizeOrExplain,
@@ -11,7 +12,7 @@ import {
   handleValidate,
 } from './commands/rules.command';
 import { parseArguments } from './parse-arguments';
-import { renderHelpMessage } from './rendering/rules.rendering';
+import { renderAuditHelpMessage, renderHelpMessage } from './rendering/rules.rendering';
 import { type CliRuntime } from './cli.types';
 import { isLegacyRulesArgument } from './utils/is-legacy-rules-argument.util';
 
@@ -66,6 +67,47 @@ export function runCli(
       parsed.baseRef,
       parsed.headRef,
     );
+  }
+
+  if (args[0] === 'audit') {
+    const subcommand = args[1];
+    const parsed = parseArguments(args.slice(2));
+
+    if (subcommand === 'help' || subcommand === '--help') {
+      resolvedRuntime.writeStdout(renderAuditHelpMessage());
+      return 0;
+    }
+
+    if ('code' in parsed) {
+      resolvedRuntime.writeStderr(formatDiagnosticsForTerminal([parsed]));
+      return 1;
+    }
+
+    if (parsed.help || !subcommand) {
+      resolvedRuntime.writeStdout(renderAuditHelpMessage());
+      return 0;
+    }
+
+    if (subcommand === 'secrets') {
+      if (parsed.positionals.length > 1) {
+        resolvedRuntime.writeStderr(
+          'Expected `critiq audit secrets [path]` with at most one target path.',
+        );
+        return 1;
+      }
+
+      return handleAuditSecrets(
+        parsed.positionals[0],
+        parsed.format,
+        resolvedRuntime,
+        parsed.baseRef,
+        parsed.headRef,
+      );
+    }
+
+    resolvedRuntime.writeStderr(`Unknown command: audit ${subcommand}`);
+    resolvedRuntime.writeStdout(renderAuditHelpMessage());
+    return 1;
   }
 
   if (args[0] !== 'rules') {

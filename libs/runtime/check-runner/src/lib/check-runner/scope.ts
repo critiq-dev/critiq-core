@@ -299,6 +299,76 @@ export function resolveCheckScope(
     };
   }
 
+  const diffScope = resolveRepositoryDiffScope(
+    target,
+    baseRef as string,
+    headRef as string,
+    (absolutePath) => Boolean(registry.findAdapterForPath(absolutePath)),
+  );
+
+  if (!diffScope.success) {
+    return diffScope;
+  }
+
+  return diffScope;
+}
+
+/**
+ * Lists changed files for a git diff without filtering to source-adapter extensions.
+ * Used by the secrets scanner so `.env`, keys, and config files are not skipped.
+ */
+export function resolveSecretsScanScope(
+  target: CheckResolvedTarget,
+  baseRef: string | undefined,
+  headRef: string | undefined,
+):
+  | { success: true; data: CheckResolvedScope }
+  | { success: false; diagnostics: Diagnostic[] } {
+  if ((baseRef && !headRef) || (!baseRef && headRef)) {
+    return {
+      success: false,
+      diagnostics: [
+        createCheckRuntimeDiagnostic(
+          'cli.argument.invalid',
+          'Expected `--base` and `--head` to be provided together.',
+        ),
+      ],
+    };
+  }
+
+  if (!baseRef && !headRef) {
+    const files = target.isDirectory
+      ? walkFiles(target.absolutePath)
+      : [target.absolutePath];
+
+    return {
+      success: true,
+      data: {
+        scope: {
+          mode: 'repo',
+        },
+        files,
+        changedRangesByAbsolutePath: new Map<string, DiffRange[]>(),
+      },
+    };
+  }
+
+  return resolveRepositoryDiffScope(
+    target,
+    baseRef as string,
+    headRef as string,
+    () => true,
+  );
+}
+
+function resolveRepositoryDiffScope(
+  target: CheckResolvedTarget,
+  baseRef: string,
+  headRef: string,
+  includeAbsolutePath: (absolutePath: string) => boolean,
+):
+  | { success: true; data: CheckResolvedScope }
+  | { success: false; diagnostics: Diagnostic[] } {
   if (!target.repoRoot) {
     return {
       success: false,
@@ -317,8 +387,8 @@ export function resolveCheckScope(
   const changedFilesResult = runGitCommand(target.repoRoot, [
     'diff',
     '--name-only',
-    baseRef as string,
-    headRef as string,
+    baseRef,
+    headRef,
     '--',
   ]);
 
@@ -338,8 +408,8 @@ export function resolveCheckScope(
     '--no-color',
     '--no-ext-diff',
     '--unified=0',
-    baseRef as string,
-    headRef as string,
+    baseRef,
+    headRef,
     '--',
   ]);
 
@@ -362,7 +432,7 @@ export function resolveCheckScope(
     .map((line) => resolve(target.repoRoot as string, line))
     .filter(
       (absolutePath) =>
-        Boolean(registry.findAdapterForPath(absolutePath)) &&
+        includeAbsolutePath(absolutePath) &&
         (target.isDirectory
           ? isPathWithinDirectory(target.absolutePath, absolutePath)
           : resolve(absolutePath) === target.absolutePath),
@@ -390,8 +460,8 @@ export function resolveCheckScope(
     data: {
       scope: {
         mode: 'diff',
-        base: baseRef as string,
-        head: headRef as string,
+        base: baseRef,
+        head: headRef,
         changedFileCount: files.length,
       },
       files,

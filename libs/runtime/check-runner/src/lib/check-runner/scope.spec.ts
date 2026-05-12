@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 
 import { createDefaultSourceAdapterRegistry } from '../check-runner';
-import { filterIgnoredPaths, resolveCheckScope, resolveCheckTarget } from './scope';
+import { filterIgnoredPaths, resolveCheckScope, resolveCheckTarget, resolveSecretsScanScope } from './scope';
 
 function createTempWorkspace(): string {
   return mkdtempSync(join(tmpdir(), 'critiq-scope-'));
@@ -250,5 +250,50 @@ describe('scope resolution', () => {
     expect(result.changedRangesByAbsolutePath.has(customIgnoredPath)).toBe(
       false,
     );
+  });
+
+  it('includes changed .env in resolveSecretsScanScope while resolveCheckScope excludes it', () => {
+    initializeGitRepository(tempDirectory);
+    writeWorkspaceFile(tempDirectory, 'src/app.ts', 'export const x = 1;\n');
+    writeWorkspaceFile(tempDirectory, '.env', 'FOO=bar\n');
+    commitAll(tempDirectory, 'initial');
+    writeWorkspaceFile(
+      tempDirectory,
+      '.env',
+      'FOO=bar\nAWS_KEY=AKIAIOSFODNN7EXAMPLE\n',
+    );
+    writeWorkspaceFile(tempDirectory, 'src/app.ts', 'export const x = 2;\n');
+    commitAll(tempDirectory, 'second');
+
+    const target = resolveCheckTarget(tempDirectory, '.');
+
+    expect(target.success).toBe(true);
+
+    if (!target.success) {
+      throw new Error('Expected repository target resolution to succeed.');
+    }
+
+    const registry = createDefaultSourceAdapterRegistry();
+    const checkScope = resolveCheckScope(target.data, 'HEAD~1', 'HEAD', registry);
+    const secretsScope = resolveSecretsScanScope(target.data, 'HEAD~1', 'HEAD');
+
+    expect(checkScope.success).toBe(true);
+    expect(secretsScope.success).toBe(true);
+
+    if (!checkScope.success || !secretsScope.success) {
+      throw new Error('Expected diff scope resolution to succeed.');
+    }
+
+    const checkRel = checkScope.data.files
+      .map((file) => relative(workspaceRoot, file))
+      .sort();
+    const secretsRel = secretsScope.data.files
+      .map((file) => relative(workspaceRoot, file))
+      .sort();
+
+    expect(checkRel).not.toContain('.env');
+    const appRel = relative(workspaceRoot, join(workspaceRoot, 'src', 'app.ts'));
+    expect(secretsRel).toContain('.env');
+    expect(secretsRel).toContain(appRel);
   });
 });

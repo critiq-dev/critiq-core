@@ -1,8 +1,9 @@
 # CLI Reference
 
-`critiq` has two public surfaces:
+`critiq` has three public surfaces:
 
 - `critiq check` for running confidence checks against real repository code
+- `critiq audit ...` for dedicated audits (for example secret-pattern scanning)
 - `critiq rules ...` for authoring, validating, inspecting, and testing rule
   packs
 
@@ -12,6 +13,7 @@ developer at a terminal and for CI guarding code on the way to production.
 ## Commands
 
 - `critiq check [target]`
+- `critiq audit secrets [target]`
 - `critiq rules validate <glob>`
 - `critiq rules test [glob]`
 - `critiq rules normalize <file>`
@@ -30,6 +32,10 @@ developer at a terminal and for CI guarding code on the way to production.
 - `--head <git-ref>`
 
 Provide `--base` and `--head` together when you want a diff-scoped scan.
+
+The same `--base`, `--head`, and `--format pretty|json` flags work for
+`critiq audit secrets` when you want a diff-scoped secret scan or machine-readable
+output.
 
 ## Exit Codes
 
@@ -134,6 +140,45 @@ Abridged shape:
   "ruleSummaries": [],
   "diagnostics": [],
   "exitCode": 1
+}
+```
+
+## `audit secrets`
+
+Use `audit secrets` when you want **only** the text-based secret scanner (not
+the full rule catalog). It respects the same `.critiq/config.yaml` ignore paths
+and test inclusion as `check`, uses the same optional diff scope, and exits
+non-zero when secret findings exist (unlike the advisory block on `critiq check`).
+
+Examples:
+
+```bash
+critiq audit secrets
+critiq audit secrets . --format json
+critiq audit secrets . --base origin/main --head HEAD --format json
+```
+
+### `audit secrets` JSON envelope
+
+Machine-readable output uses `--format json` (or `--format=json`). Top-level
+fields include `command`, `format`, `target`, `scope`, `scannedFileCount`,
+`findingCount`, `findings`, `diagnostics`, and `exitCode`.
+
+Abridged shape:
+
+```json
+{
+  "command": "audit-secrets",
+  "format": "json",
+  "target": ".",
+  "scope": {
+    "mode": "repo"
+  },
+  "scannedFileCount": 4,
+  "findingCount": 0,
+  "findings": [],
+  "diagnostics": [],
+  "exitCode": 0
 }
 ```
 
@@ -269,6 +314,6 @@ This repository publishes a reusable workflow at
 Use it when you want consumer repositories to:
 
 - install a pinned `@critiq/cli` package version
-- run `check`, `validate`, and `test` with JSON output
+- run `check`, `audit secrets`, `validate`, and `test` with JSON output where supported
 - upload Critiq result artifacts
 - fail the job when any Critiq command exits non-zero

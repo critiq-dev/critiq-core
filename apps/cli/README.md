@@ -55,10 +55,15 @@ npx critiq check . --base origin/main --head HEAD
 
 ## Public Commands
 
+`critiq check` also runs an **advisory** built-in secret scan (same scope as the rule engine) and prints a short summary before rule results. That scan does **not** change the `critiq check` exit code; use `critiq audit secrets` for full output and for gating in CI.
+
 | Command | What it does |
 | --- | --- |
 | `critiq check [target]` | Runs deterministic checks against a codebase, directory, or single file. |
 | `critiq check . --base origin/main --head HEAD` | Limits scanning to changed files and changed ranges in a diff. |
+| `critiq audit secrets [target]` | Runs the dedicated secret-pattern scanner (exit non-zero when matches are found). |
+| `critiq audit secrets . --base origin/main --head HEAD` | Secret scan over changed files only (includes non-code paths such as `.env`). |
+| `critiq audit` / `critiq audit --help` | Lists audit subcommands. |
 | `critiq rules validate <glob>` | Validates rule YAML files and returns diagnostics. |
 | `critiq rules test [glob]` | Runs fixture-backed `RuleSpec` files end to end. |
 | `critiq rules normalize <file>` | Prints the canonical normalized form of one rule. |

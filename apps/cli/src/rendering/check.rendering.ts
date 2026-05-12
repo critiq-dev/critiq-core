@@ -4,6 +4,8 @@ import {
   type CheckOverallRuleResult,
   type CheckProgressUpdate,
   type CheckReportFinding,
+  type CheckSecretsScanFinding,
+  type RunSecretsScanResult,
 } from '@critiq/check-runner';
 
 import { type CliRuntime } from '../cli.types';
@@ -177,10 +179,62 @@ export function renderCheckPretty(
     ? 'PASS'
     : 'FAIL';
 
-  const lines: string[] = [
-    '',
+  const secrets = envelope.secretsScan;
+  const lines: string[] = [''];
+
+  if (secrets) {
+    lines.push(
+      `${ansi.bold}Secrets scan${ansi.reset} ${colorize('dim', '(advisory — does not affect exit code)')}`,
+    );
+
+    if (secrets.findingCount === 0) {
+      lines.push(
+        ` ${colorize('green', '✓')} No obvious secret patterns detected in ${String(secrets.scannedFileCount)} scanned file(s).`,
+      );
+    } else {
+      lines.push(
+        ` ${colorize('red', '✕')} ${String(secrets.findingCount)} possible secret pattern(s) in ${String(secrets.scannedFileCount)} scanned file(s).`,
+      );
+      const findingsByPath = new Map<string, CheckSecretsScanFinding[]>();
+
+      for (const finding of secrets.findings) {
+        const pathKey = finding.locations.primary.path;
+        const list = findingsByPath.get(pathKey) ?? [];
+        list.push(finding);
+        findingsByPath.set(pathKey, list);
+      }
+
+      for (const [path, findings] of Array.from(findingsByPath.entries()).sort(
+        ([left], [right]) => left.localeCompare(right),
+      )) {
+        lines.push(`   ${colorize('red', path, { bold: true })}`);
+
+        for (const finding of findings) {
+          lines.push(
+            `     ${colorize('dim', finding.detectorId)} — ${finding.summary}`,
+            `       at ${path}:${String(finding.locations.primary.startLine)}:${String(finding.locations.primary.startColumn)}`,
+          );
+        }
+      }
+    }
+
+    if (secrets.diagnostics.length > 0) {
+      lines.push('', formatDiagnosticsForTerminal(secrets.diagnostics));
+    }
+
+    lines.push(
+      '',
+      colorize(
+        'dim',
+        'Run critiq audit secrets for full output and CI-friendly gating on secret findings.',
+      ),
+      '',
+    );
+  }
+
+  lines.push(
     `${colorize(overallStatus === 'PASS' ? 'green' : 'red', overallStatus, { bold: true })} Rule Results`,
-  ];
+  );
 
   for (const ruleResult of overallRuleResults) {
     lines.push(
@@ -260,6 +314,84 @@ export function renderCheckPretty(
     envelope.scope.mode === 'diff'
       ? `Scope:       diff (${envelope.scope.base}..${envelope.scope.head}, ${envelope.scope.changedFileCount} changed file(s))`
       : `Scope:       repo`,
+  );
+
+  return lines.join('\n');
+}
+
+export function renderAuditSecretsPretty(
+  result: RunSecretsScanResult,
+  sourceTextsByPath: ReadonlyMap<string, string>,
+): string {
+  const lines: string[] = [
+    '',
+    `${ansi.bold}Secret scan${ansi.reset} ${colorize('dim', '(critiq audit secrets)')}`,
+    '',
+  ];
+
+  if (result.scope.mode === 'diff') {
+    lines.push(
+      `Scope: diff (${result.scope.base}..${result.scope.head})`,
+      `Changed files (pre-filter): ${String(result.scope.changedFileCount ?? 0)}`,
+      '',
+    );
+  }
+
+  if (result.findingCount === 0) {
+    lines.push(
+      `${colorize('green', 'PASS', { bold: true })} No obvious secret patterns detected in ${String(result.scannedFileCount)} scanned file(s).`,
+    );
+  } else {
+    lines.push(
+      `${colorize('red', 'FAIL', { bold: true })} ${String(result.findingCount)} possible secret pattern(s) in ${String(result.scannedFileCount)} scanned file(s).`,
+    );
+    const findingsByPath = new Map<string, RunSecretsScanResult['findings']>();
+
+    for (const finding of result.findings) {
+      const pathKey = finding.locations.primary.path;
+      const list = findingsByPath.get(pathKey) ?? [];
+      list.push(finding);
+      findingsByPath.set(pathKey, list);
+    }
+
+    for (const [path, findings] of Array.from(findingsByPath.entries()).sort(
+      ([left], [right]) => left.localeCompare(right),
+    )) {
+      lines.push('', `${colorize('red', `● ${path}`, { bold: true })}`);
+
+      for (const finding of findings) {
+        const sourceText = sourceTextsByPath.get(path);
+        const loc = finding.locations
+          .primary as CheckReportFinding['locations']['primary'];
+
+        lines.push(
+          `  ${colorize('red', '✕')} ${finding.detectorId}`,
+          `    ${finding.summary}`,
+        );
+
+        if (sourceText) {
+          lines.push(...renderFindingCodeFrame(sourceText, loc));
+        }
+
+        lines.push(
+          `    at ${path}:${String(finding.locations.primary.startLine)}:${String(finding.locations.primary.startColumn)}`,
+        );
+      }
+    }
+  }
+
+  if (result.diagnostics.length > 0) {
+    lines.push(
+      '',
+      'Diagnostics',
+      formatDiagnosticsForTerminal(result.diagnostics),
+    );
+  }
+
+  lines.push(
+    '',
+    `Scanned ${String(result.scannedFileCount)} file(s) for secret patterns`,
+    `Exit code:   ${String(result.exitCode)}`,
   );
 
   return lines.join('\n');

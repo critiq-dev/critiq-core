@@ -92,6 +92,31 @@ export interface CheckCommandScopeDiff {
 
 export type CheckCommandScope = CheckCommandScopeRepo | CheckCommandScopeDiff;
 
+export interface CheckSecretsScanFindingLocation {
+  path: string;
+  startLine: number;
+  startColumn: number;
+  endLine: number;
+  endColumn: number;
+}
+
+export interface CheckSecretsScanFinding {
+  detectorId: string;
+  summary: string;
+  fingerprint: string;
+  locations: {
+    primary: CheckSecretsScanFindingLocation;
+  };
+}
+
+export interface CheckSecretsScanPayload {
+  scope: CheckCommandScope;
+  scannedFileCount: number;
+  findingCount: number;
+  findings: CheckSecretsScanFinding[];
+  diagnostics: Diagnostic[];
+}
+
 export interface CheckCommandEnvelope {
   command: 'check';
   format: 'pretty' | 'json';
@@ -107,6 +132,7 @@ export interface CheckCommandEnvelope {
   findings: CheckReportFinding[];
   ruleSummaries: CheckRuleSummary[];
   diagnostics: Diagnostic[];
+  secretsScan?: CheckSecretsScanPayload;
 }
 
 export interface CheckResolvedTarget {

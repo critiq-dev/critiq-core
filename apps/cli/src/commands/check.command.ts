@@ -1,4 +1,8 @@
-import { runCheckCommand } from '@critiq/check-runner';
+import {
+  runCheckCommand,
+  runSecretsScan,
+  toCheckSecretsScanPayload,
+} from '@critiq/check-runner';
 import { formatDiagnosticsForTerminal } from '@critiq/core-diagnostics';
 
 import { type CliRuntime, type OutputFormat } from '../cli.types';
@@ -32,8 +36,21 @@ export function handleCheck(
   });
   progressRenderer?.stop();
 
+  const secretsResult = runSecretsScan({
+    cwd: runtime.cwd,
+    target,
+    baseRef,
+    headRef,
+    failOnFindings: false,
+  });
+  const secretsPayload = toCheckSecretsScanPayload(secretsResult);
+  const envelopeWithSecrets = {
+    ...result.envelope,
+    secretsScan: secretsPayload,
+  };
+
   if (format === 'json') {
-    runtime.writeStdout(renderJson(result.envelope));
+    runtime.writeStdout(renderJson(envelopeWithSecrets));
   } else if (
     result.envelope.exitCode > 0 &&
     result.envelope.findingCount === 0
@@ -44,7 +61,7 @@ export function handleCheck(
   } else {
     runtime.writeStdout(
       renderCheckPretty(
-        result.envelope,
+        envelopeWithSecrets,
         result.overallRuleResults,
         result.sourceTextsByPath,
       ),

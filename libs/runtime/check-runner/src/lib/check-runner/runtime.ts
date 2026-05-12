@@ -175,6 +175,7 @@ function resolveCatalogPackageRuntime(
 
 export { createDefaultSourceAdapterRegistry } from './registry';
 export { createSourceAdapterRegistry } from './registry';
+export { filterIgnoredPaths, resolveCheckScope, resolveCheckTarget, resolveSecretsScanScope } from './scope';
 export {
   createCliInputDiagnostic,
   determineExitCode,
@@ -184,13 +185,16 @@ export {
   walkFiles,
 } from './shared';
 export type {
-  CheckProgressUpdate,
   CheckCommandEnvelope,
   CheckCommandProvenance,
   CheckOverallRuleResult,
+  CheckProgressUpdate,
   CheckReportFinding,
   CheckReportFindingAttributes,
   CheckRuleSummary,
+  CheckSecretsScanFinding,
+  CheckSecretsScanFindingLocation,
+  CheckSecretsScanPayload,
   RunCheckCommandOptions,
   RunCheckCommandResult,
   SourceAdapter,

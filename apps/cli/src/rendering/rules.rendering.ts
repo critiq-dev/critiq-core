@@ -33,6 +33,8 @@ export function renderHelpMessage(): string {
     '',
     'Usage:',
     '  critiq check [target] [--base <git-ref>] [--head <git-ref>] [--format pretty|json]',
+    '  critiq audit secrets [target] [--base <git-ref>] [--head <git-ref>] [--format pretty|json]',
+    '  critiq audit [--help]',
     '  critiq rules validate <glob> [--format pretty|json]',
     '  critiq rules test [glob] [--format pretty|json]',
     '  critiq rules normalize <file> [--format pretty|json]',
@@ -43,6 +45,22 @@ export function renderHelpMessage(): string {
     '  0 success',
     '  1 user/input errors or validation diagnostics',
     '  2 internal/runtime errors',
+  ].join('\n');
+}
+
+export function renderAuditHelpMessage(): string {
+  return [
+    'critiq audit',
+    '',
+    'Usage:',
+    '  critiq audit secrets [target] [--base <git-ref>] [--head <git-ref>] [--format pretty|json]',
+    '',
+    'Subcommands:',
+    '  secrets   Scan the repository or diff for leaked credentials and high-risk patterns.',
+    '',
+    'Examples:',
+    '  critiq audit secrets .',
+    '  critiq audit secrets . --base origin/main --head HEAD',
   ].join('\n');
 }
 

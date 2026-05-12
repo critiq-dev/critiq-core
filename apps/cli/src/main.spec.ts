@@ -176,6 +176,8 @@ describe('cli', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('critiq CLI');
     expect(result.stdout).toContain('critiq check [target]');
+    expect(result.stdout).toContain('critiq audit secrets [target]');
+    expect(result.stdout).toContain('critiq audit [--help]');
     expect(result.stdout).toContain('critiq rules validate <glob>');
     expect(result.stdout).toContain('critiq rules test [glob]');
   });
@@ -185,6 +187,52 @@ describe('cli', () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toBe('Unknown command: unknown');
+  });
+
+  it('prints audit help for critiq audit with no subcommand', () => {
+    const result = runCommand(['audit'], tempDirectory);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('critiq audit');
+    expect(result.stdout).toContain('critiq audit secrets');
+  });
+
+  it('prints audit help for critiq audit --help', () => {
+    const result = runCommand(['audit', '--help'], tempDirectory);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('critiq audit secrets');
+  });
+
+  it('returns a non-zero exit for unknown audit subcommand', () => {
+    const result = runCommand(['audit', 'nope'], tempDirectory);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Unknown command: audit nope');
+  });
+
+  it('audit secrets detects a dummy AWS key and exits non-zero', () => {
+    writeCritiqConfig(tempDirectory);
+    writeRuleFile(
+      tempDirectory,
+      'src/leak.ts',
+      "export const k = 'AKIAIOSFODNN7EXAMPLE';\n",
+    );
+
+    const result = runCommand(['audit', 'secrets', '.', '--format=json'], tempDirectory);
+
+    expect(result.exitCode).toBe(1);
+    const payload = JSON.parse(result.stdout) as {
+      command: string;
+      format: string;
+      target: string;
+      findingCount: number;
+    };
+
+    expect(payload.command).toBe('audit-secrets');
+    expect(payload.format).toBe('json');
+    expect(payload.target).toBe('.');
+    expect(payload.findingCount).toBeGreaterThanOrEqual(1);
   });
 
   it('checks a repository and returns zero findings for clean files', () => {
@@ -205,6 +253,11 @@ describe('cli', () => {
       findings: unknown[];
       ruleSummaries: unknown[];
       diagnostics: unknown[];
+      secretsScan?: {
+        findingCount: number;
+        scannedFileCount: number;
+        findings: unknown[];
+      };
     };
 
     expect(envelope.command).toBe('check');
@@ -217,6 +270,11 @@ describe('cli', () => {
     expect(envelope.findings).toEqual([]);
     expect(envelope.ruleSummaries).toEqual([]);
     expect(envelope.diagnostics).toEqual([]);
+    expect(envelope.secretsScan).toMatchObject({
+      findingCount: 0,
+      scannedFileCount: expect.any(Number),
+    });
+    expect(envelope.secretsScan?.findings).toEqual([]);
   });
 
   it('emits findings for repository checks with stable json output', () => {
