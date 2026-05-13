@@ -13,6 +13,7 @@ import {
   collectSqlInterpolationFacts,
   collectRubyTestingHygieneFacts,
   collectRubyQualityMaintainabilityFacts,
+  collectRubyPerformanceFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
@@ -157,6 +158,7 @@ const rubyAdapterDefinition: PolyglotAdapterDefinition<RubyScanState> = {
     }),
     ...collectRubyTestingHygieneFacts({ text, path, detector }),
     ...collectRubyQualityMaintainabilityFacts({ text, path, detector }),
+    ...collectRubyPerformanceFacts({ text, path, detector }),
   ],
 };
 

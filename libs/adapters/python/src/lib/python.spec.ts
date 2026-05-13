@@ -322,4 +322,26 @@ describe('pythonSourceAdapter', () => {
       ),
     ).toBe(true);
   });
+
+
+  it('emits shared performance hygiene facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'test_service.py',
+      [
+        'import asyncio',
+        'asyncio.gather(items.map(task))',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toContain(
+      'py.performance.no-unbounded-concurrency',
+    );
+  });
+
 });

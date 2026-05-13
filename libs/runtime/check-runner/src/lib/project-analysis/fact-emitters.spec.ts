@@ -11,15 +11,18 @@ import {
   emitDeadExportFacts,
   emitDuplicateCodeFacts,
   emitLogicChangeWithoutTestsFacts,
+  emitNPlusOneAwaitInMapFacts,
   emitMissingAuthorizationFacts,
   emitMissingBatchFacts,
   emitMissingEdgeCaseTestsFacts,
   emitMissingNextErrorBoundaryFacts,
   emitMissingOwnershipFacts,
+  emitRedundantNetworkFetchFacts,
   emitMissingTestsFacts,
   emitProductionTestBoundaryFacts,
   emitRepeatedIoFacts,
   emitTightCouplingFacts,
+  emitUnstableCacheKeyFacts,
   emitWidePublicSurfaceFacts,
 } from './fact-emitters';
 
@@ -140,6 +143,31 @@ describe('project analysis fact emitters', () => {
         },
       }),
     ]);
+  });
+
+  it('emits performance project facts for n+1 await, redundant fetches, and unstable cache keys', () => {
+    const file = analyze(
+      'src/services/performance.ts',
+      [
+        'export async function hydrate(ids: string[]) {',
+        "  await Promise.all(ids.map(async (id) => await fetch('/api/users/' + id)));",
+        "  await fetch('/api/config');",
+        "  await fetch('/api/config');",
+        "  cache.set(`profile:${Date.now()}:${Math.random()}`, { ok: true });",
+        '}',
+      ].join('\n'),
+    );
+    const contexts = createFileContexts([file]);
+
+    emitNPlusOneAwaitInMapFacts(contexts);
+    emitRedundantNetworkFetchFacts(contexts);
+    emitUnstableCacheKeyFacts(contexts);
+
+    expect(factsOf(file, 'performance.no-n-plus-one-await-in-map')).toHaveLength(1);
+    expect(factsOf(file, 'performance.no-redundant-network-fetch')).toHaveLength(1);
+    expect(factsOf(file, 'performance.no-cache-miss-from-unstable-key')).toHaveLength(
+      1,
+    );
   });
 
   it('emits duplicate-code and tight-coupling facts across matching modules', () => {

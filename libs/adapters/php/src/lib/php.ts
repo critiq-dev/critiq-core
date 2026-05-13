@@ -13,6 +13,7 @@ import {
   collectSqlInterpolationFacts,
   collectPhpTestingHygieneFacts,
   collectPhpQualityMaintainabilityFacts,
+  collectPhpPerformanceFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
@@ -163,6 +164,7 @@ const phpAdapterDefinition: PolyglotAdapterDefinition<PhpScanState> = {
     }),
     ...collectPhpTestingHygieneFacts({ text, path, detector }),
     ...collectPhpQualityMaintainabilityFacts({ text, path, detector }),
+    ...collectPhpPerformanceFacts({ text, path, detector }),
   ],
 };
 

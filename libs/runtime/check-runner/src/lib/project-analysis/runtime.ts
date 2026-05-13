@@ -7,15 +7,18 @@ import {
   emitDeadExportFacts,
   emitFrontendOnlyAuthorizationFacts,
   emitLogicChangeWithoutTestsFacts,
+  emitNPlusOneAwaitInMapFacts,
   emitMissingAuthorizationFacts,
   emitMissingBatchFacts,
   emitMissingEdgeCaseTestsFacts,
   emitMissingNextErrorBoundaryFacts,
   emitMissingOwnershipFacts,
+  emitRedundantNetworkFetchFacts,
   emitMissingTestsFacts,
   emitProductionTestBoundaryFacts,
   emitRepeatedIoFacts,
   emitTightCouplingFacts,
+  emitUnstableCacheKeyFacts,
   emitWidePublicSurfaceFacts,
 } from './fact-emitters';
 import { appendDependencyFacts } from './dependencies';
@@ -24,8 +27,18 @@ export function augmentProjectFacts(
   analyzedFiles: readonly AnalyzedFile[],
   options: ProjectAnalysisOptions,
 ): AnalyzedFile[] {
-  const projectAnalysisEligibleFiles = analyzedFiles.filter(
-    (file) => file.language === 'javascript' || file.language === 'typescript',
+  const eligibleLanguages = new Set([
+    'javascript',
+    'typescript',
+    'go',
+    'java',
+    'php',
+    'python',
+    'ruby',
+    'rust',
+  ]);
+  const projectAnalysisEligibleFiles = analyzedFiles.filter((file) =>
+    eligibleLanguages.has(file.language),
   );
   const contexts = createFileContexts(projectAnalysisEligibleFiles);
 
@@ -34,6 +47,9 @@ export function augmentProjectFacts(
   emitFrontendOnlyAuthorizationFacts(contexts);
   emitRepeatedIoFacts(contexts);
   emitMissingBatchFacts(contexts);
+  emitNPlusOneAwaitInMapFacts(contexts);
+  emitRedundantNetworkFetchFacts(contexts);
+  emitUnstableCacheKeyFacts(contexts);
   emitDuplicateCodeFacts(contexts);
   emitTightCouplingFacts(contexts);
   emitWidePublicSurfaceFacts(contexts);

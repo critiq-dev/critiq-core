@@ -472,6 +472,86 @@ export function emitMissingBatchFacts(
   }
 }
 
+export function emitNPlusOneAwaitInMapFacts(
+  fileContexts: ReadonlyMap<string, FileContext>,
+): void {
+  const pattern =
+    /\b(?:for\s+await\s*\(|for\s*\([^)]*\)\s*\{[\s\S]{0,180}\bawait\b|await\s+Promise\.all\s*\([^)]*\.map\s*\()/g;
+
+  for (const context of fileContexts.values()) {
+    const text = context.file.text;
+    let match: RegExpExecArray | null = pattern.exec(text);
+    while (match !== null) {
+      const start = match.index ?? 0;
+      const end = start + match[0].length;
+      appendFact(context, {
+        kind: 'performance.no-n-plus-one-await-in-map',
+        appliesTo: 'project',
+        range: createRangeFromOffsets(context, start, end),
+        text: match[0].trim(),
+        props: {},
+      });
+      match = pattern.exec(text);
+    }
+  }
+}
+
+export function emitRedundantNetworkFetchFacts(
+  fileContexts: ReadonlyMap<string, FileContext>,
+): void {
+  const callPattern =
+    /\b(?:fetch|axios\.(?:get|post|put|patch|delete)|httpClient\.(?:get|post|put|patch|delete))\s*\(\s*["'`]([^"'`]+)["'`]/g;
+
+  for (const context of fileContexts.values()) {
+    const seen = new Map<string, number>();
+    const text = context.file.text;
+    let match: RegExpExecArray | null = callPattern.exec(text);
+    while (match !== null) {
+      const identity = match[1] ?? '';
+      const start = match.index ?? 0;
+      const end = start + match[0].length;
+      const count = seen.get(identity) ?? 0;
+      seen.set(identity, count + 1);
+      if (count >= 1) {
+        appendFact(context, {
+          kind: 'performance.no-redundant-network-fetch',
+          appliesTo: 'project',
+          range: createRangeFromOffsets(context, start, end),
+          text: match[0].trim(),
+          props: {
+            requestIdentity: identity,
+          },
+        });
+      }
+      match = callPattern.exec(text);
+    }
+  }
+}
+
+export function emitUnstableCacheKeyFacts(
+  fileContexts: ReadonlyMap<string, FileContext>,
+): void {
+  const pattern =
+    /\b(?:cache|memo|queryClient|redis)\.(?:get|set|has)\s*\([^)]*(?:Date\.now|Math\.random|new\s+Date|JSON\.stringify\(\{)/g;
+
+  for (const context of fileContexts.values()) {
+    const text = context.file.text;
+    let match: RegExpExecArray | null = pattern.exec(text);
+    while (match !== null) {
+      const start = match.index ?? 0;
+      const end = start + match[0].length;
+      appendFact(context, {
+        kind: 'performance.no-cache-miss-from-unstable-key',
+        appliesTo: 'project',
+        range: createRangeFromOffsets(context, start, end),
+        text: match[0].trim(),
+        props: {},
+      });
+      match = pattern.exec(text);
+    }
+  }
+}
+
 export function emitDuplicateCodeFacts(
   fileContexts: ReadonlyMap<string, FileContext>,
 ): void {

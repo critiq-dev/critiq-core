@@ -94,7 +94,18 @@ const FIXTURE_LIKE_PATH_PATTERN =
   /(?:^|\/)(?:__data__|__fixtures__|__mocks__|fixtures?|mocks?|test-data|testdata)(?:\/|$)/i;
 const TEST_CONTAINER_DIRECTORY_PATTERN =
   /^__(?:tests|fixtures|mocks|data)__$/i;
-const supportedTestExtensions = ['.js', '.jsx', '.ts', '.tsx'] as const;
+const supportedTestExtensions = [
+  '.js',
+  '.jsx',
+  '.ts',
+  '.tsx',
+  '.go',
+  '.java',
+  '.php',
+  '.py',
+  '.rb',
+  '.rs',
+] as const;
 
 function buildLineStarts(text: string): number[] {
   const lineStarts = [0];
@@ -347,10 +358,22 @@ function resolveLocalModulePath(
     `${basePath}.tsx`,
     `${basePath}.js`,
     `${basePath}.jsx`,
+    `${basePath}.go`,
+    `${basePath}.java`,
+    `${basePath}.php`,
+    `${basePath}.py`,
+    `${basePath}.rb`,
+    `${basePath}.rs`,
     join(basePath, 'index.ts'),
     join(basePath, 'index.tsx'),
     join(basePath, 'index.js'),
     join(basePath, 'index.jsx'),
+    join(basePath, 'index.go'),
+    join(basePath, 'index.java'),
+    join(basePath, 'index.php'),
+    join(basePath, 'index.py'),
+    join(basePath, 'index.rb'),
+    join(basePath, 'index.rs'),
   ];
 
   return candidates.find((candidate) => knownPaths.has(candidate));

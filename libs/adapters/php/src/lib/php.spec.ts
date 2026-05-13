@@ -134,4 +134,26 @@ describe('phpSourceAdapter', () => {
       ]),
     );
   });
+
+
+  it('emits shared performance hygiene facts', () => {
+    const result = phpSourceAdapter.analyze(
+      'service_test.php',
+      [
+        '<?php',
+        'Promise.all($items->map(fn($item) => task($item)));',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toContain(
+      'php.performance.no-unbounded-concurrency',
+    );
+  });
+
 });

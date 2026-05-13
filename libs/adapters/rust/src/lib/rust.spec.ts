@@ -57,14 +57,16 @@ describe('rustSourceAdapter', () => {
       throw new Error('Expected analysis success.');
     }
 
-    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toEqual([
-      'security.hardcoded-credentials',
-      'security.sensitive-data-in-logs-and-telemetry',
-      'security.request-path-file-read',
-      'security.command-execution-with-request-input',
-      'security.sql-interpolation',
-      'security.unsafe-deserialization',
-    ]);
+    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toEqual(
+      expect.arrayContaining([
+        'security.hardcoded-credentials',
+        'security.sensitive-data-in-logs-and-telemetry',
+        'security.request-path-file-read',
+        'security.command-execution-with-request-input',
+        'security.sql-interpolation',
+        'security.unsafe-deserialization',
+      ]),
+    );
   });
 
   it('emits transport and crypto security facts', () => {
@@ -91,4 +93,27 @@ describe('rustSourceAdapter', () => {
       'security.weak-hash-algorithm',
     ]);
   });
+
+
+  it('emits shared performance hygiene facts', () => {
+    const result = rustSourceAdapter.analyze(
+      'service_test.rs',
+      [
+        'fn test(items: Vec<String>) {',
+        '  let _ = futures::future::join_all(items.iter().map(task));',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toContain(
+      'rust.performance.no-unbounded-concurrency',
+    );
+  });
+
 });

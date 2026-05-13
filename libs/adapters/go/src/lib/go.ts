@@ -24,6 +24,7 @@ import {
   collectSqlInterpolationFacts,
   collectGoTestingHygieneFacts,
   collectGoQualityMaintainabilityFacts,
+  collectGoPerformanceFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
@@ -189,6 +190,7 @@ const goAdapterDefinition: PolyglotAdapterDefinition<GoScanState> = {
     }),
     ...collectGoTestingHygieneFacts({ text, path, detector }),
     ...collectGoQualityMaintainabilityFacts({ text, path, detector }),
+    ...collectGoPerformanceFacts({ text, path, detector }),
   ],
 };
 

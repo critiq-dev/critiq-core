@@ -12,6 +12,7 @@ import {
   collectSqlInterpolationFacts,
   collectPythonTestingHygieneFacts,
   collectPythonQualityMaintainabilityFacts,
+  collectPythonPerformanceFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
@@ -156,6 +157,7 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
     }),
     ...collectPythonTestingHygieneFacts({ text, path, detector }),
     ...collectPythonQualityMaintainabilityFacts({ text, path, detector }),
+    ...collectPythonPerformanceFacts({ text, path, detector }),
   ],
 };
 

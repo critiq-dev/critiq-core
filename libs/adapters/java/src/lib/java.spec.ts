@@ -151,4 +151,29 @@ describe('javaSourceAdapter', () => {
       'security.android-world-readable-mode',
     ]);
   });
+
+
+  it('emits shared performance hygiene facts', () => {
+    const result = javaSourceAdapter.analyze(
+      'ServiceTest.java',
+      [
+        'class ServiceTest {',
+        '  void t(List<String> items) {',
+        '    CompletableFuture.allOf(items.stream().map(this::task).toArray(CompletableFuture[]::new));',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toContain(
+      'java.performance.no-unbounded-concurrency',
+    );
+  });
+
 });

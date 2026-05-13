@@ -118,4 +118,28 @@ describe('goSourceAdapter', () => {
       'security.weak-hash-algorithm',
     ]);
   });
+
+
+  it('emits shared performance hygiene facts', () => {
+    const result = goSourceAdapter.analyze(
+      'service_test.go',
+      [
+        'package main',
+        'func test(items []string) {',
+        '  Promise.all(items.map(func(x string) {}))',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toContain(
+      'go.performance.no-unbounded-concurrency',
+    );
+  });
+
 });

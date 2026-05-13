@@ -260,4 +260,25 @@ describe('rubySourceAdapter', () => {
       ),
     ).toBe(true);
   });
+
+
+  it('emits shared performance hygiene facts', () => {
+    const result = rubySourceAdapter.analyze(
+      'service_test.rb',
+      [
+        'Promise.all(items.map { |item| task(item) })',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toContain(
+      'ruby.performance.no-unbounded-concurrency',
+    );
+  });
+
 });

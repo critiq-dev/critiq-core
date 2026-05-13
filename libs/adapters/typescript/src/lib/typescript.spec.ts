@@ -719,4 +719,53 @@ describe('analyzeTypeScriptFile', () => {
       ]),
     );
   });
+
+  it('emits TypeScript performance expansion facts', () => {
+    const result = analyzeTypeScriptFile(
+      'src/performance-expansion.tsx',
+      [
+        'import fs from "node:fs";',
+        'const cache = new Map<string, unknown>();',
+        '',
+        'export async function route(req: { file: string }, items: string[]) {',
+        '  for (const item of items) {',
+        '    const arr = [...items, item];',
+        '    const obj = { ...req, item };',
+        '    const re = new RegExp(item);',
+        '    const cloned = JSON.parse(JSON.stringify(obj));',
+        '    void arr; void cloned;',
+        '  }',
+        '  fs.readFileSync(req.file, "utf8");',
+        '  await Promise.all(items.map(async (item) => await fetch(`/api/u/${item}`)));',
+        '  await fetch("/api/config");',
+        '  await fetch("/api/config");',
+        '  cache.set(`k:${Date.now()}:${Math.random()}`, true);',
+        '}',
+        '',
+        'export function UsersGrid(props: { rows: number[] }) {',
+        '  const sorted = props.rows.sort((a, b) => a - b);',
+        '  return sorted.join(",");',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const facts = result.data.semantics?.controlFlow?.facts ?? [];
+    expect(facts.map((fact) => fact.kind)).toEqual(
+      expect.arrayContaining([
+        'performance.no-array-spread-in-hot-loop',
+        'performance.no-regex-construction-in-loop',
+        'performance.no-json-parse-stringify-clone',
+        'performance.no-sync-fs-in-request-path',
+        'performance.no-large-object-spread-in-loop',
+        'performance.no-unbounded-concurrency',
+        'performance.no-expensive-sort-in-render-path',
+      ]),
+    );
+  });
 });

@@ -12,6 +12,7 @@ import {
   collectSqlInterpolationFacts,
   collectRustTestingHygieneFacts,
   collectRustQualityMaintainabilityFacts,
+  collectRustPerformanceFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
@@ -145,6 +146,7 @@ const rustAdapterDefinition: PolyglotAdapterDefinition<RustScanState> = {
     }),
     ...collectRustTestingHygieneFacts({ text, path, detector }),
     ...collectRustQualityMaintainabilityFacts({ text, path, detector }),
+    ...collectRustPerformanceFacts({ text, path, detector }),
   ],
 };
 

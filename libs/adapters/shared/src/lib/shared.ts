@@ -34,3 +34,4 @@ export * from './polyglot/domains/privacy-processors';
 export * from './polyglot/domains/filesystem-depth';
 export * from './polyglot/domains/testing-hygiene';
 export * from './polyglot/domains/quality-maintainability';
+export * from './polyglot/domains/performance';

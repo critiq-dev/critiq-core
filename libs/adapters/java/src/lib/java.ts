@@ -11,6 +11,7 @@ import {
   collectJavaSensitiveDataEgressFacts,
   collectJavaTestingHygieneFacts,
   collectJavaQualityMaintainabilityFacts,
+  collectJavaPerformanceFacts,
   collectRequestPathFileReadFacts,
   collectSensitiveLoggingFacts,
   collectSharedArchivePathTraversalFacts,
@@ -196,6 +197,7 @@ const javaAdapterDefinition: PolyglotAdapterDefinition<JavaScanState> = {
     }),
     ...collectJavaTestingHygieneFacts({ text, path, detector }),
     ...collectJavaQualityMaintainabilityFacts({ text, path, detector }),
+    ...collectJavaPerformanceFacts({ text, path, detector }),
   ],
 };
 
