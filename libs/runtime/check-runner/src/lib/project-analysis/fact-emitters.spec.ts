@@ -11,9 +11,11 @@ import {
   emitLogicChangeWithoutTestsFacts,
   emitMissingAuthorizationFacts,
   emitMissingBatchFacts,
+  emitMissingEdgeCaseTestsFacts,
   emitMissingNextErrorBoundaryFacts,
   emitMissingOwnershipFacts,
   emitMissingTestsFacts,
+  emitProductionTestBoundaryFacts,
   emitRepeatedIoFacts,
   emitTightCouplingFacts,
 } from './fact-emitters';
@@ -272,6 +274,60 @@ describe('project analysis fact emitters', () => {
     expect(
       factsOf(files[3], 'quality.logic-change-without-test-updates'),
     ).toHaveLength(0);
+  });
+
+  it('emits missing edge-case test facts for branch-heavy critical diffs without test updates', () => {
+    const changedRange: ObservedRange = {
+      startLine: 1,
+      startColumn: 1,
+      endLine: 20,
+      endColumn: 1,
+    };
+    const service = analyze(
+      'src/services/payment-service.ts',
+      [
+        'export function decide(amount: number, limit: number) {',
+        '  if (amount < 0) { return "bad"; }',
+        '  if (amount > limit) { return "high"; }',
+        '  if (limit === 0) { return "zero"; }',
+        '  if (amount === limit) { return "equal"; }',
+        '  return amount > limit / 2 ? "maybe" : "ok";',
+        '}',
+      ].join('\n'),
+      [changedRange],
+    );
+    const contexts = createFileContexts([service]);
+
+    emitMissingEdgeCaseTestsFacts(contexts);
+
+    expect(factsOf(service, 'testing.missing-edge-case-tests-for-changes')).toHaveLength(
+      1,
+    );
+  });
+
+  it('emits production test boundary facts for test-only imports and NODE_ENV guards', () => {
+    const prod = analyze(
+      'src/services/checkout.ts',
+      [
+        "import { setup } from './checkout.test';",
+        '',
+        'export function run() {',
+        "  if (process.env.NODE_ENV === 'test') { return; }",
+        '}',
+      ].join('\n'),
+    );
+    const testTwin = analyze(
+      'src/services/checkout.test.ts',
+      ['export const setup = () => {};'].join('\n'),
+    );
+    const contexts = createFileContexts([prod, testTwin]);
+
+    emitProductionTestBoundaryFacts(contexts);
+
+    expect(factsOf(prod, 'testing.production-imports-test-code')).toHaveLength(1);
+    expect(factsOf(prod, 'testing.test-only-env-branch-in-production')).toHaveLength(
+      1,
+    );
   });
 
   it('emits missing Next.js segment error boundary facts when error.tsx is absent', () => {

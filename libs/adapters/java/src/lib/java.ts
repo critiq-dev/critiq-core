@@ -9,6 +9,7 @@ import {
   collectJavaOpenRedirectFacts,
   collectJavaResponseWriterXssFacts,
   collectJavaSensitiveDataEgressFacts,
+  collectJavaTestingHygieneFacts,
   collectRequestPathFileReadFacts,
   collectSensitiveLoggingFacts,
   collectSharedArchivePathTraversalFacts,
@@ -192,6 +193,7 @@ const javaAdapterDefinition: PolyglotAdapterDefinition<JavaScanState> = {
       state,
       matchesTainted: matchesJavaTainted,
     }),
+    ...collectJavaTestingHygieneFacts({ text, path, detector }),
   ],
 };
 

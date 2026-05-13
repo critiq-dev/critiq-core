@@ -3,6 +3,7 @@ import type {
   ObservedNode,
   ObservedRange,
 } from '@critiq/core-rules-engine';
+import { isTestLikeSourcePath } from '@critiq/adapter-shared';
 import {
   basename,
   dirname,
@@ -211,10 +212,13 @@ export function rangeContains(
   );
 }
 
+/** Line/column overlap is approximated by line span overlap (diff-friendly). */
+export function rangeOverlaps(left: ObservedRange, right: ObservedRange): boolean {
+  return left.startLine <= right.endLine && left.endLine >= right.startLine;
+}
+
 export function isTestPath(path: string): boolean {
-  return /(?:^|\/)(?:__tests__|spec|test|tests)(?:\/|$)|\.(spec|test)\.(?:[jt]sx?|java|php|py|rb|rs)$/i.test(
-    path,
-  );
+  return isTestLikeSourcePath(path);
 }
 
 function stripComments(text: string): string {

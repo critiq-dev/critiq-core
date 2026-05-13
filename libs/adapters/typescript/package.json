@@ -12,6 +12,7 @@
     }
   },
   "dependencies": {
+    "@critiq/adapter-shared": "0.0.1",
     "@critiq/core-diagnostics": "0.0.1",
     "@critiq/core-rules-engine": "0.0.1",
     "@typescript-eslint/typescript-estree": "^8.58.0",

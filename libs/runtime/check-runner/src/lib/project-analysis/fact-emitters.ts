@@ -20,9 +20,11 @@ import {
   createRangeFromOffsets,
   isBatchAlternative,
   isFixtureLikePath,
+  isTestPath,
   matchingTestPathsForSource,
   normalizeEndpointPath,
   rangeContains,
+  rangeOverlaps,
   type FileContext,
   type FunctionInfo,
   type RouteEntry,
@@ -559,6 +561,145 @@ export function emitTightCouplingFacts(
         text: returnEdge.source,
         props: {
           peerPath: context.file.path,
+        },
+      });
+    }
+  }
+}
+
+const BRANCH_HEAVY_NODE_KINDS = new Set([
+  'IfStatement',
+  'ConditionalExpression',
+  'SwitchStatement',
+]);
+
+const PRODUCTION_TEST_ENV_PATTERN =
+  /process\.env\.NODE_ENV\s*===\s*['"]test['"]|import\.meta\.env\.MODE\s*===\s*['"]test['"]|\bimport\.meta\.vitest\b/g;
+
+function countBranchNodesTouchingChanges(
+  file: AnalyzedFile,
+  changedRanges: readonly ObservedRange[],
+): number {
+  let count = 0;
+
+  for (const node of file.nodes) {
+    if (!BRANCH_HEAVY_NODE_KINDS.has(node.kind)) {
+      continue;
+    }
+
+    if (!changedRanges.some((range) => rangeOverlaps(range, node.range))) {
+      continue;
+    }
+
+    count += 1;
+  }
+
+  return count;
+}
+
+function productionImportLooksTestOnly(resolvedPath: string): boolean {
+  return (
+    isTestPath(resolvedPath) ||
+    /\/__mocks__\//.test(resolvedPath) ||
+    /\.(?:spec|test)\.[jt]s$/i.test(resolvedPath)
+  );
+}
+
+export function emitMissingEdgeCaseTestsFacts(
+  fileContexts: ReadonlyMap<string, FileContext>,
+  availableChangedTestPaths: ReadonlySet<string> = new Set(),
+): void {
+  const changedTestPaths = new Set(
+    [
+      ...availableChangedTestPaths,
+      ...[...fileContexts.values()]
+        .filter(
+          (context) =>
+            context.isTestFile &&
+            Boolean(
+              context.file.changedRanges && context.file.changedRanges.length > 0,
+            ),
+        )
+        .map((context) => context.file.path),
+    ],
+  );
+
+  for (const context of fileContexts.values()) {
+    const changedRanges = context.file.changedRanges;
+
+    if (
+      context.isTestFile ||
+      isFixtureLikePath(context.file.path) ||
+      !changedRanges ||
+      changedRanges.length === 0 ||
+      !CRITICAL_PATH_PATTERN.test(context.file.path)
+    ) {
+      continue;
+    }
+
+    if (countBranchNodesTouchingChanges(context.file, changedRanges) < 5) {
+      continue;
+    }
+
+    if (
+      matchingTestPathsForSource(context.file.path).some((path) =>
+        changedTestPaths.has(path),
+      )
+    ) {
+      continue;
+    }
+
+    appendFact(context, {
+      kind: 'testing.missing-edge-case-tests-for-changes',
+      appliesTo: 'project',
+      range: changedRanges[0],
+      text: basename(context.file.path),
+      props: {},
+    });
+  }
+}
+
+export function emitProductionTestBoundaryFacts(
+  fileContexts: ReadonlyMap<string, FileContext>,
+): void {
+  for (const context of fileContexts.values()) {
+    if (context.isTestFile || isFixtureLikePath(context.file.path)) {
+      continue;
+    }
+
+    const text = context.file.text;
+    const pattern = new RegExp(PRODUCTION_TEST_ENV_PATTERN.source, 'g');
+    let environmentMatch: RegExpExecArray | null = pattern.exec(text);
+
+    while (environmentMatch !== null) {
+      const startOffset = environmentMatch.index;
+      const endOffset = startOffset + environmentMatch[0].length;
+
+      appendFact(context, {
+        kind: 'testing.test-only-env-branch-in-production',
+        appliesTo: 'project',
+        range: createRangeFromOffsets(context, startOffset, endOffset),
+        text: environmentMatch[0].trim(),
+        props: {},
+      });
+
+      environmentMatch = pattern.exec(text);
+    }
+
+    for (const importEdge of context.imports) {
+      const resolved = importEdge.resolvedPath;
+
+      if (!resolved || !productionImportLooksTestOnly(resolved)) {
+        continue;
+      }
+
+      appendFact(context, {
+        kind: 'testing.production-imports-test-code',
+        appliesTo: 'project',
+        range: importEdge.range,
+        text: importEdge.source,
+        props: {
+          resolvedPath: resolved,
         },
       });
     }

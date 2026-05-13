@@ -7,9 +7,11 @@ import {
   emitLogicChangeWithoutTestsFacts,
   emitMissingAuthorizationFacts,
   emitMissingBatchFacts,
+  emitMissingEdgeCaseTestsFacts,
   emitMissingNextErrorBoundaryFacts,
   emitMissingOwnershipFacts,
   emitMissingTestsFacts,
+  emitProductionTestBoundaryFacts,
   emitRepeatedIoFacts,
   emitTightCouplingFacts,
 } from './fact-emitters';
@@ -33,9 +35,14 @@ export function augmentProjectFacts(
   emitTightCouplingFacts(contexts);
   emitMissingNextErrorBoundaryFacts(contexts);
   emitMissingTestsFacts(contexts, options.availableTestPaths);
+  emitProductionTestBoundaryFacts(contexts);
 
   if (options.scopeMode === 'diff') {
     emitLogicChangeWithoutTestsFacts(
+      contexts,
+      options.availableChangedTestPaths,
+    );
+    emitMissingEdgeCaseTestsFacts(
       contexts,
       options.availableChangedTestPaths,
     );

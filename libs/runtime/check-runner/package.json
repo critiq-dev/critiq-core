@@ -12,6 +12,7 @@
     }
   },
   "dependencies": {
+    "@critiq/adapter-shared": "0.0.1",
     "@critiq/adapter-go": "0.0.1",
     "@critiq/adapter-java": "0.0.1",
     "@critiq/adapter-php": "0.0.1",

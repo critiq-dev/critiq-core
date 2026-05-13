@@ -10,6 +10,7 @@ import {
   collectSensitiveLoggingFacts,
   collectSharedSensitiveDataEgressFacts,
   collectSqlInterpolationFacts,
+  collectPythonTestingHygieneFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
@@ -60,7 +61,7 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
   detector: 'python-detector',
   validate: validatePythonSource,
   collectState: collectPythonScanState,
-  collectFacts: ({ text, state, detector }) => [
+  collectFacts: ({ text, state, detector, path }) => [
     ...collectHardcodedCredentialFacts({
       text,
       detector,
@@ -152,6 +153,7 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
       state,
       matchesTainted: matchesPythonTainted,
     }),
+    ...collectPythonTestingHygieneFacts({ text, path, detector }),
   ],
 };
 

@@ -1,4 +1,5 @@
 export * from './runtime';
+export * from './testing-paths';
 
 export * from './polyglot/analysis';
 export * from './polyglot/fact-utils';
@@ -31,3 +32,4 @@ export * from './polyglot/domains/go-security';
 export * from './polyglot/domains/rust-framework-security';
 export * from './polyglot/domains/privacy-processors';
 export * from './polyglot/domains/filesystem-depth';
+export * from './polyglot/domains/testing-hygiene';

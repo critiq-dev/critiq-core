@@ -22,6 +22,7 @@ import {
   collectSharedPermissiveFilePermissionFacts,
   collectSharedSensitiveDataEgressFacts,
   collectSqlInterpolationFacts,
+  collectGoTestingHygieneFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
@@ -185,6 +186,7 @@ const goAdapterDefinition: PolyglotAdapterDefinition<GoScanState> = {
       state,
       matchesTainted: matchesGoTainted,
     }),
+    ...collectGoTestingHygieneFacts({ text, path, detector }),
   ],
 };
 

@@ -11,6 +11,7 @@ import {
   collectSharedPermissiveFilePermissionFacts,
   collectSharedSensitiveDataEgressFacts,
   collectSqlInterpolationFacts,
+  collectRubyTestingHygieneFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
@@ -153,6 +154,7 @@ const rubyAdapterDefinition: PolyglotAdapterDefinition<RubyScanState> = {
       state,
       matchesTainted: matchesRubyTainted,
     }),
+    ...collectRubyTestingHygieneFacts({ text, path, detector }),
   ],
 };
 
