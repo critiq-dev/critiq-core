@@ -6,6 +6,7 @@ import {
   resolveFunctionLike,
   type FunctionLikeNode,
 } from './additional-public-security/analysis';
+import { FACT_KINDS } from './additional-public-security/constants';
 import {
   collectObjectBindings,
   createObservedFact,
@@ -389,10 +390,59 @@ function collectElectronInsecureLocalStateFacts(
   return facts;
 }
 
+function collectElectronShellOpenExternalFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+
+  walkAst(context.program, (node) => {
+    if (node.type !== 'CallExpression') {
+      return;
+    }
+
+    const calleeText = getCalleeText(node.callee, context.sourceText);
+
+    if (
+      calleeText !== 'shell.openExternal' &&
+      !calleeText?.endsWith('.shell.openExternal')
+    ) {
+      return;
+    }
+
+    const targetUrl = node.arguments[0] as TSESTree.Expression | undefined;
+
+    if (!targetUrl) {
+      return;
+    }
+
+    const urlText = getNodeText(targetUrl, context.sourceText);
+
+    if (
+      !urlText ||
+      (!/\breq(?:uest)?\b/u.test(urlText) && !/\b(?:body|query|params)\b/u.test(urlText))
+    ) {
+      return;
+    }
+
+    facts.push(
+      createObservedFact({
+        appliesTo: 'block',
+        kind: FACT_KINDS.electronShellOpenExternalUnvalidated,
+        node,
+        nodeIds: context.nodeIds,
+        text: calleeText,
+      }),
+    );
+  });
+
+  return facts;
+}
+
 export const collectClientApplicationSecurityFacts: TypeScriptFactDetector = (
   context,
 ) => [
   ...collectElectronDangerousWebPreferenceFacts(context),
   ...collectElectronIpcOriginFacts(context),
   ...collectElectronInsecureLocalStateFacts(context),
+  ...collectElectronShellOpenExternalFacts(context),
 ];

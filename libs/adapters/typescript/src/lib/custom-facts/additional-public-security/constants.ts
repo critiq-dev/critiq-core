@@ -74,6 +74,20 @@ export const FACT_KINDS = {
   unsanitizedHttpResponse: 'security.unsanitized-http-response',
   logInjection: 'security.log-injection',
   debugStatementInSource: 'security.debug-statement-in-source',
+  insecureHelmetHardeningOptions: 'security.insecure-helmet-hardening-options',
+  expressStaticDotfilesAllow: 'security.express-static-dotfiles-allow',
+  insecureContentSecurityPolicyLiteral:
+    'security.insecure-content-security-policy-literal',
+  ajvInsecureConfiguration: 'security.ajv-insecure-configuration',
+  xmlParseStringWithUntrustedInput: 'security.xml-parse-string-with-untrusted-input',
+  expressErrorHandlerInformationDisclosure:
+    'security.express-error-handler-information-disclosure',
+  requestDrivenArrayIndexAccess: 'security.request-driven-array-index-access',
+  expressUserControlledStaticMount:
+    'security.express-user-controlled-static-mount',
+  electronShellOpenExternalUnvalidated:
+    'security.electron-shell-open-external-unvalidated',
+  iframeMissingSandboxAttribute: 'security.iframe-missing-sandbox-attribute',
 } as const;
 
 export const requestSourcePattern = trustBoundaryRequestSourcePattern;

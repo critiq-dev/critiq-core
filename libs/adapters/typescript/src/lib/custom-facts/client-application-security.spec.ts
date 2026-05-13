@@ -100,4 +100,22 @@ describe('collectClientApplicationSecurityFacts', () => {
 
     expect(facts).toHaveLength(0);
   });
+
+  it('flags shell.openExternal when the target is request-derived', () => {
+    const facts = collectClientApplicationSecurityFacts(
+      createContext([
+        'export function handler(req: { query: { url: string } }): void {',
+        "  const electron = require('electron') as { shell: { openExternal: (u: string) => void } };",
+        '  electron.shell.openExternal(req.query.url);',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.some(
+        (fact) =>
+          fact.kind === 'security.electron-shell-open-external-unvalidated',
+      ),
+    ).toBe(true);
+  });
 });

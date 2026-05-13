@@ -178,7 +178,7 @@ function isHiddenOrPresentational(opening: TSESTree.JSXOpeningElement): boolean 
   );
 }
 
-/** Detects JSX accessibility issues added in the DeepSource parity wave. */
+/** Detects JSX accessibility issues added in the analyzer parity wave. */
 export function collectAccessibilityParityFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {

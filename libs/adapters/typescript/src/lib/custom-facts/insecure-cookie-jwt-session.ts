@@ -25,6 +25,8 @@ import {
 export const INSECURE_AUTH_COOKIE_FLAGS_RULE_ID =
   'ts.security.insecure-auth-cookie-flags';
 export const JWT_SENSITIVE_CLAIMS_RULE_ID = 'ts.security.jwt-sensitive-claims';
+export const JWT_INSECURE_SIGNING_ALGORITHM_RULE_ID =
+  'ts.security.jwt-insecure-signing-algorithm';
 export const BROWSER_TOKEN_STORAGE_RULE_ID =
   'ts.security.browser-token-storage';
 
@@ -276,6 +278,88 @@ function detectJwtFacts(
   return facts;
 }
 
+function algorithmsArrayContainsNone(
+  arrayExpression: TSESTree.ArrayExpression | undefined,
+): boolean {
+  if (!arrayExpression) {
+    return false;
+  }
+
+  for (const element of arrayExpression.elements) {
+    if (element?.type === 'Literal' && element.value === 'none') {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function detectJwtInsecureSigningAlgorithmFacts(
+  context: TypeScriptFactDetectorContext,
+  bindings: Map<string, TSESTree.ObjectExpression>,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+
+  walkAst(context.program, (node) => {
+    if (node.type !== 'CallExpression') {
+      return;
+    }
+
+    const calleeText = getCalleeText(node.callee, context.sourceText);
+
+    if (calleeText !== 'jwt.sign') {
+      return;
+    }
+
+    const options = resolveObjectExpression(
+      node.arguments[2] as TSESTree.Expression | undefined,
+      bindings,
+    );
+
+    if (!options) {
+      return;
+    }
+
+    const algorithmProperty = getObjectProperty(options, 'algorithm');
+
+    if (
+      algorithmProperty?.value.type === 'Literal' &&
+      algorithmProperty.value.value === 'none'
+    ) {
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: JWT_INSECURE_SIGNING_ALGORITHM_RULE_ID,
+          node,
+          nodeIds: context.nodeIds,
+          text: calleeText,
+        }),
+      );
+
+      return;
+    }
+
+    const algorithmsProperty = getObjectProperty(options, 'algorithms');
+
+    if (
+      algorithmsProperty?.value.type === 'ArrayExpression' &&
+      algorithmsArrayContainsNone(algorithmsProperty.value)
+    ) {
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: JWT_INSECURE_SIGNING_ALGORITHM_RULE_ID,
+          node,
+          nodeIds: context.nodeIds,
+          text: calleeText,
+        }),
+      );
+    }
+  });
+
+  return facts;
+}
+
 function detectBrowserStorageFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
@@ -336,6 +420,7 @@ export const collectInsecureCookieJwtSessionFacts: TypeScriptFactDetector = (
   const facts = [
     ...detectCookieFacts(context, bindings),
     ...detectJwtFacts(context, bindings),
+    ...detectJwtInsecureSigningAlgorithmFacts(context, bindings),
     ...detectBrowserStorageFacts(context),
   ];
 

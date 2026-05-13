@@ -4,6 +4,7 @@ import type { TypeScriptFactDetectorContext } from '../shared';
 import { collectAccessibilityParityFacts } from './accessibility-parity';
 import { collectDeprecatedReactApiFacts } from './deprecated-react-api';
 import { collectDerivedStateFacts } from './derived-state';
+import { collectIframeMissingSandboxFacts } from './iframe-sandbox';
 import { collectIndexKeyFacts } from './index-key';
 import { collectLegacyReactPatternFacts } from './legacy-react-patterns';
 import { collectMissingAccessibleNameFacts } from './accessible-name';
@@ -21,6 +22,7 @@ export function detectReactAccessibilityFacts(
     ...collectLegacyReactPatternFacts(context),
     ...collectDeprecatedReactApiFacts(context),
     ...collectAccessibilityParityFacts(context),
+    ...collectIframeMissingSandboxFacts(context),
   ];
 }
 

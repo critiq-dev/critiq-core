@@ -7,6 +7,7 @@ import {
   resolveFunctionBindings,
 } from './analysis';
 import { collectAngularDomSanitizerFacts } from './angular-dom-sanitizer';
+import { collectAjvInsecureConfigurationFacts } from './ajv-insecure-configuration';
 import {
   collectDatadogBrowserFacts,
   collectExpressBodyParserLimitsFacts,
@@ -14,6 +15,12 @@ import {
   collectHardcodedAuthSecretFacts,
   collectRenderFacts,
 } from './application';
+import {
+  collectExpressErrorHandlerInformationDisclosureFacts,
+  collectExpressUserControlledStaticMountFacts,
+  collectRequestDrivenArrayIndexFacts,
+  collectXmlParseStringWithUntrustedInputFacts,
+} from './javascript-security-chunk-b';
 import { collectFrameworkConfigSecurityFacts } from './framework-config-security';
 import { collectNodeFrameworkBootstrapFacts } from './node-framework-bootstrap';
 import { collectDebugStatementInSourceFacts } from './debug-statements';
@@ -81,6 +88,11 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
     ...collectAngularDomSanitizerFacts(context),
     ...collectExpressHardeningFacts(context, functionBindings),
     ...collectExpressBodyParserLimitsFacts(context, functionBindings),
+    ...collectAjvInsecureConfigurationFacts(context),
+    ...collectXmlParseStringWithUntrustedInputFacts(context),
+    ...collectExpressErrorHandlerInformationDisclosureFacts(context),
+    ...collectRequestDrivenArrayIndexFacts(context),
+    ...collectExpressUserControlledStaticMountFacts(context),
     ...collectNodeFrameworkBootstrapFacts(context),
     ...collectFrameworkConfigSecurityFacts(context),
     ...collectDebugModeEnabledFacts(context),

@@ -36,6 +36,7 @@ import {
   WEAK_HASH_FACT_KIND,
   WEAK_KEY_STRENGTH_FACT_KIND,
   webCryptoGenerateKeyCallNames,
+  LEGACY_BUFFER_CONSTRUCTOR_FACT_KIND,
 } from './constants';
 import {
   createObservedFact,
@@ -1355,6 +1356,52 @@ function collectMissingIntegrityFacts(
   return facts;
 }
 
+function collectLegacyBufferConstructorFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+
+  walkAst(context.program, (node) => {
+    if (node.type === 'CallExpression') {
+      if (node.callee.type !== 'Identifier' || node.callee.name !== 'Buffer') {
+        return;
+      }
+
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: LEGACY_BUFFER_CONSTRUCTOR_FACT_KIND,
+          node,
+          nodeIds: context.nodeIds,
+          text: 'Buffer(...)',
+        }),
+      );
+
+      return;
+    }
+
+    if (node.type !== 'NewExpression') {
+      return;
+    }
+
+    if (node.callee.type !== 'Identifier' || node.callee.name !== 'Buffer') {
+      return;
+    }
+
+    facts.push(
+      createObservedFact({
+        appliesTo: 'block',
+        kind: LEGACY_BUFFER_CONSTRUCTOR_FACT_KIND,
+        node,
+        nodeIds: context.nodeIds,
+        text: 'new Buffer(...)',
+      }),
+    );
+  });
+
+  return facts;
+}
+
 export const collectWeakCryptoFacts: TypeScriptFactDetector = (context) => {
   const bindings = collectExpressionBindings(context);
   const facts = [
@@ -1365,6 +1412,7 @@ export const collectWeakCryptoFacts: TypeScriptFactDetector = (context) => {
     ...collectInsufficientRandomFacts(context, bindings),
     ...collectWeakKeyStrengthFacts(context, bindings),
     ...collectMissingIntegrityFacts(context, bindings),
+    ...collectLegacyBufferConstructorFacts(context),
   ];
 
   const uniqueFacts = new Map<string, ObservedFact>();

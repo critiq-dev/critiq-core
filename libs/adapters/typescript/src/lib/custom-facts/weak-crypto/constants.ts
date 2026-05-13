@@ -18,6 +18,8 @@ export const INSECURE_PASSWORD_HASH_CONFIG_FACT_KIND =
 export const INSUFFICIENT_RANDOM_FACT_KIND = 'security.insufficiently-random-values';
 export const WEAK_KEY_STRENGTH_FACT_KIND = 'security.weak-key-strength';
 export const MISSING_INTEGRITY_FACT_KIND = 'security.missing-integrity-check';
+export const LEGACY_BUFFER_CONSTRUCTOR_FACT_KIND =
+  'security.legacy-buffer-constructor';
 
 export const weakHashAlgorithmPattern = /^(md4|md5|ripemd160|sha1)$/i;
 export const sensitivePasswordValuePattern =

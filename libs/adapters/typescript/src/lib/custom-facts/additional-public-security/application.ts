@@ -45,14 +45,65 @@ import {
   sessionCallNames,
   strategyNames,
 } from './constants';
-import {
-  getLiteralString,
-} from './literal-values';
+import { getLiteralString } from './literal-values';
 import {
   objectBooleanFlagFalse,
   objectPropertyNames,
 } from './object-flags';
 import { normalizeText } from './text-normalization';
+
+function referrerPolicyUsesUnsafeUrl(
+  helmetConfig: TSESTree.ObjectExpression | undefined,
+): boolean {
+  const property = getObjectProperty(helmetConfig, 'referrerPolicy');
+
+  if (!property?.value) {
+    return false;
+  }
+
+  if (
+    property.value.type === 'Literal' &&
+    property.value.value === 'unsafe-url'
+  ) {
+    return true;
+  }
+
+  if (property.value.type === 'ObjectExpression') {
+    const policyProperty = getObjectProperty(property.value, 'policy');
+
+    return (
+      policyProperty?.value.type === 'Literal' &&
+      policyProperty.value.value === 'unsafe-url'
+    );
+  }
+
+  return false;
+}
+
+function cspLiteralLooksUnsafe(csp: string): boolean {
+  return (
+    /unsafe-inline|unsafe-eval|unsafe-hashes/ui.test(csp) &&
+    !/nonce-/iu.test(csp)
+  );
+}
+
+function getStaticCspLiteral(
+  expression: TSESTree.Expression | undefined,
+): string | undefined {
+  if (!expression) {
+    return undefined;
+  }
+
+  if (expression.type === 'Literal' && typeof expression.value === 'string') {
+    return expression.value;
+  }
+
+  if (expression.type === 'TemplateLiteral' && expression.expressions.length === 0) {
+    return expression.quasis.map((quasi) => quasi.value.cooked ?? '').join('');
+  }
+
+  return undefined;
+}
 
 function getTemplateLiteralString(
   node: TSESTree.TemplateLiteral,
@@ -579,6 +630,25 @@ export function collectExpressHardeningFacts(
             }),
           );
         }
+
+        if (
+          objectBooleanFlagFalse(helmetConfig, 'noSniff') ||
+          objectBooleanFlagFalse(helmetConfig, 'hsts') ||
+          objectBooleanFlagFalse(helmetConfig, 'dnsPrefetchControl') ||
+          objectBooleanFlagFalse(helmetConfig, 'expectCt') ||
+          objectBooleanFlagFalse(helmetConfig, 'referrerPolicy') ||
+          referrerPolicyUsesUnsafeUrl(helmetConfig)
+        ) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'block',
+              kind: FACT_KINDS.insecureHelmetHardeningOptions,
+              node,
+              nodeIds: context.nodeIds,
+              text: middlewareCalleeText ?? 'helmet',
+            }),
+          );
+        }
       }
 
       if (
@@ -596,6 +666,26 @@ export function collectExpressHardeningFacts(
         staticIndex === Number.POSITIVE_INFINITY
       ) {
         staticIndex = callIndex;
+        const staticOptions = resolveObjectExpression(
+          middlewareCall?.arguments[1],
+          objectBindings,
+        );
+        const dotfilesProperty = getObjectProperty(staticOptions, 'dotfiles');
+
+        if (
+          dotfilesProperty?.value.type === 'Literal' &&
+          dotfilesProperty.value.value === 'allow'
+        ) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'block',
+              kind: FACT_KINDS.expressStaticDotfilesAllow,
+              node,
+              nodeIds: context.nodeIds,
+              text: 'express.static',
+            }),
+          );
+        }
       }
 
       if (
@@ -732,6 +822,29 @@ export function collectExpressHardeningFacts(
           createObservedFact({
             appliesTo: 'block',
             kind: FACT_KINDS.jwtNotRevoked,
+            node,
+            nodeIds: context.nodeIds,
+            text: calleeText,
+          }),
+        );
+      }
+    }
+
+    if (
+      (calleeText === 'res.setHeader' ||
+        calleeText === 'response.setHeader') &&
+      getLiteralString(node.arguments[0] as TSESTree.Expression) ===
+        'Content-Security-Policy'
+    ) {
+      const cspValue = getStaticCspLiteral(
+        node.arguments[1] as TSESTree.Expression | undefined,
+      );
+
+      if (cspValue && cspLiteralLooksUnsafe(cspValue)) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: FACT_KINDS.insecureContentSecurityPolicyLiteral,
             node,
             nodeIds: context.nodeIds,
             text: calleeText,
