@@ -15,7 +15,7 @@ const NATIVE_INTERACTIVE_TAGS = new Set([
   'textarea',
 ]);
 
-const INTERACTIVE_ROLES = new Set([
+export const INTERACTIVE_ROLES = new Set([
   'button',
   'checkbox',
   'link',
@@ -29,6 +29,23 @@ const INTERACTIVE_ROLES = new Set([
   'switch',
   'tab',
   'textbox',
+]);
+
+/** Phrasing or landmark tags that should not masquerade as interactive widgets. */
+const SEMANTIC_TAGS_DISCOURAGED_WITH_WIDGET_ROLE = new Set([
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'p',
+  'blockquote',
+  'figcaption',
+  'caption',
+  'dt',
+  'label',
+  'legend',
 ]);
 
 /** Returns the rendered tag text for an intrinsic or member JSX opening element. */
@@ -145,4 +162,16 @@ export function isDecorativeImage(
   const role = getJsxStringAttr(opening, 'role')?.toLowerCase();
 
   return ariaHidden === true || role === 'presentation' || role === 'none';
+}
+
+/** True when a semantic text or caption tag is assigned an interactive ARIA role. */
+export function isSemanticElementWithInteractiveRole(
+  lowerTagName: string,
+  roleLower: string | undefined,
+): boolean {
+  return Boolean(
+    roleLower &&
+      INTERACTIVE_ROLES.has(roleLower) &&
+      SEMANTIC_TAGS_DISCOURAGED_WITH_WIDGET_ROLE.has(lowerTagName),
+  );
 }

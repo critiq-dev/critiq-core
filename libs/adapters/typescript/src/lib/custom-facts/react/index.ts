@@ -2,6 +2,7 @@ import type { ObservedFact } from '@critiq/core-rules-engine';
 
 import type { TypeScriptFactDetectorContext } from '../shared';
 import { collectAccessibilityParityFacts } from './accessibility-parity';
+import { collectDeprecatedReactApiFacts } from './deprecated-react-api';
 import { collectDerivedStateFacts } from './derived-state';
 import { collectIndexKeyFacts } from './index-key';
 import { collectLegacyReactPatternFacts } from './legacy-react-patterns';
@@ -18,6 +19,7 @@ export function detectReactAccessibilityFacts(
     ...collectMissingAccessibleNameFacts(context),
     ...collectUncontrolledControlledInputFacts(context),
     ...collectLegacyReactPatternFacts(context),
+    ...collectDeprecatedReactApiFacts(context),
     ...collectAccessibilityParityFacts(context),
   ];
 }
@@ -26,6 +28,7 @@ export function detectReactAccessibilityFacts(
 export const collectReactFacts = detectReactAccessibilityFacts;
 
 export { collectAccessibilityParityFacts } from './accessibility-parity';
+export { collectDeprecatedReactApiFacts } from './deprecated-react-api';
 export { collectDerivedStateFacts } from './derived-state';
 export { collectIndexKeyFacts } from './index-key';
 export { collectLegacyReactPatternFacts } from './legacy-react-patterns';
