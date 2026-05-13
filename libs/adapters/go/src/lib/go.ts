@@ -23,6 +23,7 @@ import {
   collectSharedSensitiveDataEgressFacts,
   collectSqlInterpolationFacts,
   collectGoTestingHygieneFacts,
+  collectGoQualityMaintainabilityFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
@@ -187,6 +188,7 @@ const goAdapterDefinition: PolyglotAdapterDefinition<GoScanState> = {
       matchesTainted: matchesGoTainted,
     }),
     ...collectGoTestingHygieneFacts({ text, path, detector }),
+    ...collectGoQualityMaintainabilityFacts({ text, path, detector }),
   ],
 };
 

@@ -3,6 +3,8 @@ import type { AnalyzedFile } from '@critiq/core-rules-engine';
 import { type ProjectAnalysisOptions, createFileContexts } from './context';
 import {
   emitDuplicateCodeFacts,
+  emitBarrelCycleFacts,
+  emitDeadExportFacts,
   emitFrontendOnlyAuthorizationFacts,
   emitLogicChangeWithoutTestsFacts,
   emitMissingAuthorizationFacts,
@@ -14,6 +16,7 @@ import {
   emitProductionTestBoundaryFacts,
   emitRepeatedIoFacts,
   emitTightCouplingFacts,
+  emitWidePublicSurfaceFacts,
 } from './fact-emitters';
 import { appendDependencyFacts } from './dependencies';
 
@@ -33,6 +36,9 @@ export function augmentProjectFacts(
   emitMissingBatchFacts(contexts);
   emitDuplicateCodeFacts(contexts);
   emitTightCouplingFacts(contexts);
+  emitWidePublicSurfaceFacts(contexts);
+  emitBarrelCycleFacts(contexts);
+  emitDeadExportFacts(contexts);
   emitMissingNextErrorBoundaryFacts(contexts);
   emitMissingTestsFacts(contexts, options.availableTestPaths);
   emitProductionTestBoundaryFacts(contexts);

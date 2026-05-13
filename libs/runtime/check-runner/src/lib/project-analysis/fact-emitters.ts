@@ -567,6 +567,136 @@ export function emitTightCouplingFacts(
   }
 }
 
+const EXPORT_DECLARATION_PATTERN =
+  /^\s*export\s+(?:const|let|var|function|class|type|interface|enum)\s+([A-Za-z_$][A-Za-z0-9_$]*)/gm;
+const EXPORT_SPECIFIER_PATTERN = /^\s*export\s*\{\s*([^}]+)\s*\}/gm;
+const REEXPORT_PATTERN = /^\s*export\s+\*\s+from\s+['"][^'"]+['"]/gm;
+
+function collectExportedNames(sourceText: string): string[] {
+  const names: string[] = [];
+  let match: RegExpExecArray | null = EXPORT_DECLARATION_PATTERN.exec(sourceText);
+  while (match !== null) {
+    if (match[1]) {
+      names.push(match[1]);
+    }
+    match = EXPORT_DECLARATION_PATTERN.exec(sourceText);
+  }
+
+  match = EXPORT_SPECIFIER_PATTERN.exec(sourceText);
+  while (match !== null) {
+    const list = match[1] ?? '';
+    for (const raw of list.split(',')) {
+      const candidate = raw.trim().split(/\s+as\s+/i)[0]?.trim();
+      if (candidate) {
+        names.push(candidate);
+      }
+    }
+    match = EXPORT_SPECIFIER_PATTERN.exec(sourceText);
+  }
+
+  return names;
+}
+
+function isBarrelFile(sourceText: string): boolean {
+  const reexportCount = [...sourceText.matchAll(REEXPORT_PATTERN)].length;
+  const exportNames = collectExportedNames(sourceText).length;
+  return reexportCount >= 2 || (reexportCount >= 1 && exportNames === 0);
+}
+
+export function emitWidePublicSurfaceFacts(
+  fileContexts: ReadonlyMap<string, FileContext>,
+): void {
+  for (const context of fileContexts.values()) {
+    if (context.isTestFile || isFixtureLikePath(context.file.path)) {
+      continue;
+    }
+    const exports = collectExportedNames(context.file.text);
+    if (exports.length < 8) {
+      continue;
+    }
+    appendFact(context, {
+      kind: 'quality.wide-public-surface',
+      appliesTo: 'project',
+      range: createFileStartRange(context.file),
+      text: basename(context.file.path),
+      props: {
+        exportCount: exports.length,
+      },
+    });
+  }
+}
+
+export function emitBarrelCycleFacts(
+  fileContexts: ReadonlyMap<string, FileContext>,
+): void {
+  for (const context of fileContexts.values()) {
+    if (!isBarrelFile(context.file.text)) {
+      continue;
+    }
+    for (const edge of context.imports) {
+      const resolved = edge.resolvedPath;
+      if (!resolved) {
+        continue;
+      }
+      const peer = fileContexts.get(resolved);
+      if (!peer || !isBarrelFile(peer.file.text)) {
+        continue;
+      }
+      const hasBackEdge = peer.imports.some(
+        (candidate) => candidate.resolvedPath === context.file.path,
+      );
+      const contextBase = basename(context.file.path).replace(/\.[^.]+$/u, '');
+      const peerBase = basename(peer.file.path).replace(/\.[^.]+$/u, '');
+      const contextReexportsPeer = new RegExp(
+        `export\\s+\\*\\s+from\\s+['"][^'"]*${peerBase}['"]`,
+      ).test(context.file.text);
+      const peerReexportsContext = new RegExp(
+        `export\\s+\\*\\s+from\\s+['"][^'"]*${contextBase}['"]`,
+      ).test(peer.file.text);
+      if (!hasBackEdge && !(contextReexportsPeer && peerReexportsContext)) {
+        continue;
+      }
+      appendFact(context, {
+        kind: 'quality.barrel-file-cycle',
+        appliesTo: 'project',
+        range: edge.range,
+        text: edge.source,
+        props: {
+          peerPath: peer.file.path,
+        },
+      });
+    }
+  }
+}
+
+export function emitDeadExportFacts(
+  fileContexts: ReadonlyMap<string, FileContext>,
+): void {
+  const corpus = [...fileContexts.values()]
+    .map((context) => context.file.text)
+    .join('\n');
+  for (const context of fileContexts.values()) {
+    if (context.isTestFile || isFixtureLikePath(context.file.path)) {
+      continue;
+    }
+    for (const name of collectExportedNames(context.file.text)) {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const references = new RegExp(`\\b${escaped}\\b`, 'g');
+      const hits = [...corpus.matchAll(references)].length;
+      if (hits > 1) {
+        continue;
+      }
+      appendFact(context, {
+        kind: 'quality.dead-export',
+        appliesTo: 'project',
+        range: createFileStartRange(context.file),
+        text: name,
+        props: {},
+      });
+    }
+  }
+}
+
 const BRANCH_HEAVY_NODE_KINDS = new Set([
   'IfStatement',
   'ConditionalExpression',

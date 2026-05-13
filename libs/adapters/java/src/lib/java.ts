@@ -10,6 +10,7 @@ import {
   collectJavaResponseWriterXssFacts,
   collectJavaSensitiveDataEgressFacts,
   collectJavaTestingHygieneFacts,
+  collectJavaQualityMaintainabilityFacts,
   collectRequestPathFileReadFacts,
   collectSensitiveLoggingFacts,
   collectSharedArchivePathTraversalFacts,
@@ -194,6 +195,7 @@ const javaAdapterDefinition: PolyglotAdapterDefinition<JavaScanState> = {
       matchesTainted: matchesJavaTainted,
     }),
     ...collectJavaTestingHygieneFacts({ text, path, detector }),
+    ...collectJavaQualityMaintainabilityFacts({ text, path, detector }),
   ],
 };
 

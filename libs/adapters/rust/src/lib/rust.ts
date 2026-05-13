@@ -11,6 +11,7 @@ import {
   collectSharedSensitiveDataEgressFacts,
   collectSqlInterpolationFacts,
   collectRustTestingHygieneFacts,
+  collectRustQualityMaintainabilityFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
@@ -143,6 +144,7 @@ const rustAdapterDefinition: PolyglotAdapterDefinition<RustScanState> = {
       matchesTainted: matchesRustTainted,
     }),
     ...collectRustTestingHygieneFacts({ text, path, detector }),
+    ...collectRustQualityMaintainabilityFacts({ text, path, detector }),
   ],
 };
 

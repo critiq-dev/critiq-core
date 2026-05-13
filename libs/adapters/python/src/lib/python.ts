@@ -11,6 +11,7 @@ import {
   collectSharedSensitiveDataEgressFacts,
   collectSqlInterpolationFacts,
   collectPythonTestingHygieneFacts,
+  collectPythonQualityMaintainabilityFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
@@ -154,6 +155,7 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
       matchesTainted: matchesPythonTainted,
     }),
     ...collectPythonTestingHygieneFacts({ text, path, detector }),
+    ...collectPythonQualityMaintainabilityFacts({ text, path, detector }),
   ],
 };
 

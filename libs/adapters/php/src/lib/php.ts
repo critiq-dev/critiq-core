@@ -12,6 +12,7 @@ import {
   collectSharedSensitiveDataEgressFacts,
   collectSqlInterpolationFacts,
   collectPhpTestingHygieneFacts,
+  collectPhpQualityMaintainabilityFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
@@ -161,6 +162,7 @@ const phpAdapterDefinition: PolyglotAdapterDefinition<PhpScanState> = {
       matchesTainted: matchesPhpTainted,
     }),
     ...collectPhpTestingHygieneFacts({ text, path, detector }),
+    ...collectPhpQualityMaintainabilityFacts({ text, path, detector }),
   ],
 };
 

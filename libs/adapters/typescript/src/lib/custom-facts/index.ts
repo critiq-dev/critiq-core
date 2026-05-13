@@ -21,6 +21,7 @@ import { collectSensitiveEgressFacts } from './sensitive-egress';
 import { collectSensitiveLoggingFacts } from './sensitive-logging';
 import { collectSsrfFacts } from './ssrf';
 import { collectTypescriptTestingHygieneFacts } from './typescript-testing-hygiene';
+import { collectTypescriptQualityMaintainabilityFacts } from './typescript-quality-maintainability';
 import { collectQueryCommandDynamicExecutionFacts } from './query-command-dynamic-execution';
 import type { TypeScriptFactDetectorContext } from './shared';
 import { collectWeakCryptoFacts } from './weak-crypto';
@@ -42,6 +43,7 @@ export function collectAdditionalTypeScriptFacts(
     ...detectReactAccessibilityFacts(context),
     ...collectSensitiveEgressFacts(context),
     ...collectTypescriptTestingHygieneFacts(context),
+    ...collectTypescriptQualityMaintainabilityFacts(context),
     ...collectSensitiveLoggingFacts(context),
     ...collectSsrfFacts(context),
     ...collectNestJsSecurityFacts(context),

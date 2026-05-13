@@ -7,6 +7,8 @@ import { analyzeTypeScriptFile } from '@critiq/adapter-typescript';
 
 import { createFileContexts } from './context';
 import {
+  emitBarrelCycleFacts,
+  emitDeadExportFacts,
   emitDuplicateCodeFacts,
   emitLogicChangeWithoutTestsFacts,
   emitMissingAuthorizationFacts,
@@ -18,6 +20,7 @@ import {
   emitProductionTestBoundaryFacts,
   emitRepeatedIoFacts,
   emitTightCouplingFacts,
+  emitWidePublicSurfaceFacts,
 } from './fact-emitters';
 
 function analyze(
@@ -356,5 +359,54 @@ describe('project analysis fact emitters', () => {
     emitMissingNextErrorBoundaryFacts(contexts);
 
     expect(factsOf(page, 'ui.react.missing-error-boundary')).toHaveLength(0);
+  });
+
+  it('emits wide-surface, barrel-cycle, and dead-export facts', () => {
+    const api = analyze(
+      'src/public/api.ts',
+      [
+        'export const one = 1;',
+        'export const two = 2;',
+        'export const three = 3;',
+        'export const four = 4;',
+        'export const five = 5;',
+        'export const six = 6;',
+        'export const seven = 7;',
+        'export const eight = 8;',
+      ].join('\n'),
+    );
+    const barrelA = analyze(
+      'src/public/index.ts',
+      [
+        "export * from './client';",
+        "export * from './contracts';",
+        "import './client';",
+      ].join('\n'),
+    );
+    const barrelB = analyze(
+      'src/public/client.ts',
+      [
+        "export * from './index';",
+        "import './index';",
+        'export const createClient = () => true;',
+      ].join('\n'),
+    );
+    const contracts = analyze(
+      'src/public/contracts.ts',
+      ['export const DeadSymbol = 1;'].join('\n'),
+    );
+    const entry = analyze(
+      'src/public/entry.ts',
+      ['export const start = true;'].join('\n'),
+    );
+    const contexts = createFileContexts([api, barrelA, barrelB, contracts, entry]);
+
+    emitWidePublicSurfaceFacts(contexts);
+    emitBarrelCycleFacts(contexts);
+    emitDeadExportFacts(contexts);
+
+    expect(factsOf(api, 'quality.wide-public-surface')).toHaveLength(2);
+    expect(factsOf(contracts, 'quality.dead-export')).toHaveLength(1);
+    expect(factsOf(barrelA, 'quality.barrel-file-cycle')).toHaveLength(1);
   });
 });
