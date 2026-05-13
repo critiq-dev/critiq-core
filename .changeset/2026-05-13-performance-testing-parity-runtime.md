@@ -1,13 +1,13 @@
 ---
-"@critiq/check-runner": patch
-"@critiq/adapter-shared": patch
-"@critiq/adapter-typescript": patch
-"@critiq/adapter-go": patch
-"@critiq/adapter-java": patch
-"@critiq/adapter-php": patch
-"@critiq/adapter-python": patch
-"@critiq/adapter-ruby": patch
-"@critiq/adapter-rust": patch
+"@critiq/check-runner": feat
+"@critiq/adapter-shared": feat
+"@critiq/adapter-typescript": feat
+"@critiq/adapter-go": feat
+"@critiq/adapter-java": feat
+"@critiq/adapter-php": feat
+"@critiq/adapter-python": feat
+"@critiq/adapter-ruby": feat
+"@critiq/adapter-rust": feat
 ---
 
 Expand public performance fact coverage across TypeScript custom detectors, project analysis emitters, and shared polyglot adapters.

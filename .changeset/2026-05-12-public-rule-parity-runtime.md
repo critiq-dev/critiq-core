@@ -1,5 +1,5 @@
 ---
-"@critiq/cli": patch
+"@critiq/cli": feat
 ---
 
 Add public parity runtime support for dependency-policy facts, shared processor egress recipes, cross-language filesystem depth facts, and complete default adapter package declarations.
