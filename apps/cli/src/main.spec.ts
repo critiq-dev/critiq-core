@@ -265,7 +265,7 @@ describe('cli', () => {
     expect(envelope.preset).toBe('recommended');
     expect(envelope.scope).toEqual({ mode: 'repo' });
     expect(envelope.scannedFileCount).toBe(1);
-    expect(envelope.matchedRuleCount).toBe(40);
+    expect(envelope.matchedRuleCount).toBe(43);
     expect(envelope.findingCount).toBe(0);
     expect(envelope.findings).toEqual([]);
     expect(envelope.ruleSummaries).toEqual([]);
@@ -363,8 +363,8 @@ describe('cli', () => {
     expect(output).toContain('> 1 | console.log("hello");');
     expect(output).toContain('| ^^^^^^^^^^^^^^^^^^^^');
     expect(output).toContain('at src/invalid.ts:1:1');
-    expect(output).toContain('Checked 1 file(s) against 40 rule(s)');
-    expect(output).toContain('Rules:       1 failed, 39 passed, 40 total');
+    expect(output).toContain('Checked 1 file(s) against 43 rule(s)');
+    expect(output).toContain('Rules:       1 failed, 42 passed, 43 total');
     expect(output).toContain('Files:       1 failed, 0 passed, 1 total');
     expect(output).toContain('Findings:    1 total');
   });
@@ -419,7 +419,7 @@ describe('cli', () => {
     };
 
     expect(envelope.catalogPackage).toBe('@critiq/rules');
-    expect(envelope.matchedRuleCount).toBe(40);
+    expect(envelope.matchedRuleCount).toBe(43);
     expect(envelope.findingCount).toBe(1);
   });
 
@@ -441,7 +441,7 @@ describe('cli', () => {
     expect(envelope.catalogPackage).toBe('@critiq/rules');
     expect(envelope.preset).toBe('recommended');
     expect(envelope.scannedFileCount).toBe(1);
-    expect(envelope.matchedRuleCount).toBe(40);
+    expect(envelope.matchedRuleCount).toBe(43);
     expect(envelope.findingCount).toBe(1);
     expect(envelope.diagnostics).toEqual([]);
   });
@@ -579,7 +579,7 @@ describe('cli', () => {
       }>;
     };
 
-    expect(envelope.matchedRuleCount).toBe(58);
+    expect(envelope.matchedRuleCount).toBe(61);
     expect(envelope.findingCount).toBe(1);
     expect(envelope.findings[0].rule.id).toBe(
       'ts.random.no-math-random-in-core',
@@ -633,7 +633,7 @@ describe('cli', () => {
     };
 
     expect(result.exitCode).toBe(0);
-    expect(envelope.matchedRuleCount).toBe(37);
+    expect(envelope.matchedRuleCount).toBe(40);
     expect(envelope.findingCount).toBe(0);
   });
 

@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.reassign-catch-binding
+  title: Reassignment of catch binding
+  summary: The catch clause parameter is assigned or updated after it is bound.
+  rationale: Catch bindings are immutable in strict mode and confusing in sloppy mode; reassignment usually indicates a mistaken mutation of the caught error.
+  tags:
+    - correctness
+    - language
+    - rules-catalog
+    - crq-cor-026
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: language.reassign-catch-binding
+    bind: issue
+emit:
+  finding:
+    category: correctness.language
+    severity: medium
+    confidence: 0.9
+    tags:
+      - correctness
+      - language
+  message:
+    title: Avoid reassigning the catch parameter
+    summary: "Use a new local variable instead of mutating the catch binding (for example `const err = e` then work with `err`)."
+  remediation:
+    summary: Introduce a separate variable for any transformed error value and leave the catch parameter read-only.

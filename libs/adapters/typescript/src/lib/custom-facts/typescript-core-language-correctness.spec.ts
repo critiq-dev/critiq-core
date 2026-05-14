@@ -126,4 +126,82 @@ describe('collectTypescriptCoreLanguageCorrectnessFacts', () => {
 
     expect(facts.filter((f) => f.kind === 'language.assignment-in-condition')).toHaveLength(0);
   });
+
+  it('flags empty blocks outside function bodies but allows empty arrow bodies', () => {
+    const facts = analyze(
+      [
+        'export function emptyIf(x: boolean) {',
+        '  if (x) {}',
+        '}',
+        '',
+        'export const noop = () => {};',
+        '',
+        'export function emptyTry() {',
+        '  try {',
+        '  } catch {',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    const emptyBlocks = facts.filter((f) => f.kind === 'language.empty-block-statement');
+    expect(emptyBlocks).toHaveLength(3);
+  });
+
+  it('flags catch binding reassignment for outer and inner catch clauses separately', () => {
+    const facts = analyze(
+      [
+        'export function outerCatch() {',
+        '  try {',
+        '    void 0;',
+        '  } catch (e) {',
+        '    e = new Error("mutate");',
+        '    try {',
+        '      void 0;',
+        '    } catch (e) {',
+        '      e = new Error("inner");',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    const reassign = facts.filter((f) => f.kind === 'language.reassign-catch-binding');
+    expect(reassign).toHaveLength(2);
+    expect(reassign.every((f) => f.props['binding'] === 'e')).toBe(true);
+  });
+
+  it('flags regexp patterns with unusual ASCII control characters', () => {
+    const raw = analyze(`export const r = /${String.fromCharCode(1)}/;\n`);
+
+    expect(
+      raw.filter((f) => f.kind === 'language.regexp-pattern-unusual-control-character'),
+    ).toHaveLength(1);
+
+    const fromHexEscape = analyze('export const r = /\\x02/;\n');
+
+    expect(
+      fromHexEscape.filter((f) => f.kind === 'language.regexp-pattern-unusual-control-character'),
+    ).toHaveLength(1);
+
+    const fromUnicodeEscape = analyze('export const r = /\\u0002/;\n');
+
+    expect(
+      fromUnicodeEscape.filter((f) => f.kind === 'language.regexp-pattern-unusual-control-character'),
+    ).toHaveLength(1);
+  });
+
+  it('does not flag common whitespace escapes or a literal backslash before x-like text', () => {
+    const tab = analyze('export const r = /\\t/;\n');
+
+    expect(
+      tab.filter((f) => f.kind === 'language.regexp-pattern-unusual-control-character'),
+    ).toHaveLength(0);
+
+    const escapedBackslash = analyze('export const r = /\\\\x02/;\n');
+
+    expect(
+      escapedBackslash.filter((f) => f.kind === 'language.regexp-pattern-unusual-control-character'),
+    ).toHaveLength(0);
+  });
 });

@@ -1,7 +1,7 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
-import { getNodeText, walkAst } from '../ast';
+import { getNodeText, walkAst, walkAstWithAncestors } from '../ast';
 import { createObservedFact, type TypeScriptFactDetector } from './shared';
 
 function isAssignmentExpression(
@@ -123,6 +123,200 @@ function isPromiseNewExpression(
   return calleeText === 'Promise';
 }
 
+function isFunctionBlockBody(
+  block: TSESTree.BlockStatement,
+  parent: TSESTree.Node | undefined,
+): boolean {
+  if (!parent) {
+    return false;
+  }
+
+  if (parent.type === 'FunctionDeclaration' || parent.type === 'FunctionExpression') {
+    return parent.body === block;
+  }
+
+  if (parent.type === 'ArrowFunctionExpression') {
+    return parent.body === block;
+  }
+
+  return false;
+}
+
+function regexpLiteralPattern(node: TSESTree.Node): string | undefined {
+  if (node.type !== 'Literal') {
+    return undefined;
+  }
+
+  const maybe = node as TSESTree.Literal & {
+    regex?: { pattern: string; flags: string };
+  };
+
+  return maybe.regex?.pattern;
+}
+
+const REGEXP_ALLOWED_CONTROL_CODES = new Set<number>([9, 10, 13]);
+
+function isUnusualAsciiControlCode(code: number): boolean {
+  if (code >= 32) {
+    return false;
+  }
+
+  return !REGEXP_ALLOWED_CONTROL_CODES.has(code);
+}
+
+function hexDigitValue(character: string): number | undefined {
+  if (character.length !== 1) {
+    return undefined;
+  }
+
+  const code = character.charCodeAt(0);
+  if (code >= 48 && code <= 57) {
+    return code - 48;
+  }
+
+  if (code >= 97 && code <= 102) {
+    return code - 97 + 10;
+  }
+
+  if (code >= 65 && code <= 70) {
+    return code - 65 + 10;
+  }
+
+  return undefined;
+}
+
+function readFixedHexValue(
+  pattern: string,
+  start: number,
+  digitCount: number,
+): number | undefined {
+  if (start + digitCount > pattern.length) {
+    return undefined;
+  }
+
+  let value = 0;
+
+  for (let offset = 0; offset < digitCount; offset += 1) {
+    const digit = hexDigitValue(pattern[start + offset] ?? '');
+    if (digit === undefined) {
+      return undefined;
+    }
+
+    value = value * 16 + digit;
+  }
+
+  return value;
+}
+
+/**
+ * Flags C0 control characters except common whitespace (tab, LF, CR), including
+ * when they appear only as `\xNN` / `\uNNNN` / `\u{...}` escapes in the pattern
+ * source (what `regex.pattern` exposes from typescript-estree).
+ */
+function regexpPatternHasUnusualAsciiControl(pattern: string): boolean {
+  let index = 0;
+
+  while (index < pattern.length) {
+    if (pattern.charCodeAt(index) !== 92) {
+      if (isUnusualAsciiControlCode(pattern.charCodeAt(index))) {
+        return true;
+      }
+
+      index += 1;
+      continue;
+    }
+
+    if (index + 1 >= pattern.length) {
+      return false;
+    }
+
+    const next = pattern[index + 1] ?? '';
+
+    if (next === '\\') {
+      index += 2;
+      continue;
+    }
+
+    if (next === 'x') {
+      const decoded = readFixedHexValue(pattern, index + 2, 2);
+      if (decoded !== undefined && isUnusualAsciiControlCode(decoded)) {
+        return true;
+      }
+
+      index += decoded !== undefined ? 4 : 2;
+      continue;
+    }
+
+    if (next === 'u' && pattern[index + 2] === '{') {
+      const close = pattern.indexOf('}', index + 3);
+      if (close === -1) {
+        index += 2;
+        continue;
+      }
+
+      const body = pattern.slice(index + 3, close);
+      const decoded = parseInt(body, 16);
+
+      if (
+        !Number.isNaN(decoded) &&
+        decoded >= 0 &&
+        decoded <= 0x10ffff &&
+        isUnusualAsciiControlCode(decoded)
+      ) {
+        return true;
+      }
+
+      index = close + 1;
+      continue;
+    }
+
+    if (next === 'u') {
+      const decoded = readFixedHexValue(pattern, index + 2, 4);
+      if (decoded !== undefined && isUnusualAsciiControlCode(decoded)) {
+        return true;
+      }
+
+      index += decoded !== undefined ? 6 : 2;
+      continue;
+    }
+
+    const singleEscapeValue: Record<string, number> = {
+      t: 9,
+      n: 10,
+      r: 13,
+      v: 11,
+      f: 12,
+      b: 8,
+    };
+
+    if (next in singleEscapeValue) {
+      const decoded = singleEscapeValue[next] ?? 0;
+      if (isUnusualAsciiControlCode(decoded)) {
+        return true;
+      }
+
+      index += 2;
+      continue;
+    }
+
+    if (next === '0') {
+      const after = pattern[index + 2];
+      if (after === undefined || !/[0-7]/.test(after)) {
+        if (isUnusualAsciiControlCode(0)) {
+          return true;
+        }
+      }
+
+      index += 2;
+      continue;
+    }
+
+    index += 2;
+  }
+
+  return false;
+}
+
 function isAsyncFunctionLike(
   node: TSESTree.Expression | TSESTree.SpreadElement | undefined,
 ): boolean {
@@ -177,6 +371,45 @@ function duplicateParameterFacts(
   }
 
   return facts;
+}
+
+function isInsideNestedCatchWithSameParamName(
+  target: TSESTree.Node,
+  outerHandler: TSESTree.CatchClause,
+  catchParamName: string,
+): boolean {
+  let captured = false;
+
+  walkAst(outerHandler.body, (n) => {
+    if (captured) {
+      return;
+    }
+
+    if (n.type !== 'TryStatement' || !n.handler) {
+      return;
+    }
+
+    const innerHandler = n.handler;
+    if (innerHandler === outerHandler) {
+      return;
+    }
+
+    const param = innerHandler.param;
+    if (!param || param.type !== 'Identifier' || param.name !== catchParamName) {
+      return;
+    }
+
+    const descendants = new Set<TSESTree.Node>();
+    walkAst(innerHandler.body, (d) => {
+      descendants.add(d);
+    });
+
+    if (descendants.has(target)) {
+      captured = true;
+    }
+  });
+
+  return captured;
 }
 
 export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetector =
@@ -444,6 +677,101 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
           );
         }
       }
+    });
+
+    walkAstWithAncestors(program, (node, ancestors) => {
+      const parent = ancestors[ancestors.length - 1];
+
+      if (node.type === 'BlockStatement' && node.body.length === 0) {
+        if (!isFunctionBlockBody(node, parent)) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'file',
+              kind: 'language.empty-block-statement',
+              node,
+              nodeIds,
+              text: getNodeText(node, sourceText),
+              props: {},
+            }),
+          );
+        }
+      }
+
+      const pattern = regexpLiteralPattern(node);
+      if (pattern && regexpPatternHasUnusualAsciiControl(pattern)) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.regexp-pattern-unusual-control-character',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {},
+          }),
+        );
+      }
+    });
+
+    walkAst(program, (node) => {
+      if (node.type !== 'TryStatement' || !node.handler?.param) {
+        return;
+      }
+
+      const { handler } = node;
+      const catchParam = handler.param;
+      if (!catchParam || catchParam.type !== 'Identifier') {
+        return;
+      }
+
+      const catchParamName = catchParam.name;
+
+      walkAst(handler.body, (inner) => {
+        if (
+          inner.type === 'AssignmentExpression' &&
+          inner.left.type === 'Identifier' &&
+          inner.left.name === catchParamName
+        ) {
+          if (isInsideNestedCatchWithSameParamName(inner, handler, catchParamName)) {
+            return;
+          }
+
+          facts.push(
+            createObservedFact({
+              appliesTo: 'file',
+              kind: 'language.reassign-catch-binding',
+              node: inner.left,
+              nodeIds,
+              text: getNodeText(inner, sourceText),
+              props: {
+                binding: catchParamName,
+              },
+            }),
+          );
+        }
+
+        if (
+          inner.type === 'UpdateExpression' &&
+          inner.argument.type === 'Identifier' &&
+          inner.argument.name === catchParamName
+        ) {
+          if (isInsideNestedCatchWithSameParamName(inner, handler, catchParamName)) {
+            return;
+          }
+
+          facts.push(
+            createObservedFact({
+              appliesTo: 'file',
+              kind: 'language.reassign-catch-binding',
+              node: inner.argument,
+              nodeIds,
+              text: getNodeText(inner, sourceText),
+              props: {
+                binding: catchParamName,
+              },
+            }),
+          );
+        }
+      });
     });
 
     return facts;

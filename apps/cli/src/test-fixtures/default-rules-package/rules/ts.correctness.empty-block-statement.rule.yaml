@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.empty-block-statement
+  title: Empty block statement
+  summary: A control-flow or try/catch branch uses an empty `{}` block.
+  rationale: Empty blocks hide missing logic, swallowed errors, or incomplete refactors and often mask bugs.
+  tags:
+    - correctness
+    - language
+    - rules-catalog
+    - crq-cor-025
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: language.empty-block-statement
+    bind: issue
+emit:
+  finding:
+    category: correctness.language
+    severity: low
+    confidence: 0.85
+    tags:
+      - correctness
+      - language
+  message:
+    title: Replace or remove empty block
+    summary: "This block has no statements; add behavior, a comment explaining intent, or delete the branch."
+  remediation:
+    summary: Add the intended statements, throw or log in error paths, or remove the branch if it is dead code.

@@ -137,6 +137,21 @@ rules:
     presets:
       - recommended
       - strict
+  - id: ts.correctness.empty-block-statement
+    rulePath: ./rules/ts.correctness.empty-block-statement.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.reassign-catch-binding
+    rulePath: ./rules/ts.correctness.reassign-catch-binding.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.regexp-pattern-unusual-control-character
+    rulePath: ./rules/ts.correctness.regexp-pattern-unusual-control-character.rule.yaml
+    presets:
+      - recommended
+      - strict
   - id: ts.quality.swallowed-error
     rulePath: ./rules/ts.quality.swallowed-error.rule.yaml
     presets:

@@ -1,0 +1,35 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.regexp-pattern-unusual-control-character
+  title: Unusual ASCII control characters in regexp pattern
+  summary: The regular expression pattern embeds low ASCII control characters outside common whitespace.
+  rationale: Literal control characters in patterns are hard to read, easy to corrupt in editors, and often indicate copy-paste or encoding mistakes.
+  tags:
+    - correctness
+    - language
+    - rules-catalog
+    - crq-cor-027
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: language.regexp-pattern-unusual-control-character
+    bind: issue
+emit:
+  finding:
+    category: correctness.language
+    severity: low
+    confidence: 0.8
+    tags:
+      - correctness
+      - language
+  message:
+    title: Prefer escapes instead of raw control characters in regex patterns
+    summary: "Replace embedded control characters with explicit escapes (for example `\\x01` or `\\u0001`) so the pattern stays visible and stable."
+  remediation:
+    summary: Rewrite the pattern using visible escape sequences or character class escapes instead of raw C0 control bytes.
