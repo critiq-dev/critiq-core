@@ -24,7 +24,7 @@ function factsOfKind(context: TypeScriptFactDetectorContext, kind: string) {
   return collectAdditionalTypeScriptFacts(context).filter((fact) => fact.kind === kind);
 }
 
-describe('React accessibility Chunk D facts', () => {
+describe('React accessibility parity wave D facts', () => {
   it('flags img elements without meaningful alt text', () => {
     const context = createContext(
       'src/Gallery.tsx',

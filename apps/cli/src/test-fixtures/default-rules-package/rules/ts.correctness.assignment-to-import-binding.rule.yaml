@@ -1,0 +1,36 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.assignment-to-import-binding
+  title: Assignment to an imported binding
+  summary: Code assigns to or updates a symbol declared by an import.
+  rationale: ES module imports are read-only bindings; reassignment fails at runtime and signals a mistaken refactor.
+  tags:
+    - correctness
+    - modules
+    - rules-catalog
+    - crq-cor-021
+    - public-directory-parity
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: language.assignment-to-import-binding
+    bind: issue
+emit:
+  finding:
+    category: correctness.modules
+    severity: medium
+    confidence: 0.95
+    tags:
+      - correctness
+      - modules
+  message:
+    title: Do not assign to imported bindings
+    summary: "`${captures.issue.text}` mutates a symbol declared by an import."
+  remediation:
+    summary: Use a local variable, change the exporting module, or refactor so imports remain immutable.

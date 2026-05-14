@@ -6,6 +6,7 @@ import {
 import {
   collectClientApplicationSecurityFacts,
 } from './client-application-security';
+import { collectTypescriptCoreLanguageCorrectnessFacts } from './typescript-core-language-correctness';
 import {
   collectInsecureCookieJwtSessionFacts,
 } from './insecure-cookie-jwt-session';
@@ -33,6 +34,7 @@ export function collectAdditionalTypeScriptFacts(
   const facts = [
     ...collectAdditionalPublicSecurityFacts(context),
     ...collectClientApplicationSecurityFacts(context),
+    ...collectTypescriptCoreLanguageCorrectnessFacts(context),
     ...collectInsecureCookieJwtSessionFacts(context),
     ...collectInsecureTransportFacts(context),
     ...collectNetworkExposureFacts(context),

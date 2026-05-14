@@ -1,0 +1,36 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.duplicate-function-parameter
+  title: Duplicate function parameter names
+  summary: A function declares the same parameter name more than once.
+  rationale: Duplicate parameters are confusing and usually indicate a copy-paste or merge mistake.
+  tags:
+    - correctness
+    - language
+    - rules-catalog
+    - crq-cor-017
+    - public-directory-parity
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: language.duplicate-function-parameter
+    bind: issue
+emit:
+  finding:
+    category: correctness.language
+    severity: medium
+    confidence: 0.95
+    tags:
+      - correctness
+      - language
+  message:
+    title: Remove duplicate parameter
+    summary: "Duplicate parameter name `${captures.issue.text}` in the same parameter list."
+  remediation:
+    summary: Rename or remove the duplicate parameter so each binding is unique.

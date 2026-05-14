@@ -92,6 +92,51 @@ rules:
     presets:
       - recommended
       - strict
+  - id: ts.correctness.assignment-in-condition
+    rulePath: ./rules/ts.correctness.assignment-in-condition.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.duplicate-function-parameter
+    rulePath: ./rules/ts.correctness.duplicate-function-parameter.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.duplicate-object-key
+    rulePath: ./rules/ts.correctness.duplicate-object-key.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.duplicate-switch-case
+    rulePath: ./rules/ts.correctness.duplicate-switch-case.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.async-promise-executor
+    rulePath: ./rules/ts.correctness.async-promise-executor.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.assignment-to-import-binding
+    rulePath: ./rules/ts.correctness.assignment-to-import-binding.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.self-assignment
+    rulePath: ./rules/ts.correctness.self-assignment.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.identical-comparison-operands
+    rulePath: ./rules/ts.correctness.identical-comparison-operands.rule.yaml
+    presets:
+      - recommended
+      - strict
+  - id: ts.correctness.duplicate-import-source
+    rulePath: ./rules/ts.correctness.duplicate-import-source.rule.yaml
+    presets:
+      - recommended
+      - strict
   - id: ts.quality.swallowed-error
     rulePath: ./rules/ts.quality.swallowed-error.rule.yaml
     presets:

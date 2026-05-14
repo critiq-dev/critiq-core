@@ -1,0 +1,36 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.duplicate-import-source
+  title: Duplicate imports from the same module
+  summary: The file imports from the same module path more than once.
+  rationale: Multiple import declarations for one module increase bundle noise and can diverge over time.
+  tags:
+    - correctness
+    - modules
+    - rules-catalog
+    - crq-cor-024
+    - public-directory-parity
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: language.duplicate-import-source
+    bind: issue
+emit:
+  finding:
+    category: correctness.modules
+    severity: low
+    confidence: 0.9
+    tags:
+      - correctness
+      - modules
+  message:
+    title: Consolidate duplicate imports
+    summary: "`${captures.issue.text}` imports from a module path already imported above."
+  remediation:
+    summary: Merge named imports into a single `import` declaration from that module.

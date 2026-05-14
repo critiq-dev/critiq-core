@@ -1,0 +1,36 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.duplicate-switch-case
+  title: Duplicate switch case labels
+  summary: A switch repeats the same case discriminant.
+  rationale: Unreachable duplicate cases usually mean a merge error or incomplete refactor.
+  tags:
+    - correctness
+    - language
+    - rules-catalog
+    - crq-cor-019
+    - public-directory-parity
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: language.duplicate-switch-case
+    bind: issue
+emit:
+  finding:
+    category: correctness.language
+    severity: medium
+    confidence: 0.9
+    tags:
+      - correctness
+      - language
+  message:
+    title: Remove duplicate switch case
+    summary: "This switch repeats an earlier case discriminant, so the branch is unreachable."
+  remediation:
+    summary: Delete the unreachable duplicate case or change the discriminant so each branch is distinct.

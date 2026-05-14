@@ -1,0 +1,36 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.assignment-in-condition
+  title: Assignment used as a conditional test
+  summary: Control-flow conditions should compare values, not perform assignments.
+  rationale: Using `=` where `===` was intended is a common defect; assignments in conditions also obscure data flow.
+  tags:
+    - correctness
+    - language
+    - rules-catalog
+    - crq-cor-016
+    - public-directory-parity
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: language.assignment-in-condition
+    bind: issue
+emit:
+  finding:
+    category: correctness.language
+    severity: medium
+    confidence: 0.9
+    tags:
+      - correctness
+      - language
+  message:
+    title: Replace assignment in condition
+    summary: "`${captures.issue.text}` performs assignment where a boolean predicate is expected."
+  remediation:
+    summary: Use a comparison operator or move the assignment before the condition. Note that the parser may not preserve extra grouping parentheses around the assignment.

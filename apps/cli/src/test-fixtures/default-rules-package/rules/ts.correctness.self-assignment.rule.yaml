@@ -1,0 +1,36 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.self-assignment
+  title: Self assignment
+  summary: An assignment uses the same expression on the left and right side.
+  rationale: Self-assignments are almost always dead code or a typo where a different value was intended.
+  tags:
+    - correctness
+    - language
+    - rules-catalog
+    - crq-cor-022
+    - public-directory-parity
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: language.self-assignment
+    bind: issue
+emit:
+  finding:
+    category: correctness.language
+    severity: low
+    confidence: 0.88
+    tags:
+      - correctness
+      - language
+  message:
+    title: Remove self assignment
+    summary: "`${captures.issue.text}` assigns a variable to itself."
+  remediation:
+    summary: Delete the statement or fix the right-hand side so it references the intended value.

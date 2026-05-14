@@ -1,0 +1,36 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.duplicate-object-key
+  title: Duplicate keys in object literal
+  summary: An object literal repeats the same static property name.
+  rationale: Later entries silently override earlier ones, hiding bugs during refactors.
+  tags:
+    - correctness
+    - language
+    - rules-catalog
+    - crq-cor-018
+    - public-directory-parity
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: language.duplicate-object-key
+    bind: issue
+emit:
+  finding:
+    category: correctness.language
+    severity: medium
+    confidence: 0.95
+    tags:
+      - correctness
+      - language
+  message:
+    title: Resolve duplicate object key
+    summary: "This object literal repeats a static property key; later entries override earlier ones."
+  remediation:
+    summary: Merge the values or delete the redundant property so each key is declared once.

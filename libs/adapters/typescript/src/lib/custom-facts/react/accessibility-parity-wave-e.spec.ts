@@ -24,7 +24,7 @@ function factsOfKind(context: TypeScriptFactDetectorContext, kind: string) {
   return collectAdditionalTypeScriptFacts(context).filter((fact) => fact.kind === kind);
 }
 
-describe('React accessibility Chunk E facts (deferred parity)', () => {
+describe('React accessibility parity wave E facts', () => {
   it('flags anchors with missing or placeholder href values', () => {
     const context = createContext(
       'src/Nav.tsx',

@@ -1,0 +1,36 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.async-promise-executor
+  title: Async Promise executor function
+  summary: The executor passed to `new Promise` is declared `async`.
+  rationale: Async executors defer errors and can swallow rejections; prefer a synchronous executor that calls `resolve`/`reject`.
+  tags:
+    - correctness
+    - async
+    - rules-catalog
+    - crq-cor-020
+    - public-directory-parity
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: language.async-promise-executor
+    bind: issue
+emit:
+  finding:
+    category: correctness.async
+    severity: medium
+    confidence: 0.92
+    tags:
+      - correctness
+      - async
+  message:
+    title: Avoid async Promise executors
+    summary: "`${captures.issue.text}` is an async Promise executor, which can hide thrown errors."
+  remediation:
+    summary: Remove `async` from the executor and use `resolve`/`reject`, or wrap the async work without making the executor itself async.

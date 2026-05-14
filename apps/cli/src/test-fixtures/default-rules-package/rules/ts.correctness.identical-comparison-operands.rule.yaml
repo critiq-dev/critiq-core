@@ -1,0 +1,36 @@
+apiVersion: critiq.dev/v1alpha1
+kind: Rule
+metadata:
+  id: ts.correctness.identical-comparison-operands
+  title: Identical comparison operands
+  summary: Both sides of a comparison use the same source text.
+  rationale: Comparing an expression to itself is either always true or always false and usually indicates a copy-paste defect.
+  tags:
+    - correctness
+    - language
+    - rules-catalog
+    - crq-cor-023
+    - public-directory-parity
+  stability: stable
+  appliesTo: file
+scope:
+  languages:
+    - typescript
+    - javascript
+match:
+  fact:
+    kind: language.identical-comparison-operands
+    bind: issue
+emit:
+  finding:
+    category: correctness.language
+    severity: low
+    confidence: 0.85
+    tags:
+      - correctness
+      - language
+  message:
+    title: Fix identical comparison operands
+    summary: "`${captures.issue.text}` compares an expression to itself."
+  remediation:
+    summary: Replace one operand with the value you meant to compare against.

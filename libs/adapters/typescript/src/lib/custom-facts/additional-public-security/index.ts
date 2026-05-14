@@ -20,7 +20,7 @@ import {
   collectExpressUserControlledStaticMountFacts,
   collectRequestDrivenArrayIndexFacts,
   collectXmlParseStringWithUntrustedInputFacts,
-} from './javascript-security-chunk-b';
+} from './javascript-public-security-directory';
 import { collectFrameworkConfigSecurityFacts } from './framework-config-security';
 import { collectNodeFrameworkBootstrapFacts } from './node-framework-bootstrap';
 import { collectDebugStatementInSourceFacts } from './debug-statements';
