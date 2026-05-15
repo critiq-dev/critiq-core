@@ -53,6 +53,39 @@ Run Critiq against a diff:
 npx critiq check . --base origin/main --head HEAD
 ```
 
+## GitHub Actions
+
+To run the same checks on **pull requests** in GitHub Actions—with optional **inline PR review comments** and severity-based merge gates—use the official composite action **[critiq-dev/critiq-action](https://github.com/critiq-dev/critiq-action)** ([README](https://github.com/critiq-dev/critiq-action/blob/main/README.md)). The action wraps `critiq check`, honors `.critiq/config.yaml`, and can install published `@critiq/cli` / `@critiq/rules` when they are not already declared on the repository root `package.json`.
+
+Example `.github/workflows/critiq.yml`:
+
+```yaml
+name: Critiq
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  critiq:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Critiq
+        uses: critiq-dev/critiq-action@v1
+        with:
+          fail-on-severity: off
+```
+
+Use a **major tag** (`@v1`) or pin a **commit SHA** for supply-chain control. More options (inputs, outputs, monorepos, reusable workflow) are in the [action README](https://github.com/critiq-dev/critiq-action/blob/main/README.md).
+
 ## Public Commands
 
 `critiq check` also runs an **advisory** built-in secret scan (same scope as the rule engine, plus optional `--staged` for index-only staging review) and prints a short summary before rule results. That scan does **not** change the `critiq check` exit code; use `critiq audit secrets` for full output and for gating in CI.
@@ -144,6 +177,7 @@ The default open source catalog in [`@critiq/rules`](https://www.npmjs.com/packa
 - [Getting started](https://github.com/critiq-dev/critiq-core/blob/main/docs/guides/getting-started.md)
 - [CLI reference](https://github.com/critiq-dev/critiq-core/blob/main/docs/reference/cli.md)
 - [`@critiq/rules` package](https://www.npmjs.com/package/@critiq/rules)
+- [Critiq GitHub Action](https://github.com/critiq-dev/critiq-action/blob/main/README.md) (CI and PR comments)
 
 ## License
 

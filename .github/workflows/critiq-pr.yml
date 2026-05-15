@@ -1,4 +1,4 @@
-name: Critiq PR
+name: Critiq Review
 
 on:
   pull_request:
@@ -10,6 +10,9 @@ permissions:
 jobs:
   critiq:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -17,7 +20,4 @@ jobs:
           fetch-depth: 0
 
       - name: Run Critiq
-        uses: critiq-dev/critiq-action@v1
-        with:
-          node-version: '24'
-          fail-on-severity: off
+        uses: critiq-dev/critiq-action@main
