@@ -19,6 +19,20 @@ const rootManifest = JSON.parse(readFileSync(rootPackageJsonPath, 'utf8'));
 const cliManifest = JSON.parse(readFileSync(cliPackageJsonPath, 'utf8'));
 const externalDependencies = Object.keys(cliManifest.dependencies ?? {}).sort();
 
+function stripRelativePrefix(value) {
+  return typeof value === 'string' ? value.replace(/^\.\//, '') : value;
+}
+
+function normalizeBin(bin) {
+  if (typeof bin === 'string') {
+    return stripRelativePrefix(bin);
+  }
+
+  return Object.fromEntries(
+    Object.entries(bin ?? {}).map(([name, target]) => [name, stripRelativePrefix(target)]),
+  );
+}
+
 rmSync(outputDirectory, { recursive: true, force: true });
 mkdirSync(schemaOutputDirectory, { recursive: true });
 
@@ -60,10 +74,12 @@ const publishManifest = {
   private: false,
   description: cliManifest.description,
   license: rootManifest.license,
+  repository: cliManifest.repository,
+  homepage: cliManifest.homepage,
   type: cliManifest.type,
-  bin: cliManifest.bin,
-  main: cliManifest.main,
-  types: cliManifest.types,
+  bin: normalizeBin(cliManifest.bin),
+  main: stripRelativePrefix(cliManifest.main),
+  types: stripRelativePrefix(cliManifest.types),
   exports: cliManifest.exports,
   engines: rootManifest.engines,
   publishConfig: cliManifest.publishConfig,

@@ -23,6 +23,14 @@ if (!manifest.bin?.critiq) {
   failures.push('apps/cli: missing critiq bin entry');
 }
 
+if (manifest.bin?.critiq?.startsWith('./')) {
+  failures.push('apps/cli: critiq bin must not use a ./ prefix');
+}
+
+if (!manifest.repository?.url) {
+  failures.push('apps/cli: missing repository.url in package.json');
+}
+
 if (!manifest.description) {
   failures.push('apps/cli: missing description in package.json');
 }

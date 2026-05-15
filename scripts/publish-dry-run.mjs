@@ -68,6 +68,18 @@ const releaseManifest = JSON.parse(
   readFileSync(resolve(releasePackageRoot, 'package.json'), 'utf8'),
 );
 
+if (releaseManifest.bin?.critiq !== 'main.js') {
+  throw new Error(
+    `Expected published @critiq/cli bin.critiq to be "main.js", found ${JSON.stringify(releaseManifest.bin?.critiq)}.`,
+  );
+}
+
+if (releaseManifest.repository?.url !== 'git+https://github.com/critiq-dev/critiq-core.git') {
+  throw new Error(
+    `Expected published @critiq/cli repository.url to match critiq-core provenance, found ${JSON.stringify(releaseManifest.repository?.url)}.`,
+  );
+}
+
 const internalDependencies = Object.keys(releaseManifest.dependencies ?? {}).filter(
   (dependency) => dependency.startsWith('@critiq/'),
 );

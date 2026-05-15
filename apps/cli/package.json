@@ -4,12 +4,17 @@
   "private": false,
   "description": "Critiq CLI for deterministic codebase checks, rule validation, and fixture-driven rule tests.",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/critiq-dev/critiq-core.git"
+  },
+  "homepage": "https://github.com/critiq-dev/critiq-core#readme",
   "type": "commonjs",
   "bin": {
-    "critiq": "./main.js"
+    "critiq": "main.js"
   },
-  "main": "./main.js",
-  "types": "./main.d.ts",
+  "main": "main.js",
+  "types": "main.d.ts",
   "exports": {
     ".": {
       "types": "./main.d.ts",
