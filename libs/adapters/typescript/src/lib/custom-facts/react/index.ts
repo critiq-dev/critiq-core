@@ -8,6 +8,7 @@ import { collectIframeMissingSandboxFacts } from './iframe-sandbox';
 import { collectIndexKeyFacts } from './index-key';
 import { collectLegacyReactPatternFacts } from './legacy-react-patterns';
 import { collectMissingAccessibleNameFacts } from './accessible-name';
+import { collectReactMaintenancePatternFacts } from './react-maintenance-patterns';
 import { collectUncontrolledControlledInputFacts } from './uncontrolled-controlled-input';
 
 /** Collects React UI and accessibility facts for JS and TS sources. */
@@ -20,6 +21,7 @@ export function detectReactAccessibilityFacts(
     ...collectMissingAccessibleNameFacts(context),
     ...collectUncontrolledControlledInputFacts(context),
     ...collectLegacyReactPatternFacts(context),
+    ...collectReactMaintenancePatternFacts(context),
     ...collectDeprecatedReactApiFacts(context),
     ...collectAccessibilityParityFacts(context),
     ...collectIframeMissingSandboxFacts(context),
@@ -34,6 +36,7 @@ export { collectDeprecatedReactApiFacts } from './deprecated-react-api';
 export { collectDerivedStateFacts } from './derived-state';
 export { collectIndexKeyFacts } from './index-key';
 export { collectLegacyReactPatternFacts } from './legacy-react-patterns';
+export { collectReactMaintenancePatternFacts } from './react-maintenance-patterns';
 export { collectMissingAccessibleNameFacts } from './accessible-name';
 export { collectUncontrolledControlledInputFacts } from './uncontrolled-controlled-input';
 export {

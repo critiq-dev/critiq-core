@@ -183,6 +183,18 @@ export const collectTypescriptPerformanceFacts: TypeScriptFactDetector = (
       }
     }
 
+    if (node.type === 'AwaitExpression' && inLoop) {
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: 'performance.no-await-in-loop',
+          node,
+          nodeIds,
+          text: getNodeText(node, sourceText),
+        }),
+      );
+    }
+
     if (
       node.type === 'CallExpression' &&
       node.callee.type === 'MemberExpression' &&

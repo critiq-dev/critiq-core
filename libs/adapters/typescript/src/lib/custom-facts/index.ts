@@ -6,7 +6,9 @@ import {
 import {
   collectClientApplicationSecurityFacts,
 } from './client-application-security';
+import { collectTypescriptAsyncCorrectnessFacts } from './typescript-async-correctness';
 import { collectTypescriptCoreLanguageCorrectnessFacts } from './typescript-core-language-correctness';
+import { collectTypescriptCorrectnessLanguageExtendedFacts } from './typescript-correctness-language-extended';
 import {
   collectInsecureCookieJwtSessionFacts,
 } from './insecure-cookie-jwt-session';
@@ -25,6 +27,8 @@ import { collectTypescriptTestingHygieneFacts } from './typescript-testing-hygie
 import { collectTypescriptQualityMaintainabilityFacts } from './typescript-quality-maintainability';
 import { collectTypescriptPerformanceFacts } from './typescript-performance';
 import { collectQueryCommandDynamicExecutionFacts } from './query-command-dynamic-execution';
+import { collectSyncChildProcessExecFactsDetector } from './sync-child-process-exec';
+import { collectTypescriptRuntimeSecurityFacts } from './typescript-runtime-security';
 import type { TypeScriptFactDetectorContext } from './shared';
 import { collectWeakCryptoFacts } from './weak-crypto';
 
@@ -34,12 +38,16 @@ export function collectAdditionalTypeScriptFacts(
   const facts = [
     ...collectAdditionalPublicSecurityFacts(context),
     ...collectClientApplicationSecurityFacts(context),
+    ...collectTypescriptAsyncCorrectnessFacts(context),
     ...collectTypescriptCoreLanguageCorrectnessFacts(context),
+    ...collectTypescriptCorrectnessLanguageExtendedFacts(context),
     ...collectInsecureCookieJwtSessionFacts(context),
     ...collectInsecureTransportFacts(context),
     ...collectNetworkExposureFacts(context),
     ...collectOpenRedirectFacts(context),
     ...collectQueryCommandDynamicExecutionFacts(context),
+    ...collectSyncChildProcessExecFactsDetector(context),
+    ...collectTypescriptRuntimeSecurityFacts(context),
     ...collectPhase1PolyglotSecurityFacts(context),
     ...collectNextServerActionFacts(context),
     ...detectReactNextBestPracticesFacts(context),

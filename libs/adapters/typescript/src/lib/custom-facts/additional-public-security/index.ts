@@ -15,12 +15,15 @@ import {
   collectHardcodedAuthSecretFacts,
   collectRenderFacts,
 } from './application';
+import { collectExpressPermissiveCorsFacts } from './express-permissive-cors';
 import {
   collectExpressErrorHandlerInformationDisclosureFacts,
   collectExpressUserControlledStaticMountFacts,
   collectRequestDrivenArrayIndexFacts,
   collectXmlParseStringWithUntrustedInputFacts,
 } from './javascript-public-security-directory';
+import { collectMutableModuleExportFacts } from './mutable-module-export';
+import { collectReadFileSyncInRequestHandlerFacts } from './readfile-sync-in-request-handler';
 import { collectFrameworkConfigSecurityFacts } from './framework-config-security';
 import { collectNodeFrameworkBootstrapFacts } from './node-framework-bootstrap';
 import { collectDebugStatementInSourceFacts } from './debug-statements';
@@ -91,6 +94,9 @@ export const collectAdditionalPublicSecurityFacts: TypeScriptFactDetector = (
     ...collectAjvInsecureConfigurationFacts(context),
     ...collectXmlParseStringWithUntrustedInputFacts(context),
     ...collectExpressErrorHandlerInformationDisclosureFacts(context),
+    ...collectExpressPermissiveCorsFacts(context),
+    ...collectReadFileSyncInRequestHandlerFacts(context),
+    ...collectMutableModuleExportFacts(context),
     ...collectRequestDrivenArrayIndexFacts(context),
     ...collectExpressUserControlledStaticMountFacts(context),
     ...collectNodeFrameworkBootstrapFacts(context),

@@ -82,6 +82,10 @@ export const FACT_KINDS = {
   xmlParseStringWithUntrustedInput: 'security.xml-parse-string-with-untrusted-input',
   expressErrorHandlerInformationDisclosure:
     'security.express-error-handler-information-disclosure',
+  expressPermissiveCors: 'security.express-permissive-cors',
+  syncChildProcessExec: 'security.sync-child-process-exec',
+  readFileSyncInRequestHandler: 'security.readfile-sync-in-request-handler',
+  mutableModuleExport: 'security.mutable-module-export',
   requestDrivenArrayIndexAccess: 'security.request-driven-array-index-access',
   expressUserControlledStaticMount:
     'security.express-user-controlled-static-mount',

@@ -31,3 +31,13 @@ export function objectBooleanFlagFalse(
 
   return property?.value.type === 'Literal' && property.value.value === false;
 }
+
+/** Returns true when an object literal sets `name` to literal `true`. */
+export function objectBooleanFlagTrue(
+  objectExpression: TSESTree.ObjectExpression | undefined,
+  name: string,
+): boolean {
+  const property = getObjectProperty(objectExpression, name);
+
+  return property?.value.type === 'Literal' && property.value.value === true;
+}

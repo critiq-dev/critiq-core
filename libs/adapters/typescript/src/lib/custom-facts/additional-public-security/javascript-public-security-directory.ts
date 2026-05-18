@@ -72,6 +72,46 @@ function isLikelyExpressErrorHandler(
   );
 }
 
+function expressionReferencesError(
+  expression: TSESTree.Expression | undefined,
+  errName: string,
+): boolean {
+  if (!expression) {
+    return false;
+  }
+
+  if (expression.type === 'Identifier' && expression.name === errName) {
+    return true;
+  }
+
+  if (
+    expression.type === 'MemberExpression' &&
+    !expression.computed &&
+    expression.object.type === 'Identifier' &&
+    expression.object.name === errName &&
+    expression.property.type === 'Identifier' &&
+    (expression.property.name === 'stack' ||
+      expression.property.name === 'message')
+  ) {
+    return true;
+  }
+
+  if (expression.type !== 'ObjectExpression') {
+    return false;
+  }
+
+  return expression.properties.some((property) => {
+    if (property.type !== 'Property') {
+      return false;
+    }
+
+    return expressionReferencesError(
+      property.value as TSESTree.Expression,
+      errName,
+    );
+  });
+}
+
 function handlerSendsErrorToClient(
   body: TSESTree.BlockStatement,
   errName: string,
@@ -97,10 +137,7 @@ function handlerSendsErrorToClient(
 
     const firstArgument = node.arguments[0] as TSESTree.Expression | undefined;
 
-    if (
-      firstArgument?.type === 'Identifier' &&
-      firstArgument.name === errName
-    ) {
+    if (expressionReferencesError(firstArgument, errName)) {
       found = true;
     }
   });

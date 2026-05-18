@@ -1,7 +1,7 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
-import { getNodeText, walkAst } from '../ast';
+import { getNodeText, walkAst, walkAstWithAncestors } from '../ast';
 import { createObservedFact, type TypeScriptFactDetector } from './shared';
 
 const ALLOWED_SIDE_EFFECT_IMPORT_PATH =
@@ -77,6 +77,33 @@ function bodyText(
   return getNodeText(node.body, sourceText) ?? '';
 }
 
+function isConstructorFunction(
+  node:
+    | TSESTree.FunctionDeclaration
+    | TSESTree.FunctionExpression
+    | TSESTree.ArrowFunctionExpression,
+  ancestors: readonly TSESTree.Node[],
+): boolean {
+  const parent = ancestors[ancestors.length - 1];
+
+  return parent?.type === 'MethodDefinition' && parent.kind === 'constructor';
+}
+
+function hasOnlyIntentionallyUnusedParameters(
+  node:
+    | TSESTree.FunctionDeclaration
+    | TSESTree.FunctionExpression
+    | TSESTree.ArrowFunctionExpression,
+): boolean {
+  if (node.params.length === 0) {
+    return false;
+  }
+
+  return node.params.every(
+    (param) => param.type === 'Identifier' && param.name.startsWith('_'),
+  );
+}
+
 function detectMixedAbstraction(body: string): boolean {
   const hasTransport = /\b(?:fetch|axios|http(?:Client)?\.)/.test(body);
   const hasPersistence = /\b(?:db\.|prisma\.|repository\.|query\()/.test(body);
@@ -93,6 +120,28 @@ export const collectTypescriptQualityMaintainabilityFacts: TypeScriptFactDetecto
     const facts: ObservedFact[] = [];
     const { path, sourceText, program, nodeIds } = context;
     const candidateExports = new Set<string>();
+
+    walkAstWithAncestors(program, (node, ancestors) => {
+      if (
+        (node.type === 'FunctionDeclaration' ||
+          node.type === 'FunctionExpression' ||
+          node.type === 'ArrowFunctionExpression') &&
+        node.body?.type === 'BlockStatement' &&
+        node.body.body.length === 0 &&
+        !isConstructorFunction(node, ancestors) &&
+        !hasOnlyIntentionallyUnusedParameters(node)
+      ) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'quality.empty-function',
+            node,
+            nodeIds,
+            text: functionName(node) ?? getNodeText(node, sourceText),
+          }),
+        );
+      }
+    });
 
     walkAst(program, (node) => {
       if (node.type === 'ExportNamedDeclaration') {
