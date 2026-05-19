@@ -3,7 +3,10 @@ import {
   collectAndroidWorldReadableModeFacts,
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
+  collectJavaAuditSecurityFacts,
+  collectJavaCorrectnessFacts,
   collectJavaFrameworkSecurityFacts,
+  collectJavaGeneralSecurityFacts,
   collectInsecureHttpTransportFacts,
   collectJavaInsecureCookieFacts,
   collectJavaOpenRedirectFacts,
@@ -170,6 +173,19 @@ const javaAdapterDefinition: PolyglotAdapterDefinition<JavaScanState> = {
       text,
       detector,
       path,
+    }),
+    ...collectJavaGeneralSecurityFacts({
+      text,
+      detector,
+    }),
+    ...collectJavaAuditSecurityFacts({
+      text,
+      path,
+      detector,
+    }),
+    ...collectJavaCorrectnessFacts({
+      text,
+      detector,
     }),
     ...collectSharedExternalFileUploadFacts({
       text,

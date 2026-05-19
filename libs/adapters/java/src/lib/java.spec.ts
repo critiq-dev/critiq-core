@@ -65,6 +65,7 @@ describe('javaSourceAdapter', () => {
     expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toEqual([
       'security.hardcoded-credentials',
       'security.request-path-file-read',
+      'java.security.shell-runtime-exec',
       'security.command-execution-with-request-input',
       'security.sql-interpolation',
       'security.unsafe-deserialization',
@@ -152,6 +153,99 @@ describe('javaSourceAdapter', () => {
     ]);
   });
 
+
+  it('emits general security facts for crypto and protocol misuse', () => {
+    const result = javaSourceAdapter.analyze(
+      'Crypto.java',
+      [
+        'class Crypto {',
+        '  void run() throws Exception {',
+        '    Cipher c = Cipher.getInstance("AES/ECB/PKCS5Padding");',
+        '    Cipher n = new NullCipher();',
+        '    SSLContext ctx = SSLContext.getInstance("SSLv3");',
+        '    URL ftp = new URL("ftp://example.com/file");',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const kinds =
+      result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind) ?? [];
+    expect(kinds).toContain('java.security.insecure-cipher-mode');
+    expect(kinds).toContain('java.security.null-cipher');
+    expect(kinds).toContain('java.security.insecure-ssl-context');
+    expect(kinds).toContain('java.security.insecure-network-protocol');
+  });
+
+  it('emits permissive CORS and trust-all facts', () => {
+    const result = javaSourceAdapter.analyze(
+      'CorsConfig.java',
+      [
+        '@CrossOrigin("*")',
+        'class Api {',
+        '  public void check() {',
+        '    X509TrustManager tm = new X509TrustManager() {',
+        '      public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {}',
+        '      public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {}',
+        '      public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }',
+        '    };',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const kinds =
+      result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind) ?? [];
+    expect(kinds).toContain('java.security.permissive-cors');
+    expect(kinds).toContain('java.security.trust-all-certificates');
+  });
+
+  it('emits audit security facts for XXE, Hibernate, exec, and SecureRandom', () => {
+    const result = javaSourceAdapter.analyze(
+      'src/main/java/demo/Audit.java',
+      [
+        'class Audit {',
+        '  Session session;',
+        '  void run(String email) throws Exception {',
+        '    ObjectMapper mapper = new ObjectMapper();',
+        '    mapper.enableDefaultTyping();',
+        '    DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();',
+        '    XMLInputFactory xif = XMLInputFactory.newInstance();',
+        '    session.createQuery("from User where email = \'" + email + "\'").list();',
+        '    Runtime.getRuntime().exec("ls -la " + email);',
+        '    SecureRandom rng = new SecureRandom(new byte[]{1, 2, 3});',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const kinds =
+      result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind) ?? [];
+    expect(kinds).toContain('java.security.unsafe-jackson-deserialization');
+    expect(kinds).toContain('java.security.xxe-document-builder');
+    expect(kinds).toContain('java.security.xxe-xml-input-factory');
+    expect(kinds).toContain('java.security.hibernate-sql-concatenation');
+    expect(kinds).toContain('java.security.shell-runtime-exec');
+    expect(kinds).toContain('java.security.predictable-securerandom');
+  });
 
   it('emits shared performance hygiene facts', () => {
     const result = javaSourceAdapter.analyze(
