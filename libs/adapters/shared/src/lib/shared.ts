@@ -38,6 +38,8 @@ export * from './polyglot/domains/go-correctness';
 export * from './polyglot/domains/go-general-security';
 export * from './polyglot/domains/go-general-security';
 export * from './polyglot/domains/rust-framework-security';
+export * from './polyglot/domains/rust-general-security';
+export * from './polyglot/domains/rust-correctness';
 export * from './polyglot/domains/privacy-processors';
 export * from './polyglot/domains/filesystem-depth';
 export * from './polyglot/domains/testing-hygiene';

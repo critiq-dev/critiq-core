@@ -116,4 +116,58 @@ describe('rustSourceAdapter', () => {
     );
   });
 
+  it('emits general Rust security facts', () => {
+    const result = rustSourceAdapter.analyze(
+      'server.rs',
+      [
+        'use md5;',
+        '',
+        'async fn boot() {',
+        '  let _ = std::net::TcpListener::bind("0.0.0.0:8080");',
+        '  let _ = Command::new("sh").arg("-c").arg("echo hi");',
+        '  let _ = serde_yaml::from_str("{a: 1}");',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toEqual(
+      expect.arrayContaining([
+        'rust.security.bind-all-interfaces',
+        'rust.security.weak-crypto-import',
+        'rust.security.shell-command-spawn',
+        'rust.security.insecure-yaml-load',
+      ]),
+    );
+  });
+
+  it('skips general Rust security facts in test paths', () => {
+    const result = rustSourceAdapter.analyze(
+      'src/server_test.rs',
+      [
+        'async fn boot() {',
+        '  panic!("test only");',
+        '  let _ = std::net::TcpListener::bind("0.0.0.0:8080");',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.some((fact) =>
+        fact.kind.startsWith('rust.security.'),
+      ),
+    ).toBe(false);
+  });
+
 });

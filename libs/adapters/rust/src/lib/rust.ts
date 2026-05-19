@@ -4,6 +4,7 @@ import {
   collectInsecureHttpTransportFacts,
   collectRequestPathFileReadFacts,
   collectRustFrameworkSecurityFacts,
+  collectRustGeneralSecurityFacts,
   collectSensitiveLoggingFacts,
   collectSharedArchivePathTraversalFacts,
   collectSharedExternalFileUploadFacts,
@@ -12,6 +13,7 @@ import {
   collectSqlInterpolationFacts,
   collectRustTestingHygieneFacts,
   collectRustQualityMaintainabilityFacts,
+  collectRustCorrectnessFacts,
   collectRustPerformanceFacts,
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
@@ -120,6 +122,7 @@ const rustAdapterDefinition: PolyglotAdapterDefinition<RustScanState> = {
       pattern: weakHashCallPattern,
     }),
     ...collectRustFrameworkSecurityFacts({ text, path, detector }),
+    ...collectRustGeneralSecurityFacts({ text, path, detector }),
     ...collectSharedExternalFileUploadFacts({
       text,
       detector,
@@ -146,6 +149,7 @@ const rustAdapterDefinition: PolyglotAdapterDefinition<RustScanState> = {
     }),
     ...collectRustTestingHygieneFacts({ text, path, detector }),
     ...collectRustQualityMaintainabilityFacts({ text, path, detector }),
+    ...collectRustCorrectnessFacts({ text, path, detector }),
     ...collectRustPerformanceFacts({ text, path, detector }),
   ],
 };
