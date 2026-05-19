@@ -2,7 +2,9 @@ import {
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
+  collectPythonCorrectnessFacts,
   collectPythonFrameworkSecurityFacts,
+  collectPythonGeneralSecurityFacts,
   collectRequestPathFileReadFacts,
   collectSharedArchivePathTraversalFacts,
   collectSharedExternalFileUploadFacts,
@@ -128,6 +130,14 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
       pattern: weakHashCallPattern,
     }),
     ...collectPythonFrameworkSecurityFacts({
+      text,
+      detector,
+    }),
+    ...collectPythonGeneralSecurityFacts({
+      text,
+      detector,
+    }),
+    ...collectPythonCorrectnessFacts({
       text,
       detector,
     }),

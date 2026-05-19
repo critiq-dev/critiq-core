@@ -20,6 +20,8 @@ export * from './polyglot/domains/tls-verification-disabled';
 export * from './polyglot/domains/unsafe-deserialization';
 export * from './polyglot/domains/weak-hash-algorithm';
 export * from './polyglot/domains/python-framework-security';
+export * from './polyglot/domains/python-general-security';
+export * from './polyglot/domains/python-correctness';
 export * from './polyglot/domains/ruby-rails-security';
 export * from './polyglot/domains/php-framework-security';
 export * from './polyglot/domains/java-open-redirect';

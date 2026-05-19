@@ -66,6 +66,7 @@ describe('pythonSourceAdapter', () => {
     expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toEqual([
       'security.hardcoded-credentials',
       'security.sensitive-data-in-logs-and-telemetry',
+      'python.security.subprocess-shell-enabled',
       'security.command-execution-with-request-input',
       'security.sql-interpolation',
       'security.unsafe-deserialization',
@@ -176,6 +177,79 @@ describe('pythonSourceAdapter', () => {
     ).toBe(true);
   });
 
+  it('emits Django missing SecurityMiddleware facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'settings.py',
+      [
+        'MIDDLEWARE = [',
+        '    "django.middleware.common.CommonMiddleware",',
+        '    "django.middleware.csrf.CsrfViewMiddleware",',
+        ']',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.some(
+        (fact) => fact.kind === 'python.security.django-security-middleware-missing',
+      ),
+    ).toBe(true);
+  });
+
+  it('emits Django mark_safe usage facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'views.py',
+      [
+        'from django.utils.safestring import mark_safe',
+        '',
+        'def preview(request):',
+        '    return mark_safe(request.GET["q"])',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.some(
+        (fact) => fact.kind === 'python.security.django-mark-safe',
+      ),
+    ).toBe(true);
+  });
+
+  it('emits Django format_html unsafe interpolation facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'views.py',
+      [
+        'from django.utils.html import format_html',
+        '',
+        'def greet(request):',
+        '    user_name = request.GET.get("name", "guest")',
+        '    return format_html("<div>{}</div>", user_name)',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.some(
+        (fact) => fact.kind === 'python.security.django-format-html-unsafe',
+      ),
+    ).toBe(true);
+  });
+
   it('emits DRF permissive default permission facts', () => {
     const result = pythonSourceAdapter.analyze(
       'settings.py',
@@ -246,6 +320,31 @@ describe('pythonSourceAdapter', () => {
         (fact) => fact.kind === 'python.security.flask-unsafe-html-output',
       ),
     ).toBe(true);
+  });
+
+  it('emits Flask debug enabled facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'app.py',
+      [
+        'import os',
+        '',
+        'app.config["DEBUG"] = True',
+        'os.environ["FLASK_DEBUG"] = "1"',
+        'app.run(debug=True)',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.filter(
+        (fact) => fact.kind === 'python.security.flask-debug-enabled',
+      ),
+    ).toHaveLength(3);
   });
 
   it('emits Flask unsafe upload filename facts', () => {

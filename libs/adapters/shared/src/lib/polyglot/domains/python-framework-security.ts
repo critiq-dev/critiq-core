@@ -14,8 +14,13 @@ export const PYTHON_FRAMEWORK_SECURITY_FACT_KINDS = {
     'python.security.django-csrf-exempt-state-changing',
   djangoMissingCsrfMiddleware:
     'python.security.django-missing-csrf-middleware',
+  djangoMissingSecurityMiddleware:
+    'python.security.django-security-middleware-missing',
+  djangoMarkSafe: 'python.security.django-mark-safe',
+  djangoFormatHtmlUnsafe: 'python.security.django-format-html-unsafe',
   drfAllowAnyDefault: 'python.security.drf-allow-any-default',
   drfAllowAnyUnsafeMethod: 'python.security.drf-allow-any-unsafe-method',
+  flaskDebugEnabled: 'python.security.flask-debug-enabled',
   flaskUnsafeHtmlOutput: 'python.security.flask-unsafe-html-output',
   flaskUnsafeUploadFilename: 'python.security.flask-unsafe-upload-filename',
   flaskMissingUploadBodyLimit: 'python.security.flask-missing-upload-body-limit',
@@ -36,8 +41,12 @@ export function collectPythonFrameworkSecurityFacts(
     ...collectDjangoUnsafeProductionSettingsFacts(text, detector),
     ...collectDjangoCsrfExemptMutationFacts(text, detector),
     ...collectDjangoMissingCsrfMiddlewareFacts(text, detector),
+    ...collectDjangoMissingSecurityMiddlewareFacts(text, detector),
+    ...collectDjangoMarkSafeFacts(text, detector),
+    ...collectDjangoUnsafeFormatHtmlFacts(text, detector),
     ...collectDrfAllowAnyDefaultFacts(text, detector),
     ...collectDrfAllowAnyUnsafeMethodFacts(text, detector),
+    ...collectFlaskDebugEnabledFacts(text, detector),
     ...collectFlaskUnsafeHtmlFacts(text, detector),
     ...collectFlaskUnsafeUploadFilenameFacts(text, detector),
     ...collectFlaskMissingMaxContentLengthFacts(text, detector),
@@ -186,6 +195,89 @@ function collectDjangoMissingCsrfMiddlewareFacts(
   ];
 }
 
+function collectDjangoMissingSecurityMiddlewareFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind =
+    PYTHON_FRAMEWORK_SECURITY_FACT_KINDS.djangoMissingSecurityMiddleware;
+
+  if (!/\bMIDDLEWARE\b/u.test(text)) {
+    return [];
+  }
+
+  const middlewareSlice = extractMiddleWareListText(text);
+
+  if (!middlewareSlice) {
+    return [];
+  }
+
+  if (middlewareSlice.includes('django.middleware.security.SecurityMiddleware')) {
+    return [];
+  }
+
+  const anchor = text.search(/\bMIDDLEWARE\s*=/u);
+
+  if (anchor < 0) {
+    return [];
+  }
+
+  return [
+    createOffsetFact(text, {
+      detector,
+      appliesTo: 'block',
+      kind,
+      startOffset: anchor,
+      endOffset: anchor + 'MIDDLEWARE'.length,
+      text: 'MIDDLEWARE',
+    }),
+  ];
+}
+
+function collectDjangoMarkSafeFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = PYTHON_FRAMEWORK_SECURITY_FACT_KINDS.djangoMarkSafe;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\b(?:django\.utils\.safestring\.)?mark_safe\s*\(/g,
+  });
+}
+
+function collectDjangoUnsafeFormatHtmlFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = PYTHON_FRAMEWORK_SECURITY_FACT_KINDS.djangoFormatHtmlUnsafe;
+
+  return collectSnippetFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\bformat_html\s*\(/g,
+    state: emptySnippetState,
+    predicate: (snippet) => {
+      const body = snippet.text;
+      const hasPlaceholderTemplate =
+        /\bformat_html\s*\(\s*(?:"[^"\n]*\{\}[^"\n]*"|'[^'\n]*\{\}[^'\n]*')\s*,/u.test(
+          body,
+        );
+      const hasNonLiteralArgument =
+        /\bformat_html\s*\(\s*(?:"[^"\n]*\{\}[^"\n]*"|'[^'\n]*\{\}[^'\n]*')\s*,\s*[A-Za-z_][A-Za-z0-9_.]*(?:\s*[,)])/u.test(
+          body,
+        );
+
+      return hasPlaceholderTemplate && hasNonLiteralArgument;
+    },
+  });
+}
+
 function extractMiddleWareListText(source: string): string | undefined {
   const match = /\bMIDDLEWARE\s*=\s*\[/u.exec(source);
 
@@ -275,6 +367,33 @@ function collectDrfAllowAnyUnsafeMethodFacts(
         }),
       );
     }
+  }
+
+  return facts;
+}
+
+function collectFlaskDebugEnabledFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = PYTHON_FRAMEWORK_SECURITY_FACT_KINDS.flaskDebugEnabled;
+  const facts: ObservedFact[] = [];
+
+  for (const pattern of [
+    /\b[A-Za-z_][A-Za-z0-9_.]*\.run\s*\([\s\S]{0,220}?\bdebug\s*=\s*(?:True|1)\b/g,
+    /\b[A-Za-z_][A-Za-z0-9_.]*\.config\s*\[\s*['"]DEBUG['"]\s*\]\s*=\s*(?:True|1)\b/g,
+    /^\s*FLASK_DEBUG\s*=\s*(?:["']?(?:1|true|on|yes)["']?)\s*$/gim,
+    /\bos\.environ\s*\[\s*['"]FLASK_DEBUG['"]\s*\]\s*=\s*["'](?:1|true|on|yes)["']/gi,
+  ]) {
+    facts.push(
+      ...collectMatchedFacts({
+        text,
+        detector,
+        kind,
+        appliesTo: 'block',
+        pattern,
+      }),
+    );
   }
 
   return facts;
