@@ -113,10 +113,98 @@ describe('goSourceAdapter', () => {
     }
 
     expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toEqual([
+      'go.security.weak-crypto-import',
       'security.insecure-http-transport',
       'security.tls-verification-disabled',
+      'go.security.tls-missing-min-version',
       'security.weak-hash-algorithm',
     ]);
+  });
+
+  it('emits general security facts for JWT, TLS, pprof, bcrypt, and rand', () => {
+    const result = goSourceAdapter.analyze(
+      'security.go',
+      [
+        'package main',
+        '',
+        'import (',
+        '  "crypto/tls"',
+        '  "math/rand"',
+        '  "net/http"',
+        '  _ "net/http/pprof"',
+        ')',
+        '',
+        'func setup() {',
+        '  cfg := &tls.Config{ServerName: "x"}',
+        '  weakSsl := &tls.Config{MinVersion: tls.VersionSSL30}',
+        '  weakCiphers := &tls.Config{',
+        '    MinVersion:   tls.VersionTLS12,',
+        '    CipherSuites: []uint16{tls.TLS_RSA_WITH_RC4_128_SHA},',
+        '  }',
+        '  http.Handle("/debug/pprof/", http.DefaultServeMux)',
+        '  _, _ = bcrypt.GenerateFromPassword([]byte("a"), 4)',
+        '  rand.Seed(42)',
+        '  _, _ = jwt.Parse("t", nil)',
+        '  _, _ = jwt.ParseUnverified("t", &claims)',
+        '  _, _ = jwt.Decode("t")',
+        '  _, _, _ = cfg, weakSsl, weakCiphers',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const kinds =
+      result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind) ?? [];
+    expect(kinds).toContain('go.security.jwt-without-verification');
+    expect(kinds).toContain('go.security.tls-missing-min-version');
+    expect(kinds).toContain('go.security.insecure-ssl-protocol');
+    expect(kinds).toContain('go.security.weak-tls-cipher');
+    expect(kinds).toContain('go.security.pprof-exposed');
+    expect(kinds).toContain('go.security.weak-bcrypt-cost');
+    expect(kinds).toContain('go.security.insecure-rand-seed');
+  });
+
+  it('emits baseline general security facts (bind-all, unsafe, ssh, temp, rsa, crypto)', () => {
+    const result = goSourceAdapter.analyze(
+      'baseline.go',
+      [
+        'package main',
+        '',
+        'import (',
+        '  "crypto/md5"',
+        '  "unsafe"',
+        ')',
+        '',
+        'func boot() {',
+        '  http.ListenAndServe("0.0.0.0:8080", nil)',
+        '  ssh.InsecureIgnoreHostKey()',
+        '  _, _ = ioutil.TempFile("", "x-")',
+        '  _, _ = rsa.GenerateKey(rand.Reader, 1024)',
+        '  _ = unsafe.Sizeof(0)',
+        '  _ = md5.New()',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const kinds =
+      result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind) ?? [];
+    expect(kinds).toContain('go.security.bind-all-interfaces');
+    expect(kinds).toContain('go.security.unsafe-package-import');
+    expect(kinds).toContain('go.security.insecure-ssh-host-key');
+    expect(kinds).toContain('go.security.insecure-temp-file');
+    expect(kinds).toContain('go.security.weak-rsa-key-size');
+    expect(kinds).toContain('go.security.weak-crypto-import');
   });
 
 

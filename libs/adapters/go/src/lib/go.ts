@@ -1,9 +1,11 @@
 import {
   collectCommandExecutionFacts,
+  collectGoCorrectnessFacts,
   collectGoEchoSensitiveBindingFacts,
   collectGoEchoUnsafeUploadFacts,
   collectGoFiberSensitiveBindingFacts,
   collectGoFiberUnsafeUploadFacts,
+  collectGoGeneralSecurityFacts,
   collectGoGinSensitiveBindingFacts,
   collectGoGinTrustAllProxiesFacts,
   collectGoGinWildcardCorsWithCredentialsFacts,
@@ -164,6 +166,7 @@ const goAdapterDefinition: PolyglotAdapterDefinition<GoScanState> = {
       state,
       matchesTainted: matchesGoTainted,
     }),
+    ...collectGoGeneralSecurityFacts({ text, path, detector }),
     ...collectSharedExternalFileUploadFacts({
       text,
       detector,
@@ -191,6 +194,7 @@ const goAdapterDefinition: PolyglotAdapterDefinition<GoScanState> = {
     ...collectGoTestingHygieneFacts({ text, path, detector }),
     ...collectGoQualityMaintainabilityFacts({ text, path, detector }),
     ...collectGoPerformanceFacts({ text, path, detector }),
+    ...collectGoCorrectnessFacts({ text, path, detector }),
   ],
 };
 
