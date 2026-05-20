@@ -1,4 +1,6 @@
 import {
+  collectPhpBaselineSecurityFacts,
+  collectPhpCorrectnessFacts,
   collectPhpFrameworkSecurityFacts,
   collectPhpSensitiveDataEgressFacts,
   collectCommandExecutionFacts,
@@ -125,6 +127,13 @@ const phpAdapterDefinition: PolyglotAdapterDefinition<PhpScanState> = {
       detector,
       pattern: weakHashCallPattern,
     }),
+    ...collectPhpBaselineSecurityFacts({
+      text,
+      path,
+      detector,
+      state,
+      matchesTainted: matchesPhpTainted,
+    }),
     ...collectPhpFrameworkSecurityFacts({
       text,
       path,
@@ -165,6 +174,7 @@ const phpAdapterDefinition: PolyglotAdapterDefinition<PhpScanState> = {
     ...collectPhpTestingHygieneFacts({ text, path, detector }),
     ...collectPhpQualityMaintainabilityFacts({ text, path, detector }),
     ...collectPhpPerformanceFacts({ text, path, detector }),
+    ...collectPhpCorrectnessFacts({ text, detector }),
   ],
 };
 

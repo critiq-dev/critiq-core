@@ -24,6 +24,8 @@ export * from './polyglot/domains/python-general-security';
 export * from './polyglot/domains/python-correctness';
 export * from './polyglot/domains/ruby-rails-security';
 export * from './polyglot/domains/php-framework-security';
+export * from './polyglot/domains/php-correctness';
+export * from './polyglot/domains/php-baseline-security';
 export * from './polyglot/domains/java-open-redirect';
 export * from './polyglot/domains/java-insecure-cookie';
 export * from './polyglot/domains/java-sensitive-data-egress';
