@@ -20,7 +20,8 @@ export type CanonicalLanguage =
   | 'java'
   | 'php'
   | 'ruby'
-  | 'rust';
+  | 'rust'
+  | 'dockerfile';
 
 /**
  * Represents a canonical normalized language identifier plus the catalog-wide

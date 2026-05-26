@@ -1,0 +1,78 @@
+{
+  "scope": "@critiq-dev",
+  "sourceScope": "@critiq",
+  "packages": [
+    {
+      "distPath": "dist/libs/core/diagnostics",
+      "publishName": "core-diagnostics"
+    },
+    {
+      "distPath": "dist/libs/core/finding-schema",
+      "publishName": "core-finding-schema"
+    },
+    {
+      "distPath": "dist/libs/utils/yaml-loader",
+      "publishName": "util-yaml-loader"
+    },
+    {
+      "distPath": "dist/libs/core/rules-dsl",
+      "publishName": "core-rules-dsl"
+    },
+    {
+      "distPath": "dist/libs/core/ir",
+      "publishName": "core-ir"
+    },
+    {
+      "distPath": "dist/libs/core/config",
+      "publishName": "core-config"
+    },
+    {
+      "distPath": "dist/libs/core/rules-engine",
+      "publishName": "core-rules-engine"
+    },
+    {
+      "distPath": "dist/libs/adapters/shared",
+      "publishName": "adapter-shared"
+    },
+    {
+      "distPath": "dist/libs/adapters/go",
+      "publishName": "adapter-go"
+    },
+    {
+      "distPath": "dist/libs/adapters/java",
+      "publishName": "adapter-java"
+    },
+    {
+      "distPath": "dist/libs/adapters/php",
+      "publishName": "adapter-php"
+    },
+    {
+      "distPath": "dist/libs/adapters/python",
+      "publishName": "adapter-python"
+    },
+    {
+      "distPath": "dist/libs/adapters/ruby",
+      "publishName": "adapter-ruby"
+    },
+    {
+      "distPath": "dist/libs/adapters/rust",
+      "publishName": "adapter-rust"
+    },
+    {
+      "distPath": "dist/libs/adapters/typescript",
+      "publishName": "adapter-typescript"
+    },
+    {
+      "distPath": "dist/libs/core/catalog",
+      "publishName": "core-catalog"
+    },
+    {
+      "distPath": "dist/libs/runtime/check-runner",
+      "publishName": "check-runner"
+    },
+    {
+      "distPath": "dist/tools/testing/harness",
+      "publishName": "testing-harness"
+    }
+  ]
+}

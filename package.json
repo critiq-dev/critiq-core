@@ -24,7 +24,9 @@
     "check:package-exports": "node scripts/check-package-exports.mjs",
     "check:package-contents": "node scripts/check-package-contents.mjs",
     "release:dry-run": "node scripts/publish-dry-run.mjs",
-    "release:verify": "npm run check:schema-drift && npm run check:package-exports && npm run check:package-contents && npm run release:dry-run"
+    "release:verify": "npm run check:schema-drift && npm run check:package-exports && npm run check:package-contents && npm run release:dry-run",
+    "publish:internal:dry-run": "node scripts/publish-internal-packages.mjs --dry-run",
+    "publish:internal": "node scripts/publish-internal-packages.mjs --publish"
   },
   "private": true,
   "workspaces": [

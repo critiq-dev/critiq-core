@@ -37,6 +37,7 @@ export const ruleLanguageSchema = z.enum([
   'php',
   'ruby',
   'rust',
+  'dockerfile',
   'all',
 ]);
 

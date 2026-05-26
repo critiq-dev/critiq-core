@@ -9,6 +9,22 @@
     ".": {
       "types": "./src/index.d.ts",
       "default": "./src/index.js"
+    },
+    "./fact-detector-context": {
+      "types": "./src/lib/fact-detector-context.d.ts",
+      "default": "./src/lib/fact-detector-context.js"
+    },
+    "./fact-detector-shared": {
+      "types": "./src/lib/custom-facts/shared/index.d.ts",
+      "default": "./src/lib/custom-facts/shared/index.js"
+    },
+    "./fact-detector-analysis": {
+      "types": "./src/lib/custom-facts/additional-public-security/analysis.d.ts",
+      "default": "./src/lib/custom-facts/additional-public-security/analysis.js"
+    },
+    "./auth-vocabulary": {
+      "types": "./src/lib/auth-vocabulary.d.ts",
+      "default": "./src/lib/auth-vocabulary.js"
     }
   },
   "dependencies": {
