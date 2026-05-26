@@ -78,6 +78,7 @@
               "php",
               "ruby",
               "rust",
+              "dockerfile",
               "all"
             ]
           }
