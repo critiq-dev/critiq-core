@@ -2,9 +2,13 @@ import {
   type RuleAppliesTo,
   type ContractValidatedRuleDocument,
   type RuleConditionNode,
+  type RuleDetection,
   type RuleDocumentV0Alpha1,
   type RuleEmit,
+  type RuleReference,
   type RuleStability,
+  type RuleVulnerability,
+  type RuleVulnerabilityAffectedVersion,
   type RuleWhereClause,
 } from '@critiq/core-rules-dsl';
 import { createHash } from 'node:crypto';
@@ -119,10 +123,24 @@ export interface NormalizedRule {
   stability?: RuleStability;
   appliesTo?: RuleAppliesTo;
   tags: string[];
+  aliases: string[];
+  references: RuleReference[];
+  detection?: RuleDetection;
+  vulnerability?: RuleVulnerability;
   scope: NormalizedScope;
   predicate: NormalizedPredicate;
   emit: NormalizedEmitSpec;
   ruleHash: string;
+}
+
+/**
+ * Fields hashed for stable finding fingerprints. Transparency metadata is excluded.
+ */
+export interface NormalizedRuleFingerprintMaterial {
+  ruleId: string;
+  scope: NormalizedScope;
+  predicate: NormalizedPredicate;
+  emit: NormalizedEmitSpec;
 }
 
 /**
@@ -293,6 +311,120 @@ function normalizeRuleEmit(emit: RuleEmit): NormalizedEmitSpec {
   };
 }
 
+function affectedVersionSortKey(
+  entry: RuleVulnerabilityAffectedVersion,
+): string {
+  if (entry.kind === 'exact') {
+    return `0:${entry.version}`;
+  }
+
+  if (entry.kind === 'range') {
+    return `1:${entry.expression}`;
+  }
+
+  return '2:all';
+}
+
+function normalizeAffectedVersions(
+  entries: readonly RuleVulnerabilityAffectedVersion[],
+): RuleVulnerabilityAffectedVersion[] {
+  return [...entries].sort((left, right) =>
+    affectedVersionSortKey(left).localeCompare(affectedVersionSortKey(right)),
+  );
+}
+
+function normalizeReferences(
+  references: readonly RuleReference[] | undefined,
+): RuleReference[] {
+  if (!references) {
+    return [];
+  }
+
+  return [...references].sort((left, right) =>
+    referenceSortKey(left).localeCompare(referenceSortKey(right)),
+  );
+}
+
+function referenceSortKey(reference: RuleReference): string {
+  return [
+    reference.kind,
+    reference.id ?? '',
+    reference.url ?? '',
+    reference.title ?? '',
+  ].join(':');
+}
+
+function normalizeVulnerability(
+  vulnerability: RuleVulnerability | undefined,
+): RuleVulnerability | undefined {
+  if (!vulnerability) {
+    return undefined;
+  }
+
+  const normalizedIds = vulnerability.ids
+    ? {
+        ...(normalizeStringArray(vulnerability.ids.cve).length > 0
+          ? { cve: normalizeStringArray(vulnerability.ids.cve) }
+          : {}),
+        ...(normalizeStringArray(vulnerability.ids.cwe).length > 0
+          ? { cwe: normalizeStringArray(vulnerability.ids.cwe) }
+          : {}),
+        ...(normalizeStringArray(vulnerability.ids.advisory).length > 0
+          ? { advisory: normalizeStringArray(vulnerability.ids.advisory) }
+          : {}),
+        ...(vulnerability.ids.external?.length
+          ? {
+              external: [...vulnerability.ids.external].sort((left, right) =>
+                `${left.source}:${left.id}`.localeCompare(
+                  `${right.source}:${right.id}`,
+                ),
+              ),
+            }
+          : {}),
+      }
+    : undefined;
+
+  return {
+    ...vulnerability,
+    labels: vulnerability.labels
+      ? [...vulnerability.labels].sort((left, right) => left.localeCompare(right))
+      : undefined,
+    ids:
+      normalizedIds && Object.keys(normalizedIds).length > 0
+        ? normalizedIds
+        : undefined,
+    package: {
+      ...vulnerability.package,
+      affectedVersions: normalizeAffectedVersions(
+        vulnerability.package.affectedVersions,
+      ),
+    },
+    credit: normalizeStringArray(vulnerability.credit),
+    fix: {
+      ...vulnerability.fix,
+      versions: normalizeStringArray(vulnerability.fix.versions),
+    },
+    severity: vulnerability.severity?.cvss
+      ? {
+          cvss: [...vulnerability.severity.cvss].sort((left, right) =>
+            left.version.localeCompare(right.version),
+          ),
+        }
+      : vulnerability.severity,
+  };
+}
+
+function buildFingerprintMaterial(
+  normalizedRule: Omit<NormalizedRule, 'ruleHash'>,
+): NormalizedRuleFingerprintMaterial {
+  return {
+    ruleId: normalizedRule.ruleId,
+    scope: normalizedRule.scope,
+    predicate: normalizedRule.predicate,
+    emit: normalizedRule.emit,
+  };
+}
+
 function stableSerialize(value: unknown): string {
   if (value === null || typeof value !== 'object') {
     return JSON.stringify(value);
@@ -315,7 +447,7 @@ function hashNormalizedRule(
   normalizedRule: Omit<NormalizedRule, 'ruleHash'>,
 ): string {
   return createHash('sha256')
-    .update(stableSerialize(normalizedRule))
+    .update(stableSerialize(buildFingerprintMaterial(normalizedRule)))
     .digest('hex');
 }
 
@@ -333,6 +465,10 @@ function normalizeRuleDocumentShape(
     stability: document.metadata.stability,
     appliesTo: document.metadata.appliesTo,
     tags: normalizeStringArray(document.metadata.tags),
+    aliases: normalizeStringArray(document.metadata.aliases),
+    references: normalizeReferences(document.metadata.references),
+    detection: document.metadata.detection,
+    vulnerability: normalizeVulnerability(document.vulnerability),
     scope: {
       languages: Array.from(
         new Set(document.scope.languages.map(normalizeLanguage)),

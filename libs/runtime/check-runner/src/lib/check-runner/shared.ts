@@ -17,6 +17,8 @@ import {
   loadRuleFile,
   validateLoadedRuleDocumentContract,
   validateRuleDocumentSemantics,
+  type RuleReference,
+  type RuleVulnerability,
 } from '@critiq/core-rules-dsl';
 import type { AnalyzedFile, DiffRange } from '@critiq/core-rules-engine';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -62,6 +64,9 @@ export interface CheckRuleSummary {
 
 export interface CheckReportFindingAttributes {
   detail?: string;
+  rationale?: string;
+  references?: RuleReference[];
+  vulnerability?: RuleVulnerability;
 }
 
 export interface CheckReportFinding
@@ -351,12 +356,16 @@ export function loadNormalizedRulesForCatalog(
       continue;
     }
 
+    diagnostics.push(...semanticValidation.diagnostics);
     rules.push(normalizeRuleDocument(contractValidation.data).rule);
   }
 
   const aggregatedDiagnostics = aggregateDiagnostics(diagnostics);
+  const hasErrors = aggregatedDiagnostics.some(
+    (diagnostic) => diagnostic.severity === 'error',
+  );
 
-  if (aggregatedDiagnostics.length > 0) {
+  if (hasErrors) {
     return {
       success: false,
       rules,
@@ -367,7 +376,7 @@ export function loadNormalizedRulesForCatalog(
   return {
     success: true,
     rules,
-    diagnostics: [],
+    diagnostics: aggregatedDiagnostics,
   };
 }
 

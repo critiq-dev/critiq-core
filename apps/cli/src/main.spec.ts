@@ -878,7 +878,7 @@ Exit code: 1"
     expect(output).toContain('"ruleId": "ts.logging.no-console-log"');
     expect(output).toContain('"raw": "Avoid `$<captures.call.text}`"');
     expect(output).toContain(
-      '"ruleHash": "caf39ee108746bb25e8a8cfccc8cfee70a0e161e44ef5ebd8617ce8f9f37cd47"',
+      '"ruleHash": "840b49c2de700b42ec2fdc639c8718cfb2a021e3e7f172bc6ca4d6c903cbaadd"',
     );
   });
 
@@ -905,7 +905,7 @@ Exit code: 1"
     expect(envelope.command).toBe('rules.explain');
     expect(envelope.exitCode).toBe(0);
     expect(envelope.ruleHash).toBe(
-      'caf39ee108746bb25e8a8cfccc8cfee70a0e161e44ef5ebd8617ce8f9f37cd47',
+      '840b49c2de700b42ec2fdc639c8718cfb2a021e3e7f172bc6ca4d6c903cbaadd',
     );
     expect(envelope.parsedSummary.ruleId).toBe('ts.logging.no-console-log');
     expect(envelope.parsedSummary.phases.normalization).toBe('success');

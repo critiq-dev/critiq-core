@@ -27,6 +27,17 @@ contract and semantic phases for convenience.
   variables
 - capture placeholders must reference captures that are reachable from the rule
   condition tree
+- `metadata.references[].id` must match kind-specific patterns for `cwe`, `cve`,
+  and `advisory`
+- `metadata.references[].url` must use `http://` or `https://` when present
+- `metadata.detection.kind: vulnerability` requires a top-level `vulnerability`
+  block and vice versa
+- `vulnerability` rules require `classification`, `issueKind`, `package.name`,
+  `package.affectedVersions`, `fix.kind`, `fix.available`, and `fix.summary`
+- CVE issue kinds require `vulnerability.ids.cve` or `vulnerability.ids.advisory`
+- upgrade fixes with `fix.available: true` require `fix.versions`
+- security-category rules without `metadata.references` emit a warning
+- OSS catalog rules must not declare `vulnerability`
 
 ## Branch Semantics
 

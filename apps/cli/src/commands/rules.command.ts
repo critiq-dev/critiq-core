@@ -212,12 +212,12 @@ function buildSingleFileState(
     parsedSummary,
     semanticStatus: {
       success: true,
-      diagnostics: [],
+      diagnostics: semanticValidation.diagnostics,
     },
     normalizedRule: normalized.rule,
     ruleHash: normalized.ruleHash,
     templateVariables,
-    diagnostics: [],
+    diagnostics: semanticValidation.diagnostics,
   };
 }
 

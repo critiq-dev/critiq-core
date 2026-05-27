@@ -251,4 +251,11 @@ describe('ruleDocumentV0Alpha1Schema', () => {
       ]),
     });
   });
+
+  it('validates the vulnerability example rule document', () => {
+    const vulnerabilityRule =
+      require('../../examples/rule-vulnerability.valid.json') as RuleDocumentV0Alpha1;
+
+    expect(validateRuleDocument(vulnerabilityRule).success).toBe(true);
+  });
 });

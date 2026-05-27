@@ -1,3 +1,4 @@
+import { type RuleReference, type RuleVulnerability } from '@critiq/core-rules-dsl';
 import { formatDiagnosticsForTerminal } from '@critiq/core-diagnostics';
 import { formatRuleSpecRunForTerminal } from '@critiq/testing-harness';
 
@@ -8,6 +9,47 @@ import {
   type ValidateCommandEnvelope,
 } from '../cli.types';
 import { renderJson } from './json.rendering';
+
+function formatReferencesForTerminal(references: readonly RuleReference[]): string {
+  if (references.length === 0) {
+    return '  - none';
+  }
+
+  return references
+    .map((reference) => {
+      const parts: string[] = [reference.kind];
+
+      if (reference.id) {
+        parts.push(reference.id);
+      }
+
+      if (reference.title) {
+        parts.push(`(${reference.title})`);
+      }
+
+      if (reference.url) {
+        parts.push(`-> ${reference.url}`);
+      }
+
+      return `  - ${parts.join(' ')}`;
+    })
+    .join('\n');
+}
+
+function formatVulnerabilityForTerminal(
+  vulnerability: RuleVulnerability | undefined,
+): string {
+  if (!vulnerability) {
+    return '  - none';
+  }
+
+  return [
+    `  - classification: ${vulnerability.classification}`,
+    `  - issueKind: ${vulnerability.issueKind}`,
+    `  - package: ${vulnerability.package.ecosystem}/${vulnerability.package.name}`,
+    `  - fix: ${vulnerability.fix.kind} (available: ${vulnerability.fix.available})`,
+  ].join('\n');
+}
 
 function formatTemplateVariablesForTerminal(
   templateVariables: ExplainCommandEnvelope['templateVariables'],
@@ -139,6 +181,12 @@ export function renderSingleFilePretty(
   }
 
   if (heading === 'explain') {
+    lines.push('', 'References');
+    lines.push(
+      formatReferencesForTerminal(state.normalizedRule?.references ?? []),
+    );
+    lines.push('', 'Vulnerability Metadata');
+    lines.push(formatVulnerabilityForTerminal(state.normalizedRule?.vulnerability));
     lines.push('', 'Inferred Template Variables');
     lines.push(formatTemplateVariablesForTerminal(state.templateVariables));
   }

@@ -77,6 +77,10 @@ describe('normalizeRuleDocument', () => {
       stability: undefined,
       appliesTo: undefined,
       tags: ['logging', 'maintainability'],
+      aliases: [],
+      references: [],
+      detection: undefined,
+      vulnerability: undefined,
       scope: {
         languages: ['javascript', 'typescript'],
         includeGlobs: ['src/**'],
@@ -495,5 +499,69 @@ describe('normalizeRuleDocument', () => {
       },
     });
     expect(result.ruleHash).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('keeps ruleHash stable when transparency metadata changes', () => {
+    const baseRule = [
+      'apiVersion: critiq.dev/v1alpha1',
+      'kind: Rule',
+      'metadata:',
+      '  id: ts.logging.no-console-log',
+      '  title: Avoid console.log',
+      '  summary: Use the logger',
+      'scope:',
+      '  languages:',
+      '    - typescript',
+      'match:',
+      '  node:',
+      '    kind: CallExpression',
+      'emit:',
+      '  finding:',
+      '    category: maintainability',
+      '    severity: low',
+      '    confidence: high',
+      '  message:',
+      '    title: Avoid console.log',
+      '    summary: Use logger',
+    ].join('\n');
+    const withReferences = [
+      'apiVersion: critiq.dev/v1alpha1',
+      'kind: Rule',
+      'metadata:',
+      '  id: ts.logging.no-console-log',
+      '  title: Avoid console.log',
+      '  summary: Use the logger',
+      '  rationale: Updated rationale only.',
+      '  references:',
+      '    - kind: url',
+      '      title: Team logging guide',
+      '      url: https://docs.example.com/logging',
+      'scope:',
+      '  languages:',
+      '    - typescript',
+      'match:',
+      '  node:',
+      '    kind: CallExpression',
+      'emit:',
+      '  finding:',
+      '    category: maintainability',
+      '    severity: low',
+      '    confidence: high',
+      '  message:',
+      '    title: Avoid console.log',
+      '    summary: Use logger',
+    ].join('\n');
+
+    const base = normalize(baseRule);
+    const enriched = normalize(withReferences);
+
+    expect(base.ruleHash).toBe(enriched.ruleHash);
+    expect(enriched.rule.references).toEqual([
+      {
+        kind: 'url',
+        title: 'Team logging guide',
+        url: 'https://docs.example.com/logging',
+      },
+    ]);
   });
 });

@@ -53,6 +53,10 @@ describe('summarizeValidatedRuleDocument', () => {
       ruleId: 'ts.logging.no-console-log',
       title: 'Avoid console.log',
       summary: 'Use logger',
+      rationale: undefined,
+      references: [],
+      detection: undefined,
+      hasVulnerabilityBlock: false,
       templateVariables: {
         'emit.message.title': [
           {

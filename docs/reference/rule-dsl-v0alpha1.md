@@ -31,6 +31,42 @@ Optional:
 - `metadata.status`
 - `metadata.stability`
 - `metadata.appliesTo`
+- `metadata.aliases`
+- `metadata.references`
+- `metadata.detection`
+
+Optional top-level block:
+
+- `vulnerability` — Pro catalog only; required when `metadata.detection.kind` is `vulnerability`
+
+### References
+
+`metadata.references` is an array of citation objects:
+
+- `kind`: `internal` | `url` | `cwe` | `cve` | `owasp` | `advisory`
+- `id`: required for `cwe`, `cve`, and `advisory`
+- `title`: optional human label
+- `url`: required for `internal` and `url`; optional for id-bearing kinds
+
+Security rules should declare at least one reference. Semantic validation emits a warning when `emit.finding.category` starts with `security.` and references are missing.
+
+### Detection mode
+
+- `metadata.detection.kind`: `pattern` (default) or `vulnerability`
+- Pattern rules match code or adapter facts directly
+- Vulnerability rules require a top-level `vulnerability` block with package/CVE metadata
+
+### Vulnerability block
+
+Use `vulnerability` for Pro SCA-style rules. Key fields:
+
+- `classification`, `issueKind` (`cve` | `malicious` | `advisory`)
+- `package.ecosystem`, `package.name`, `package.affectedVersions[]`
+- `affectedVersions[]` entries: `kind: exact | range | all`
+- `fix.kind`, `fix.available`, `fix.summary`, `fix.versions[]`
+- optional `severity.cvss[]`, `threat.epss`, `exploit.maturity`, `workaround`, `incident`
+
+See `libs/core/rules-dsl/examples/rule-vulnerability.valid.json` for a full example.
 
 `metadata.id` must be a non-empty string at the contract layer. The dotted-slug
 format used by shipped rules, such as `ts.logging.no-console-log`, is enforced

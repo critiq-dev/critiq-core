@@ -1310,6 +1310,9 @@ export function buildFinding(
       ruleHash: rule.ruleHash,
       matchSortKey: match.sortKey,
       detail: renderedDetail?.text,
+      ...(rule.rationale ? { rationale: rule.rationale } : {}),
+      ...(rule.references.length > 0 ? { references: rule.references } : {}),
+      ...(rule.vulnerability ? { vulnerability: rule.vulnerability } : {}),
     },
   };
   const validation = validateFinding(finding);

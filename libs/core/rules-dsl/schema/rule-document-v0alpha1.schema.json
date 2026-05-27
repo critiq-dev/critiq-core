@@ -51,12 +51,376 @@
             "file",
             "project"
           ]
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/properties/metadata/properties/id"
+          }
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "internal",
+                  "url",
+                  "cwe",
+                  "cve",
+                  "owasp",
+                  "advisory"
+                ]
+              },
+              "id": {
+                "$ref": "#/properties/metadata/properties/id"
+              },
+              "title": {
+                "$ref": "#/properties/metadata/properties/id"
+              },
+              "url": {
+                "$ref": "#/properties/metadata/properties/id"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "detection": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "pattern",
+                "vulnerability"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
         "id",
         "title",
         "summary"
+      ],
+      "additionalProperties": false
+    },
+    "vulnerability": {
+      "type": "object",
+      "properties": {
+        "classification": {
+          "$ref": "#/properties/metadata/properties/id"
+        },
+        "issueKind": {
+          "type": "string",
+          "enum": [
+            "cve",
+            "malicious",
+            "advisory"
+          ]
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "new",
+              "malicious",
+              "kev"
+            ]
+          }
+        },
+        "overview": {
+          "$ref": "#/properties/metadata/properties/id"
+        },
+        "ids": {
+          "type": "object",
+          "properties": {
+            "cve": {
+              "type": "array",
+              "items": {
+                "$ref": "#/properties/metadata/properties/id"
+              }
+            },
+            "cwe": {
+              "type": "array",
+              "items": {
+                "$ref": "#/properties/metadata/properties/id"
+              }
+            },
+            "advisory": {
+              "type": "array",
+              "items": {
+                "$ref": "#/properties/metadata/properties/id"
+              }
+            },
+            "external": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "$ref": "#/properties/metadata/properties/id"
+                  },
+                  "id": {
+                    "$ref": "#/properties/metadata/properties/id"
+                  }
+                },
+                "required": [
+                  "source",
+                  "id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "package": {
+          "type": "object",
+          "properties": {
+            "ecosystem": {
+              "type": "string",
+              "enum": [
+                "npm",
+                "pypi",
+                "maven",
+                "go",
+                "cargo",
+                "nuget",
+                "cocoapods",
+                "gem",
+                "composer"
+              ]
+            },
+            "namespace": {
+              "$ref": "#/properties/metadata/properties/id"
+            },
+            "name": {
+              "$ref": "#/properties/metadata/properties/id"
+            },
+            "description": {
+              "$ref": "#/properties/metadata/properties/id"
+            },
+            "affectedVersions": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "exact"
+                      },
+                      "version": {
+                        "$ref": "#/properties/metadata/properties/id"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "version"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "range"
+                      },
+                      "expression": {
+                        "$ref": "#/properties/metadata/properties/id"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "expression"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "all"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "ecosystem",
+            "name",
+            "affectedVersions"
+          ],
+          "additionalProperties": false
+        },
+        "timeline": {
+          "type": "object",
+          "properties": {
+            "disclosed": {
+              "$ref": "#/properties/metadata/properties/id"
+            },
+            "published": {
+              "$ref": "#/properties/metadata/properties/id"
+            }
+          },
+          "additionalProperties": false
+        },
+        "severity": {
+          "type": "object",
+          "properties": {
+            "cvss": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "$ref": "#/properties/metadata/properties/id"
+                  },
+                  "score": {
+                    "type": "number"
+                  },
+                  "vector": {
+                    "$ref": "#/properties/metadata/properties/id"
+                  }
+                },
+                "required": [
+                  "version",
+                  "score",
+                  "vector"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "threat": {
+          "type": "object",
+          "properties": {
+            "epss": {
+              "type": "object",
+              "properties": {
+                "score": {
+                  "type": "number"
+                },
+                "percentile": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "score"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "exploit": {
+          "type": "object",
+          "properties": {
+            "maturity": {
+              "type": "string",
+              "enum": [
+                "none",
+                "poc",
+                "functional",
+                "in-the-wild",
+                "attacked"
+              ]
+            }
+          },
+          "required": [
+            "maturity"
+          ],
+          "additionalProperties": false
+        },
+        "credit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/properties/metadata/properties/id"
+          }
+        },
+        "workaround": {
+          "$ref": "#/properties/metadata/properties/id"
+        },
+        "fix": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "upgrade",
+                "remove",
+                "pin",
+                "mitigate",
+                "none"
+              ]
+            },
+            "available": {
+              "type": "boolean"
+            },
+            "summary": {
+              "$ref": "#/properties/metadata/properties/id"
+            },
+            "versions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/properties/metadata/properties/id"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "available",
+            "summary"
+          ],
+          "additionalProperties": false
+        },
+        "incident": {
+          "type": "object",
+          "properties": {
+            "notice": {
+              "$ref": "#/properties/metadata/properties/id"
+            },
+            "behavior": {
+              "$ref": "#/properties/metadata/properties/id"
+            },
+            "trackingUrl": {
+              "$ref": "#/properties/metadata/properties/id"
+            },
+            "ongoing": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "classification",
+        "issueKind",
+        "package",
+        "fix"
       ],
       "additionalProperties": false
     },

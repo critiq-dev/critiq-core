@@ -22,6 +22,9 @@ import {
   type RuleDocumentV0Alpha1,
 } from './rules-dsl-schema';
 import { scanRuleTemplateField } from './rules-dsl-template-variables';
+import {
+  validateRuleTransparencySemantics,
+} from './rules-dsl-semantic-transparency';
 
 const dottedSlugRuleIdPattern = /^[a-z][a-z0-9]*(\.[a-z0-9-]+)+$/;
 const ossCatalogRuleIdPattern = /^CRQ-[A-Z]{3}-\d{3}$/;
@@ -118,7 +121,7 @@ export type RuleContractValidationResult =
  */
 export interface RuleSemanticValidationSuccess {
   success: true;
-  diagnostics: [];
+  diagnostics: Diagnostic[];
 }
 
 /**
@@ -142,7 +145,7 @@ export type RuleSemanticValidationResult =
 export interface RuleValidationSuccess {
   success: true;
   data: ContractValidatedRuleDocument;
-  diagnostics: [];
+  diagnostics: Diagnostic[];
 }
 
 /**
@@ -714,10 +717,18 @@ export function validateRuleDocumentSemantics(
     ),
   );
 
-  if (diagnostics.length === 0) {
+  diagnostics.push(
+    ...validateRuleTransparencySemantics(document, sourceMap),
+  );
+
+  const hasErrors = diagnostics.some(
+    (diagnostic) => diagnostic.severity === 'error',
+  );
+
+  if (!hasErrors) {
     return {
       success: true,
-      diagnostics: [],
+      diagnostics,
     };
   }
 
@@ -756,7 +767,7 @@ export function validateLoadedRuleDocument(
   return {
     success: true,
     data: contractValidation.data,
-    diagnostics: [],
+    diagnostics: semanticValidation.diagnostics,
   };
 }
 

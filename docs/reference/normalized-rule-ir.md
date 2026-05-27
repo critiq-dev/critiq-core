@@ -18,7 +18,13 @@ stable plain data for deterministic evaluation and hashing.
   - `summary`
   - optional `rationale`
   - optional `status`
+  - optional `stability`
+  - optional `appliesTo`
   - `tags`
+  - `aliases`
+  - `references`
+  - optional `detection`
+  - optional `vulnerability`
   - `scope`
   - `predicate`
   - `emit`
@@ -47,7 +53,24 @@ stable plain data for deterministic evaluation and hashing.
 
 ## Hashing
 
-`ruleHash` is a SHA-256 digest of the canonical semantic IR only.
+`ruleHash` is a SHA-256 digest of detection-relevant IR only:
+
+- `ruleId`
+- `scope`
+- `predicate`
+- `emit`
+
+Transparency metadata is intentionally excluded from the hash:
+
+- `rationale`
+- `aliases`
+- `references`
+- `detection`
+- `vulnerability`
+
+This keeps finding fingerprints stable when help text, citations, or vulnerability advisory details change.
+
+Additional non-hash inputs:
 
 - source URIs are not part of the hash
 - YAML formatting differences are not part of the hash
