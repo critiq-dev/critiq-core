@@ -1,6 +1,7 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
 import { findAllMatches } from '../../runtime';
+import { isTestLikeSourcePath } from '../../testing-paths';
 import { createOffsetFact } from '../fact-utils';
 import { collectMatchedFacts } from './collect-matched-facts';
 import { collectSnippetFacts } from './collect-snippet-facts';
@@ -10,6 +11,9 @@ export const RUBY_RAILS_SECURITY_FACT_KINDS = {
   csrfDisabled: 'ruby.security.rails-csrf-disabled',
   openRedirect: 'ruby.security.rails-open-redirect',
   unsafeHtmlOutput: 'ruby.security.rails-unsafe-html-output',
+  plaintextPasswordInCallback: 'ruby.security.plaintext-password-in-callback',
+  linkToBlankWithoutNoopener: 'ruby.security.rails-link-to-blank-without-noopener',
+  railsOutputUnsafe: 'ruby.security.rails-output-unsafe',
   sidekiqWebUnauthenticatedMount: 'ruby.security.sidekiq-web-unauthenticated-mount',
   unsafeRender: 'ruby.security.rails-unsafe-render',
   detailedExceptionsEnabled: 'ruby.security.rails-detailed-exceptions-enabled',
@@ -93,6 +97,9 @@ export function collectRubyRailsSecurityFacts<TState>(
     ...collectUnsafeRenderFacts(text, detector, state, matchesTainted),
     ...collectDetailedExceptionsFacts(text, detector, path),
     ...collectUnsafeSessionCookieFacts(text, detector),
+    ...collectPlaintextPasswordInCallbackFacts(text, detector),
+    ...collectLinkToBlankWithoutNoopenerFacts(text, detector),
+    ...collectRailsOutputUnsafeFacts(text, path, detector),
   ];
 }
 
@@ -453,6 +460,118 @@ function collectDetailedExceptionsFacts(
       appliesTo: 'block',
       pattern:
         /config\.action_dispatch\.show_exceptions\s*=\s*(?:true|:all)\b/g,
+    }),
+  );
+}
+
+const RAILS_HASH_CALL_WINDOW = 420;
+
+function sliceRailsHashCallWindow(
+  text: string,
+  startOffset: number,
+  endOffset: number,
+): string {
+  return text.slice(
+    startOffset,
+    Math.min(text.length, endOffset + RAILS_HASH_CALL_WINDOW),
+  );
+}
+
+function collectPlaintextPasswordInCallbackFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_RAILS_SECURITY_FACT_KINDS.plaintextPasswordInCallback;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\bhttp_basic_authenticate_with\b/g,
+    predicate: (match) => {
+      const window = sliceRailsHashCallWindow(
+        text,
+        match.startOffset,
+        match.endOffset,
+      );
+
+      if (!/password:\s*["']/u.test(window)) {
+        return false;
+      }
+
+      if (/password:\s*ENV(?:\.fetch)?\b/u.test(window)) {
+        return false;
+      }
+
+      if (/password:\s*Rails\.application\.credentials/u.test(window)) {
+        return false;
+      }
+
+      return true;
+    },
+  });
+}
+
+function collectLinkToBlankWithoutNoopenerFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_RAILS_SECURITY_FACT_KINDS.linkToBlankWithoutNoopener;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\blink_to\b/g,
+    predicate: (match) => {
+      const window = sliceRailsHashCallWindow(
+        text,
+        match.startOffset,
+        match.endOffset,
+      );
+
+      if (!/target:\s*['"]_blank['"]/u.test(window)) {
+        return false;
+      }
+
+      return !/rel:\s*['"][^'"]*(?:noopener|noreferrer)/u.test(window);
+    },
+  });
+}
+
+function collectRailsOutputUnsafeFacts(
+  text: string,
+  path: string,
+  detector: string,
+): ObservedFact[] {
+  if (isTestLikeSourcePath(path)) {
+    return [];
+  }
+
+  const kind = RUBY_RAILS_SECURITY_FACT_KINDS.railsOutputUnsafe;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\.html_safe\b/g,
+  }).concat(
+    collectMatchedFacts({
+      text,
+      detector,
+      kind,
+      appliesTo: 'block',
+      pattern: /\braw\s*\(/g,
+    }),
+    collectMatchedFacts({
+      text,
+      detector,
+      kind,
+      appliesTo: 'block',
+      pattern: /\.safe_concat\s*\(/g,
     }),
   );
 }

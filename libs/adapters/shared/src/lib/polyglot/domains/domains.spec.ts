@@ -5,6 +5,8 @@ import {
   collectJavaResponseWriterXssFacts,
   collectJavaSensitiveDataEgressFacts,
   collectSensitiveLoggingFacts,
+  collectAndroidScreenshotExposureFacts,
+  collectAndroidWorldReadableModeFacts,
   collectSpringConfigDebugExposureFacts,
   collectTlsVerificationDisabledFacts,
   type TrackedIdentifierState,
@@ -135,6 +137,34 @@ describe('shared domain collectors', () => {
 
     expect(facts.map((fact) => fact.kind)).toEqual([
       'security.java-reflected-output-from-request',
+    ]);
+  });
+
+  it('flags Android world-readable file modes', () => {
+    const facts = collectAndroidWorldReadableModeFacts({
+      detector: 'test-detector',
+      text: 'openFileOutput("backup.bin", Context.MODE_WORLD_READABLE);',
+    });
+
+    expect(facts.map((fact) => fact.kind)).toEqual([
+      'security.android-world-readable-mode',
+    ]);
+  });
+
+  it('flags sensitive Android activities missing FLAG_SECURE', () => {
+    const facts = collectAndroidScreenshotExposureFacts({
+      detector: 'test-detector',
+      text: [
+        'class LoginActivity extends AppCompatActivity {',
+        '  void onCreate(Bundle savedInstanceState) {',
+        '    String accessToken = loadToken();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toEqual([
+      'security.android-screenshot-exposure',
     ]);
   });
 

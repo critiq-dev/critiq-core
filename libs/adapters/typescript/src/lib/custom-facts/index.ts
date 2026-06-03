@@ -3,6 +3,8 @@ import type { ObservedFact } from '@critiq/core-rules-engine';
 import {
   collectAdditionalPublicSecurityFacts,
 } from './additional-public-security';
+import { collectElectronShellOpenExternalUnvalidatedFacts } from './additional-public-security/electron-shell-open-external-unvalidated';
+import { collectClientApplicationSecurityFacts } from './client-application-security';
 import { collectTypescriptAsyncCorrectnessFacts } from './typescript-async-correctness';
 import { collectTypescriptCoreLanguageCorrectnessFacts } from './typescript-core-language-correctness';
 import { collectTypescriptCorrectnessLanguageExtendedFacts } from './typescript-correctness-language-extended';
@@ -34,6 +36,8 @@ export function collectAdditionalTypeScriptFacts(
 ): ObservedFact[] {
   const facts = [
     ...collectAdditionalPublicSecurityFacts(context),
+    ...collectClientApplicationSecurityFacts(context),
+    ...collectElectronShellOpenExternalUnvalidatedFacts(context),
     ...collectTypescriptAsyncCorrectnessFacts(context),
     ...collectTypescriptCoreLanguageCorrectnessFacts(context),
     ...collectTypescriptCorrectnessLanguageExtendedFacts(context),

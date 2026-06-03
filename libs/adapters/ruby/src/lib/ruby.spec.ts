@@ -281,4 +281,32 @@ describe('rubySourceAdapter', () => {
     );
   });
 
+  it('emits general Ruby security facts', () => {
+    const result = rubySourceAdapter.analyze(
+      'service.rb',
+      [
+        'eval(params[:code])',
+        'Kernel.open("|whoami")',
+        'JSON.load(params[:json])',
+        'debugger',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind) ?? [];
+    expect(kinds).toEqual(
+      expect.arrayContaining([
+        'ruby.security.dynamic-code-execution',
+        'ruby.security.kernel-open',
+        'ruby.security.insecure-json-load',
+        'ruby.security.debugger-call',
+      ]),
+    );
+  });
+
 });

@@ -19,6 +19,8 @@ import {
   collectSharedExternalFileUploadFacts,
   collectSharedPermissiveFilePermissionFacts,
   collectSharedSensitiveDataEgressFacts,
+  collectAndroidScreenshotExposureFacts,
+  collectAndroidWorldReadableModeFacts,
   collectSpringConfigDebugExposureFacts,
   collectSqlInterpolationFacts,
   collectTlsVerificationDisabledFacts,
@@ -151,6 +153,14 @@ const javaAdapterDefinition: PolyglotAdapterDefinition<JavaScanState> = {
       matchesTainted: matchesJavaTainted,
     }),
     ...collectJavaResponseWriterXssFacts({
+      text,
+      detector,
+    }),
+    ...collectAndroidScreenshotExposureFacts({
+      text,
+      detector,
+    }),
+    ...collectAndroidWorldReadableModeFacts({
       text,
       detector,
     }),

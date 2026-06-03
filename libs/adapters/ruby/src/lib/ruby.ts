@@ -3,6 +3,8 @@ import {
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
   collectRequestPathFileReadFacts,
+  collectRubyBugRiskFacts,
+  collectRubyGeneralSecurityFacts,
   collectRubyRailsSecurityFacts,
   collectRubySensitiveDataEgressFacts,
   collectSensitiveLoggingFacts,
@@ -119,6 +121,8 @@ const rubyAdapterDefinition: PolyglotAdapterDefinition<RubyScanState> = {
       detector,
       pattern: weakHashCallPattern,
     }),
+    ...collectRubyGeneralSecurityFacts({ text, path, detector }),
+    ...collectRubyBugRiskFacts({ text, detector }),
     ...collectRubyRailsSecurityFacts({
       text,
       detector,
