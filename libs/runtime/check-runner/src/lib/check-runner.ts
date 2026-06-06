@@ -1,4 +1,6 @@
 export * from './check-runner/runtime';
+export * from './check-runner/run-check-with-secrets';
+export * from './check-runner/scan-profile';
 export * from './project-analysis';
 export type { CheckCommandScope } from './check-runner/shared';
 export { runSecretsScan, toCheckSecretsScanPayload } from './secrets-scanner/run-secrets-scan';

@@ -1,8 +1,4 @@
-import {
-  runCheckCommand,
-  runSecretsScan,
-  toCheckSecretsScanPayload,
-} from '@critiq/check-runner';
+import { runCheckWithSecretsScan } from '@critiq/check-runner';
 import { formatDiagnosticsForTerminal } from '@critiq/core-diagnostics';
 
 import { type RequiredCliRuntime, type OutputFormat } from '../cli.types';
@@ -22,6 +18,7 @@ export async function handleCheck(
   baseRef?: string,
   headRef?: string,
   staged = false,
+  profile = false,
 ): Promise<number> {
   const catalogEnsure = await ensureCatalogPackageForCheck(runtime, format);
 
@@ -33,12 +30,15 @@ export async function handleCheck(
   const progressRenderer =
     format === 'pretty' ? createScanProgressRenderer(runtime) : null;
   const runnerFormat = format === 'pretty' ? 'pretty' : 'json';
-  const result = runCheckCommand({
+  const { check: result } = await runCheckWithSecretsScan({
     cwd: runtime.cwd,
     target,
     format: runnerFormat,
     baseRef,
     headRef,
+    staged,
+    failOnFindings: false,
+    enableProfile: profile,
     catalogResolverBasePaths: catalogEnsure.catalogResolverBasePaths ?? [
       runtime.cwd,
     ],
@@ -51,19 +51,7 @@ export async function handleCheck(
   });
   progressRenderer?.stop();
 
-  const secretsResult = runSecretsScan({
-    cwd: runtime.cwd,
-    target,
-    baseRef,
-    headRef,
-    staged,
-    failOnFindings: false,
-  });
-  const secretsPayload = toCheckSecretsScanPayload(secretsResult);
-  const envelopeWithSecrets = {
-    ...result.envelope,
-    secretsScan: secretsPayload,
-  };
+  const envelopeWithSecrets = result.envelope;
 
   if (format === 'json') {
     runtime.writeStdout(renderCheckJson(envelopeWithSecrets));

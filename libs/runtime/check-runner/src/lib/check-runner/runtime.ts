@@ -19,7 +19,6 @@ import type { FindingV0 } from '@critiq/core-finding-schema';
 import {
   buildFinding,
   evaluateRule,
-  evaluateRuleApplicability,
   type AnalyzedFile,
 } from '@critiq/core-rules-engine';
 import { readFileSync } from 'node:fs';
@@ -33,7 +32,9 @@ import {
   summarizeFindings,
 } from './findings';
 import { createDefaultSourceAdapterRegistry } from './registry';
+import { RuleIndex } from './rule-index';
 import { filterIgnoredPaths, resolveCheckScope, resolveCheckTarget } from './scope';
+import type { ScanContext, ScanFileTextCacheFailure } from './scan-context';
 import {
   DEFAULT_CATALOG_PACKAGE_NAME,
   RULE_CATALOG_FILENAME,
@@ -199,6 +200,8 @@ export type {
   CheckReportFinding,
   CheckReportFindingAttributes,
   CheckRuleSummary,
+  CheckScanProfile,
+  CheckScanProfileTimings,
   CheckSecretsScanFinding,
   CheckSecretsScanFindingLocation,
   CheckSecretsScanPayload,
@@ -219,56 +222,37 @@ export function runCheckCommand(
   const target = options.target ?? '.';
   const registry =
     options.adapterRegistry ?? createDefaultSourceAdapterRegistry();
-  const resolvedTarget = resolveCheckTarget(cwd, target);
+  const profile = options.profile;
+  const scanContext = options.scanContext;
 
-  if (!resolvedTarget.success) {
-    const { diagnostics } = resolvedTarget as Extract<
-      typeof resolvedTarget,
-      { success: false }
-    >;
-    return buildFailureResult(
-      {
-        format,
-        target,
-        catalogPackage: null,
-        preset: null,
-        diagnostics,
-      },
-      options.baseRef,
-      options.headRef,
-    );
-  }
+  profile?.mark('config:start');
 
-  const loadedConfig = loadCritiqConfigForDirectory(
-    resolvedTarget.data.displayRoot,
-  );
-  const defaultConfig: NormalizedCritiqConfig = {
-    apiVersion: 'critiq.dev/v1alpha1' as const,
-    kind: 'CritiqConfig' as const,
-    catalogPackage: undefined,
-    preset: 'recommended' as const,
-    disableRules: [],
-    disableCategories: [],
-    disableLanguages: [],
-    includeTests: false,
-    ignorePaths: [],
-    severityOverrides: {},
-    secretsScan: normalizeSecretsScanConfig(undefined),
-  };
+  let resolvedTargetData: ScanContext['resolvedTarget'];
+  let effectiveConfig: NormalizedCritiqConfig;
+  let repoScope: ScanContext['repoScope'];
+  let catalogScope: ScanContext['catalogFilteredScope'];
+  let analysisScope: ScanContext['analysisFilteredScope'];
+  let readFileText: ScanContext['readCachedText'];
 
-  let effectiveConfig: NormalizedCritiqConfig = defaultConfig;
-
-  if (loadedConfig.success) {
-    effectiveConfig = loadedConfig.data;
+  if (scanContext) {
+    resolvedTargetData = scanContext.resolvedTarget;
+    effectiveConfig = scanContext.effectiveConfig;
+    repoScope = scanContext.repoScope;
+    catalogScope = scanContext.catalogFilteredScope;
+    analysisScope = scanContext.analysisFilteredScope;
+    readFileText = scanContext.readCachedText.bind(scanContext);
+    profile?.mark('scope:end');
+    profile?.mark('config:end');
+    profile?.mark('filter:end');
   } else {
-    const diagnostics = (
-      loadedConfig as Extract<typeof loadedConfig, { success: false }>
-    ).diagnostics;
+    profile?.mark('scope:start');
+    const resolvedTarget = resolveCheckTarget(cwd, target);
 
-    if (
-      diagnostics.length !== 1 ||
-      diagnostics[0]?.code !== 'config.file.not-found'
-    ) {
+    if (!resolvedTarget.success) {
+      const { diagnostics } = resolvedTarget as Extract<
+        typeof resolvedTarget,
+        { success: false }
+      >;
       return buildFailureResult(
         {
           format,
@@ -281,14 +265,112 @@ export function runCheckCommand(
         options.headRef,
       );
     }
+
+    resolvedTargetData = resolvedTarget.data;
+
+    const loadedConfig = loadCritiqConfigForDirectory(
+      resolvedTargetData.displayRoot,
+    );
+    const defaultConfig: NormalizedCritiqConfig = {
+      apiVersion: 'critiq.dev/v1alpha1' as const,
+      kind: 'CritiqConfig' as const,
+      catalogPackage: undefined,
+      preset: 'recommended' as const,
+      disableRules: [],
+      disableCategories: [],
+      disableLanguages: [],
+      includeTests: false,
+      ignorePaths: [],
+      severityOverrides: {},
+      secretsScan: normalizeSecretsScanConfig(undefined),
+    };
+
+    effectiveConfig = defaultConfig;
+
+    if (loadedConfig.success) {
+      effectiveConfig = loadedConfig.data;
+    } else {
+      const diagnostics = (
+        loadedConfig as Extract<typeof loadedConfig, { success: false }>
+      ).diagnostics;
+
+      if (
+        diagnostics.length !== 1 ||
+        diagnostics[0]?.code !== 'config.file.not-found'
+      ) {
+        return buildFailureResult(
+          {
+            format,
+            target,
+            catalogPackage: null,
+            preset: null,
+            diagnostics,
+          },
+          options.baseRef,
+          options.headRef,
+        );
+      }
+    }
+
+    profile?.mark('config:end');
+
+    const resolvedScope = resolveCheckScope(
+      resolvedTargetData,
+      options.baseRef,
+      options.headRef,
+      registry,
+    );
+
+    profile?.mark('scope:end');
+
+    if (!resolvedScope.success) {
+      const { diagnostics } = resolvedScope as Extract<
+        typeof resolvedScope,
+        { success: false }
+      >;
+      return buildFailureResult(
+        {
+          format,
+          target,
+          catalogPackage:
+            effectiveConfig.catalogPackage ??
+            options.defaultCatalogPackage ??
+            DEFAULT_CATALOG_PACKAGE_NAME,
+          preset: effectiveConfig.preset,
+          diagnostics,
+        },
+        options.baseRef,
+        options.headRef,
+      );
+    }
+
+    repoScope = resolvedScope.data;
+    profile?.mark('filter:start');
+    catalogScope = filterIgnoredPaths(
+      repoScope.files,
+      repoScope.changedRangesByAbsolutePath,
+      resolvedTargetData.displayRoot,
+      effectiveConfig.includeTests,
+      effectiveConfig.ignorePaths,
+    );
+    analysisScope = filterIgnoredPaths(
+      repoScope.files,
+      repoScope.changedRangesByAbsolutePath,
+      resolvedTargetData.displayRoot,
+      true,
+      effectiveConfig.ignorePaths,
+    );
+    profile?.mark('filter:end');
+    readFileText = (absolutePath: string) => readTextFileSafe(absolutePath);
   }
 
+  profile?.mark('catalog:start');
   const catalogPackageName =
     effectiveConfig.catalogPackage ??
     options.defaultCatalogPackage ??
     DEFAULT_CATALOG_PACKAGE_NAME;
   const resolvedCatalogPackage = resolveCatalogPackageRuntime(
-    resolvedTarget.data.displayRoot,
+    resolvedTargetData.displayRoot,
     catalogPackageName,
     options,
   );
@@ -357,52 +439,18 @@ export function runCheckCommand(
     );
   }
 
-  const resolvedScope = resolveCheckScope(
-    resolvedTarget.data,
-    options.baseRef,
-    options.headRef,
-    registry,
-  );
+  profile?.mark('catalog:end');
 
-  if (!resolvedScope.success) {
-    const { diagnostics } = resolvedScope as Extract<
-      typeof resolvedScope,
-      { success: false }
-    >;
-    return buildFailureResult(
-      {
-        format,
-        target,
-        catalogPackage: catalogPackageName,
-        preset: effectiveConfig.preset,
-        matchedRuleCount: loadedRules.rules.length,
-        diagnostics,
-      },
-      options.baseRef,
-      options.headRef,
-    );
-  }
-
-  const catalogScope = filterIgnoredPaths(
-    resolvedScope.data.files,
-    resolvedScope.data.changedRangesByAbsolutePath,
-    resolvedTarget.data.displayRoot,
-    effectiveConfig.includeTests,
-    effectiveConfig.ignorePaths,
-  );
-  const analysisScope = filterIgnoredPaths(
-    resolvedScope.data.files,
-    resolvedScope.data.changedRangesByAbsolutePath,
-    resolvedTarget.data.displayRoot,
-    true,
-    effectiveConfig.ignorePaths,
-  );
+  const filteredScope = {
+    files: catalogScope.files.filter((path) =>
+      Boolean(registry.findAdapterForPath(path)),
+    ),
+    changedRangesByAbsolutePath: catalogScope.changedRangesByAbsolutePath,
+  };
   options.onProgress?.({
     step: 'preparing',
     scannedFileCount: 0,
-    totalFileCount: catalogScope.files.filter((path) =>
-      Boolean(registry.findAdapterForPath(path)),
-    ).length,
+    totalFileCount: filteredScope.files.length,
   });
   const detectedLanguages = detectRepositoryLanguages(catalogScope.files);
   const scannableLanguages = detectedLanguages.filter((language) =>
@@ -416,10 +464,7 @@ export function runCheckCommand(
     },
     scannableLanguages,
   );
-  const filteredScope = {
-    files: catalogScope.files.filter((path) => Boolean(registry.findAdapterForPath(path))),
-    changedRangesByAbsolutePath: catalogScope.changedRangesByAbsolutePath,
-  };
+  const ruleIndex = new RuleIndex(activeRules);
   const informationalDiagnostics: Diagnostic[] = [];
 
   if (detectedLanguages.length === 0) {
@@ -468,9 +513,11 @@ export function runCheckCommand(
   let processedFileCount = 0;
   const generatedAt = new Date().toISOString();
 
+  profile?.mark('analyze:start');
+
   for (const absolutePath of analysisScope.files) {
     const displayPath = toDisplayPath(
-      resolvedTarget.data.displayRoot,
+      resolvedTargetData.displayRoot,
       absolutePath,
     );
 
@@ -478,7 +525,7 @@ export function runCheckCommand(
       continue;
     }
 
-    const textResult = readTextFileSafe(absolutePath);
+    const textResult = readFileText(absolutePath);
 
     if (textResult.success) {
       dependencyManifestInputs.push({
@@ -490,7 +537,7 @@ export function runCheckCommand(
 
   for (const absolutePath of filteredScope.files) {
     const displayPath = toDisplayPath(
-      resolvedTarget.data.displayRoot,
+      resolvedTargetData.displayRoot,
       absolutePath,
     );
     options.onProgress?.({
@@ -499,14 +546,12 @@ export function runCheckCommand(
       totalFileCount: filteredScope.files.length,
       currentFilePath: displayPath,
     });
-    const textResult = readTextFileSafe(absolutePath);
+    const textResult = readFileText(absolutePath);
 
     if (!textResult.success) {
-      const { diagnostics: textDiagnostics } = textResult as Extract<
-        typeof textResult,
-        { success: false }
-      >;
-      diagnostics.push(...textDiagnostics);
+      diagnostics.push(
+        ...(textResult as ScanFileTextCacheFailure).diagnostics,
+      );
       processedFileCount += 1;
       options.onProgress?.({
         step: 'scanning',
@@ -579,23 +624,25 @@ export function runCheckCommand(
     totalFileCount: filteredScope.files.length,
   });
 
+  profile?.mark('analyze:end');
+  profile?.mark('project:start');
+
   const projectAugmentedFiles = augmentProjectFacts(analyzedFiles, {
     scopeMode:
-      resolvedScope.data.scope.mode === 'diff' ||
-      resolvedScope.data.scope.mode === 'staged'
+      repoScope.scope.mode === 'diff' || repoScope.scope.mode === 'staged'
         ? 'diff'
         : 'repo',
     availableTestPaths: new Set(
       analysisScope.files
         .map((absolutePath) =>
-          toDisplayPath(resolvedTarget.data.displayRoot, absolutePath),
+          toDisplayPath(resolvedTargetData.displayRoot, absolutePath),
         )
         .filter((path) => isTestPath(path)),
     ),
     availableChangedTestPaths: new Set(
       analysisScope.files
         .map((absolutePath) => ({
-          path: toDisplayPath(resolvedTarget.data.displayRoot, absolutePath),
+          path: toDisplayPath(resolvedTargetData.displayRoot, absolutePath),
           changedRanges:
             analysisScope.changedRangesByAbsolutePath.get(absolutePath) ?? [],
         }))
@@ -607,15 +654,16 @@ export function runCheckCommand(
     dependencyFacts: collectProjectDependencyFacts(dependencyManifestInputs),
   });
 
+  profile?.mark('project:end');
+  profile?.mark('ruleEval:start');
+
   for (const analyzedFile of projectAugmentedFiles) {
-    for (const rule of activeRules) {
-      const applicability = evaluateRuleApplicability(rule, analyzedFile);
+    const candidateRules = ruleIndex.getCandidateRules(analyzedFile);
 
-      if (!applicability.applicable) {
-        continue;
-      }
-
-      for (const match of evaluateRule(rule, analyzedFile)) {
+    for (const rule of candidateRules) {
+      for (const match of evaluateRule(rule, analyzedFile, {
+        skipApplicabilityCheck: true,
+      })) {
         const buildResult = buildFinding(rule, analyzedFile, match, {
           engineKind: CHECK_ENGINE_KIND,
           engineVersion: CHECK_ENGINE_VERSION,
@@ -655,6 +703,8 @@ export function runCheckCommand(
     }
   }
 
+  profile?.mark('ruleEval:end');
+
   const aggregatedDiagnostics = aggregateDiagnostics(diagnostics);
   const sortedFindings = [...findings].sort(compareFindings);
   const reportFindings = dedupeReportFindings(
@@ -685,12 +735,12 @@ export function runCheckCommand(
       catalogPackage: catalogPackageName,
       preset: effectiveConfig.preset,
       scope:
-        resolvedScope.data.scope.mode === 'diff'
+        repoScope.scope.mode === 'diff'
           ? {
-              ...resolvedScope.data.scope,
+              ...repoScope.scope,
               changedFileCount: filteredScope.files.length,
             }
-          : resolvedScope.data.scope,
+          : repoScope.scope,
       provenance: {
         engineKind: CHECK_ENGINE_KIND,
         engineVersion: CHECK_ENGINE_VERSION,

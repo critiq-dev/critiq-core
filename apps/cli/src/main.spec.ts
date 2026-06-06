@@ -268,6 +268,31 @@ describe('cli', () => {
     expect(envelope.secretsScan?.findings).toEqual([]);
   });
 
+  it('includes phase timings in JSON output when --profile is set', async () => {
+    writeCritiqConfig(tempDirectory);
+    writeRuleFile(tempDirectory, 'src/valid.ts', 'export const value = 1;\n');
+
+    const result = await runCommand(
+      ['check', '.', '--format=json', '--profile'],
+      tempDirectory,
+    );
+
+    expect(result.exitCode).toBe(0);
+    const envelope = JSON.parse(result.stdout) as {
+      profile?: {
+        timings: {
+          totalMs: number;
+          analyzeMs: number;
+          secretsScanMs: number;
+        };
+      };
+    };
+
+    expect(envelope.profile?.timings.totalMs).toBeGreaterThanOrEqual(0);
+    expect(envelope.profile?.timings.analyzeMs).toBeGreaterThanOrEqual(0);
+    expect(envelope.profile?.timings.secretsScanMs).toBeGreaterThanOrEqual(0);
+  });
+
   it('emits findings for repository checks with stable json output', async () => {
     writeCritiqConfig(tempDirectory);
     writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');

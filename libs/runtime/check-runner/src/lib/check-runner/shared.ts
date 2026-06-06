@@ -149,7 +149,10 @@ export interface CheckCommandEnvelope {
   ruleSummaries: CheckRuleSummary[];
   diagnostics: Diagnostic[];
   secretsScan?: CheckSecretsScanPayload;
+  profile?: import('./scan-profile').CheckScanProfile;
 }
+
+export type { CheckScanProfile, CheckScanProfileTimings } from './scan-profile';
 
 export interface CheckResolvedTarget {
   absolutePath: string;
@@ -175,6 +178,8 @@ export interface RunCheckCommandOptions {
   catalogResolverBasePaths?: readonly string[];
   adapterRegistry?: SourceAdapterRegistry;
   onProgress?: (update: CheckProgressUpdate) => void;
+  scanContext?: import('./scan-context').ScanContext;
+  profile?: import('./scan-profile').ScanPhaseTimer;
 }
 
 export interface CheckProgressUpdate {
@@ -237,6 +242,10 @@ function isSkippableDirectory(
       name,
     )
   ) {
+    return true;
+  }
+
+  if (name.startsWith('.venv') || name === '__pycache__') {
     return true;
   }
 

@@ -11,6 +11,7 @@ export function parseArguments(
   let baseRef: string | undefined;
   let headRef: string | undefined;
   let staged = false;
+  let profile = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const value = args[index];
@@ -149,6 +150,11 @@ export function parseArguments(
       continue;
     }
 
+    if (value === '--profile') {
+      profile = true;
+      continue;
+    }
+
     if (value.startsWith('--')) {
       return {
         code: 'cli.argument.invalid',
@@ -175,5 +181,6 @@ export function parseArguments(
     baseRef,
     headRef,
     staged,
+    profile,
   };
 }

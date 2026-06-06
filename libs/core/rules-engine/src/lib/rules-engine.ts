@@ -929,11 +929,14 @@ function predicateUsesFacts(predicate: NormalizedPredicate): boolean {
 export function evaluateRule(
   rule: NormalizedRule,
   analyzedFile: AnalyzedFile,
+  options?: { skipApplicabilityCheck?: boolean },
 ): EvaluationMatch[] {
-  const applicability = evaluateRuleApplicability(rule, analyzedFile);
+  if (!options?.skipApplicabilityCheck) {
+    const applicability = evaluateRuleApplicability(rule, analyzedFile);
 
-  if (!applicability.applicable) {
-    return [];
+    if (!applicability.applicable) {
+      return [];
+    }
   }
 
   if (predicateUsesFacts(rule.predicate)) {

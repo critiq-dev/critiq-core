@@ -27,6 +27,7 @@ import {
   type CheckResolvedScope,
   type CheckSecretsScanPayload,
 } from '../check-runner/shared';
+import type { ScanFileTextCacheFailure } from '../check-runner/scan-context';
 import {
   filterIgnoredPaths,
   readGitStagedFileText,
@@ -86,59 +87,35 @@ function buildSecretScanScope(
 export function runSecretsScan(
   options: RunSecretsScanOptions = {},
 ): RunSecretsScanResult {
+  const scanContext = options.scanContext;
   const cwd = options.cwd ?? process.cwd();
   const target = options.target ?? '.';
-  const resolvedTarget = resolveCheckTarget(cwd, target);
-
-  if (!resolvedTarget.success) {
-    const { diagnostics } = resolvedTarget as Extract<
-      typeof resolvedTarget,
-      { success: false }
-    >;
-    const aggregated = aggregateDiagnostics(diagnostics);
-
-    return {
-      scope: { mode: 'repo' },
-      scannedFileCount: 0,
-      findingCount: 0,
-      findings: [],
-      diagnostics: aggregated,
-      exitCode: determineExitCode(aggregated) || 1,
-    };
-  }
-
-  const loadedConfig = loadCritiqConfigForDirectory(
-    resolvedTarget.data.displayRoot,
-  );
-  const defaultConfig: NormalizedCritiqConfig = {
-    apiVersion: 'critiq.dev/v1alpha1' as const,
-    kind: 'CritiqConfig' as const,
-    catalogPackage: undefined,
-    preset: 'recommended' as const,
-    disableRules: [],
-    disableCategories: [],
-    disableLanguages: [],
-    includeTests: false,
-    ignorePaths: [],
-    severityOverrides: {},
-    secretsScan: normalizeSecretsScanConfig(undefined),
-  };
-
-  let effectiveConfig: NormalizedCritiqConfig = defaultConfig;
   const diagnostics: Diagnostic[] = [];
 
-  if (loadedConfig.success) {
-    effectiveConfig = loadedConfig.data;
-  } else {
-    const loadDiagnostics = (
-      loadedConfig as Extract<typeof loadedConfig, { success: false }>
-    ).diagnostics;
+  let resolvedTargetData: NonNullable<typeof scanContext>['resolvedTarget'];
+  let effectiveConfig: NormalizedCritiqConfig;
+  let resolvedScopeData: CheckResolvedScope;
+  let filtered: {
+    files: string[];
+    changedRangesByAbsolutePath: Map<string, DiffRange[]>;
+  };
+  let readFileText: NonNullable<typeof scanContext>['readCachedText'];
 
-    if (
-      loadDiagnostics.length !== 1 ||
-      loadDiagnostics[0]?.code !== 'config.file.not-found'
-    ) {
-      const aggregated = aggregateDiagnostics(loadDiagnostics);
+  if (scanContext) {
+    resolvedTargetData = scanContext.resolvedTarget;
+    effectiveConfig = scanContext.effectiveConfig;
+    resolvedScopeData = scanContext.repoScope;
+    filtered = scanContext.secretsFilteredScope;
+    readFileText = scanContext.readCachedText.bind(scanContext);
+  } else {
+    const resolvedTarget = resolveCheckTarget(cwd, target);
+
+    if (!resolvedTarget.success) {
+      const { diagnostics: targetDiagnostics } = resolvedTarget as Extract<
+        typeof resolvedTarget,
+        { success: false }
+      >;
+      const aggregated = aggregateDiagnostics(targetDiagnostics);
 
       return {
         scope: { mode: 'repo' },
@@ -149,11 +126,94 @@ export function runSecretsScan(
         exitCode: determineExitCode(aggregated) || 1,
       };
     }
+
+    resolvedTargetData = resolvedTarget.data;
+
+    const loadedConfig = loadCritiqConfigForDirectory(
+      resolvedTargetData.displayRoot,
+    );
+    const defaultConfig: NormalizedCritiqConfig = {
+      apiVersion: 'critiq.dev/v1alpha1' as const,
+      kind: 'CritiqConfig' as const,
+      catalogPackage: undefined,
+      preset: 'recommended' as const,
+      disableRules: [],
+      disableCategories: [],
+      disableLanguages: [],
+      includeTests: false,
+      ignorePaths: [],
+      severityOverrides: {},
+      secretsScan: normalizeSecretsScanConfig(undefined),
+    };
+
+    effectiveConfig = defaultConfig;
+
+    if (loadedConfig.success) {
+      effectiveConfig = loadedConfig.data;
+    } else {
+      const loadDiagnostics = (
+        loadedConfig as Extract<typeof loadedConfig, { success: false }>
+      ).diagnostics;
+
+      if (
+        loadDiagnostics.length !== 1 ||
+        loadDiagnostics[0]?.code !== 'config.file.not-found'
+      ) {
+        const aggregated = aggregateDiagnostics(loadDiagnostics);
+
+        return {
+          scope: { mode: 'repo' },
+          scannedFileCount: 0,
+          findingCount: 0,
+          findings: [],
+          diagnostics: aggregated,
+          exitCode: determineExitCode(aggregated) || 1,
+        };
+      }
+    }
+
+    const includeTests =
+      options.includeTests ?? effectiveConfig.includeTests;
+    const ignorePaths = mergeSecretsIgnorePaths(
+      effectiveConfig,
+      options.ignorePaths,
+    );
+
+    const resolvedScope = resolveSecretsScanScope(
+      resolvedTargetData,
+      options.baseRef,
+      options.headRef,
+      options.staged ?? false,
+    );
+
+    if (!resolvedScope.success) {
+      const { diagnostics: scopeDiagnostics } = resolvedScope as Extract<
+        typeof resolvedScope,
+        { success: false }
+      >;
+      const aggregated = aggregateDiagnostics(scopeDiagnostics);
+
+      return {
+        scope: { mode: 'repo' },
+        scannedFileCount: 0,
+        findingCount: 0,
+        findings: [],
+        diagnostics: aggregated,
+        exitCode: determineExitCode(aggregated) || 1,
+      };
+    }
+
+    resolvedScopeData = resolvedScope.data;
+    filtered = filterIgnoredPaths(
+      resolvedScopeData.files,
+      resolvedScopeData.changedRangesByAbsolutePath,
+      resolvedTargetData.displayRoot,
+      includeTests,
+      ignorePaths,
+    );
+    readFileText = (absolutePath: string) => readTextFileSafe(absolutePath);
   }
 
-  const includeTests =
-    options.includeTests ?? effectiveConfig.includeTests;
-  const ignorePaths = mergeSecretsIgnorePaths(effectiveConfig, options.ignorePaths);
   const disabledDetectors = new Set(
     effectiveConfig.secretsScan.disabledDetectors,
   );
@@ -161,50 +221,18 @@ export function runSecretsScan(
     effectiveConfig.secretsScan.suppressFingerprints,
   );
 
-  const resolvedScope = resolveSecretsScanScope(
-    resolvedTarget.data,
-    options.baseRef,
-    options.headRef,
-    options.staged ?? false,
-  );
-
-  if (!resolvedScope.success) {
-    const { diagnostics: scopeDiagnostics } = resolvedScope as Extract<
-      typeof resolvedScope,
-      { success: false }
-    >;
-    const aggregated = aggregateDiagnostics(scopeDiagnostics);
-
-    return {
-      scope: { mode: 'repo' },
-      scannedFileCount: 0,
-      findingCount: 0,
-      findings: [],
-      diagnostics: aggregated,
-      exitCode: determineExitCode(aggregated) || 1,
-    };
-  }
-
-  const filtered = filterIgnoredPaths(
-    resolvedScope.data.files,
-    resolvedScope.data.changedRangesByAbsolutePath,
-    resolvedTarget.data.displayRoot,
-    includeTests,
-    ignorePaths,
-  );
-
-  const scope = buildSecretScanScope(resolvedScope.data);
-  const isStagedScope = resolvedScope.data.scope.mode === 'staged';
+  const scope = buildSecretScanScope(resolvedScopeData);
+  const isStagedScope = resolvedScopeData.scope.mode === 'staged';
   const isDiffMode =
-    resolvedScope.data.scope.mode === 'diff' || isStagedScope;
-  const repoRoot = resolvedTarget.data.repoRoot;
+    resolvedScopeData.scope.mode === 'diff' || isStagedScope;
+  const repoRoot = resolvedTargetData.repoRoot;
   const findings: RunSecretsScanResult['findings'] = [];
   const seenFingerprints = new Set<string>();
   let scannedFileCount = 0;
 
   for (const absolutePath of filtered.files) {
     const displayPath = toDisplayPath(
-      resolvedTarget.data.displayRoot,
+      resolvedTargetData.displayRoot,
       absolutePath,
     );
 
@@ -256,14 +284,12 @@ export function runSecretsScan(
         continue;
       }
 
-      const textResult = readTextFileSafe(absolutePath);
+      const textResult = readFileText(absolutePath);
 
       if (!textResult.success) {
-        const { diagnostics: readDiag } = textResult as Extract<
-          typeof textResult,
-          { success: false }
-        >;
-        diagnostics.push(...readDiag);
+        diagnostics.push(
+          ...(textResult as ScanFileTextCacheFailure).diagnostics,
+        );
         continue;
       }
 

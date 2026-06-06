@@ -71,6 +71,7 @@ export async function runCli(
       parsed.baseRef,
       parsed.headRef,
       parsed.staged,
+      parsed.profile,
     );
   }
 

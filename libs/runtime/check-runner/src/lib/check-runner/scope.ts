@@ -1,4 +1,3 @@
-import { minimatch } from 'minimatch';
 import { execFileSync } from 'node:child_process';
 import { realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
@@ -7,6 +6,7 @@ import type { Diagnostic } from '@critiq/core-diagnostics';
 import type { DiffRange } from '@critiq/core-rules-engine';
 
 import { SECRETS_SCAN_MAX_FILE_BYTES } from '../secrets-scanner/eligibility';
+import { createPathIgnoreFilter } from './path-filter';
 import {
   createCheckRuntimeDiagnostic,
   createCliInputDiagnostic,
@@ -18,55 +18,6 @@ import {
   type CheckResolvedTarget,
   type SourceAdapterRegistry,
 } from './shared';
-
-const defaultIgnoredTestPatterns = [
-  '**/__tests__/**',
-  '**/spec/**',
-  '**/src/test/**',
-  '**/test/**',
-  '**/tests/**',
-  '**/*.spec.js',
-  '**/*.spec.jsx',
-  '**/*.spec.java',
-  '**/*.spec.php',
-  '**/*.spec.rb',
-  '**/*.spec.rs',
-  '**/*.spec.ts',
-  '**/*.spec.tsx',
-  '**/*Spec.java',
-  '**/*Test.java',
-  '**/*Test.php',
-  '**/*Tests.java',
-  '**/*_spec.rb',
-  '**/*_test.go',
-  '**/*_test.py',
-  '**/*_test.rb',
-  '**/*_test.rs',
-  '**/*.test.js',
-  '**/*.test.jsx',
-  '**/*.test.py',
-  '**/*.test.rs',
-  '**/*.test.ts',
-  '**/*.test.tsx',
-  '**/test_*.py',
-] as const;
-
-const defaultIgnoredPathPatterns = [
-  '**/.nx/**',
-  '**/.serverless/**',
-  '**/.yarn/cache/**',
-  '**/cdk.out/**',
-  '**/coverage/**',
-  '**/dist/**',
-  '**/node_modules/**',
-  '**/vendor/**',
-  '**/*.d.ts',
-  '**/*.generated.go',
-  '**/*.generated.py',
-  '**/*.generated.js',
-  '**/*.generated.ts',
-  '**/*_generated.go',
-] as const;
 
 function isPathWithinDirectory(
   directoryPath: string,
@@ -664,29 +615,11 @@ export function filterIgnoredPaths(
   includeTests: boolean,
   ignorePaths: readonly string[],
 ): { files: string[]; changedRangesByAbsolutePath: Map<string, DiffRange[]> } {
+  const filter = createPathIgnoreFilter(includeTests, ignorePaths);
   const nextFiles = files.filter((absolutePath) => {
     const displayPath = toDisplayPath(displayRoot, absolutePath);
 
-    if (
-      !includeTests &&
-      defaultIgnoredTestPatterns.some((pattern) =>
-        minimatch(displayPath, pattern, { dot: true }),
-      )
-    ) {
-      return false;
-    }
-
-    if (
-      defaultIgnoredPathPatterns.some((pattern) =>
-        minimatch(displayPath, pattern, { dot: true }),
-      )
-    ) {
-      return false;
-    }
-
-    return !ignorePaths.some((pattern) =>
-      minimatch(displayPath, pattern, { dot: true }),
-    );
+    return !filter.shouldIgnore(displayPath);
   });
 
   return {

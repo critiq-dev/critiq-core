@@ -61,6 +61,8 @@ export interface ParsedArguments {
   headRef?: string;
   /** When true, secret scans use staged index content (`git diff --cached`). */
   staged: boolean;
+  /** When true, include phase timing metadata in JSON output. */
+  profile: boolean;
 }
 
 export interface CliResultEnvelope {

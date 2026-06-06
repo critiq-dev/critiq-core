@@ -75,7 +75,7 @@ export function renderHelpMessage(): string {
     'critiq CLI',
     '',
     'Usage:',
-    '  critiq check [target] [--base <git-ref>] [--head <git-ref>] [--staged] [--format pretty|json|sarif|html]',
+    '  critiq check [target] [--base <git-ref>] [--head <git-ref>] [--staged] [--profile] [--format pretty|json|sarif|html]',
     '  critiq audit secrets [target] [--base <git-ref>] [--head <git-ref>] [--staged] [--format pretty|json]',
     '  critiq audit [--help]',
     '  critiq rules validate <glob> [--format pretty|json]',

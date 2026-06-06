@@ -36,6 +36,8 @@ export interface RunSecretsScanOptions {
    * Defaults to true for `critiq audit secrets`.
    */
   failOnFindings?: boolean;
+  scanContext?: import('../check-runner/scan-context').ScanContext;
+  profile?: import('../check-runner/scan-profile').ScanPhaseTimer;
 }
 
 export interface RunSecretsScanResult {
