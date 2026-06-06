@@ -1,6 +1,6 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
-import { findAllMatches } from '../../runtime';
+import { findAllMatches, findMatchingDelimiter } from '../../runtime';
 import { isTestLikeSourcePath } from '../../testing-paths';
 import { createOffsetFact, dedupeFacts } from '../fact-utils';
 import { collectMatchedFacts } from './collect-matched-facts';
@@ -13,6 +13,8 @@ export const PHP_BASELINE_SECURITY_FACT_KINDS = {
   insecureSessionIdGeneration: 'php.security.insecure-session-id-generation',
   xmlExternalEntity: 'php.security.xml-external-entity',
   debugFunctionExposure: 'php.security.debug-function-exposure',
+  unsafeNewStatic: 'php.security.unsafe-new-static',
+  deprecatedLibxmlEntityLoader: 'php.security.deprecated-libxml-entity-loader',
 } as const;
 
 const WEAK_OPENSSL_CIPHER_PATTERN =
@@ -58,6 +60,8 @@ export function collectPhpBaselineSecurityFacts<TState>(
     }),
     ...collectXmlExternalEntityFacts(text, detector),
     ...collectDebugFunctionExposureFacts(text, path, detector),
+    ...collectUnsafeNewStaticFacts(text, detector),
+    ...collectDeprecatedLibxmlEntityLoaderFacts(text, detector),
   ]);
 }
 
@@ -252,5 +256,67 @@ function collectDebugFunctionExposureFacts(
     appliesTo: 'block',
     pattern:
       /\b(?:var_dump|print_r|debug_zval_dump)\s*\(|\bxdebug_[a-z_]+\s*\(/gi,
+  });
+}
+
+function collectUnsafeNewStaticFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = PHP_BASELINE_SECURITY_FACT_KINDS.unsafeNewStatic;
+  const findings: ObservedFact[] = [];
+  const classPattern =
+    /\b(?:(?:abstract|readonly|final)\s+)*class\s+([A-Za-z_][\w]*)\b[^{]*\{/gu;
+
+  for (const match of findAllMatches(text, classPattern)) {
+    const declarationWindow = text.slice(
+      Math.max(0, match.startOffset - 12),
+      match.endOffset,
+    );
+
+    if (/\bfinal\b/u.test(declarationWindow)) {
+      continue;
+    }
+
+    const openBrace = match.endOffset - 1;
+    const closeBrace = findMatchingDelimiter(text, openBrace, '{', '}');
+
+    if (closeBrace < 0) {
+      continue;
+    }
+
+    const body = text.slice(openBrace + 1, closeBrace);
+    const staticPattern = /\bnew\s+static\s*\(/gu;
+
+    for (const staticMatch of findAllMatches(body, staticPattern)) {
+      const absoluteStart = openBrace + 1 + staticMatch.startOffset;
+      const absoluteEnd = openBrace + 1 + staticMatch.endOffset;
+
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: absoluteStart,
+          endOffset: absoluteEnd,
+          text: staticMatch.matchedText,
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectDeprecatedLibxmlEntityLoaderFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: PHP_BASELINE_SECURITY_FACT_KINDS.deprecatedLibxmlEntityLoader,
+    appliesTo: 'block',
+    pattern: /\blibxml_disable_entity_loader\s*\(/gu,
   });
 }

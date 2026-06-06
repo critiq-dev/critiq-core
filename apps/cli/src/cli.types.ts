@@ -3,6 +3,9 @@ import { normalizeRuleDocument } from '@critiq/core-ir';
 import { formatRuleSpecRunAsJson, runRuleSpec } from '@critiq/testing-harness';
 import { type RuleTemplateVariableMap } from '@critiq/core-rules-dsl';
 
+import { type CliInstallScope } from './utils/detect-cli-install-scope.util';
+import { type PackageInstallCommand } from './utils/detect-package-manager.util';
+
 export type OutputFormat = 'pretty' | 'json' | 'sarif' | 'html';
 export type StructuredOutputFormat = Extract<OutputFormat, 'pretty' | 'json'>;
 export type PhaseStatus = 'success' | 'failure' | 'skipped';
@@ -10,13 +13,45 @@ export type NormalizedRule = ReturnType<typeof normalizeRuleDocument>['rule'];
 export type RuleSpecRun = ReturnType<typeof runRuleSpec>;
 export type RuleSpecJsonResult = ReturnType<typeof formatRuleSpecRunAsJson>;
 
+export interface PromptChoiceOption {
+  id: string;
+  label: string;
+}
+
+export interface PromptChoiceInput {
+  title: string;
+  options: readonly PromptChoiceOption[];
+  defaultOptionId?: string;
+}
+
+export interface RunPackageInstallInput {
+  cwd?: string;
+  command: PackageInstallCommand;
+}
+
 export interface CliRuntime {
   cwd?: string;
   writeStdout?: (message: string) => void;
   writeStderr?: (message: string) => void;
   writeRaw?: (message: string) => void;
   isInteractive?: boolean;
+  cliInstallScope?: CliInstallScope;
+  promptChoice?: (
+    input: PromptChoiceInput,
+  ) => Promise<'local' | 'global' | 'cancel' | null>;
+  runPackageInstall?: (input: RunPackageInstallInput) => boolean | Promise<boolean>;
 }
+
+export type RequiredCliRuntime = {
+  cwd: string;
+  writeStdout: (message: string) => void;
+  writeStderr: (message: string) => void;
+  writeRaw: (message: string) => void;
+  isInteractive: boolean;
+  cliInstallScope?: CliInstallScope;
+  promptChoice?: CliRuntime['promptChoice'];
+  runPackageInstall?: CliRuntime['runPackageInstall'];
+};
 
 export interface ParsedArguments {
   positionals: string[];

@@ -35,6 +35,7 @@ const configLanguageSchema = z.enum([
   'php',
   'ruby',
   'rust',
+  'cloudformation',
 ]);
 
 export const CRITIQ_CONFIG_API_VERSION = configApiVersion;
@@ -111,6 +112,7 @@ export interface NormalizedCritiqConfig {
     | 'php'
     | 'ruby'
     | 'rust'
+    | 'cloudformation'
   >;
   includeTests: boolean;
   ignorePaths: string[];
@@ -187,7 +189,8 @@ function normalizeLanguage(
   | 'java'
   | 'php'
   | 'ruby'
-  | 'rust' {
+  | 'rust'
+  | 'cloudformation' {
   if (language === 'ts' || language === 'typescript') {
     return 'typescript';
   }

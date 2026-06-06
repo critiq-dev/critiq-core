@@ -42,6 +42,9 @@
       "@critiq/check-runner": [
         "libs/runtime/check-runner/src/index.ts"
       ],
+      "@critiq/adapter-cloudformation": [
+        "libs/adapters/cloudformation/src/index.ts"
+      ],
       "@critiq/adapter-go": [
         "libs/adapters/go/src/index.ts"
       ],

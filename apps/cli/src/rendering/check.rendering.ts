@@ -5,7 +5,7 @@ import {
   type RunSecretsScanResult,
 } from '@critiq/check-runner';
 
-import { type CliRuntime } from '../cli.types';
+import { type RequiredCliRuntime } from '../cli.types';
 import { colorize, renderFindingCodeFrame, terminalAnsi } from './check/terminal-frames.rendering';
 
 const ansi = terminalAnsi;
@@ -60,7 +60,7 @@ function renderScanProgress(update: CheckProgressUpdate): string {
   ].join('\n');
 }
 
-export function createScanProgressRenderer(runtime: Required<CliRuntime>) {
+export function createScanProgressRenderer(runtime: RequiredCliRuntime) {
   let lineCount = 0;
   let active = false;
 

@@ -30,6 +30,7 @@ export const RULE_CATALOG_FILENAME = 'catalog.yaml' as const;
 export interface SourceAdapterAnalysisSuccess {
   success: true;
   data: AnalyzedFile;
+  diagnostics?: Diagnostic[];
 }
 
 export interface SourceAdapterAnalysisFailure {
@@ -45,12 +46,14 @@ export interface SourceAdapter {
   packageName: string;
   supportedExtensions: readonly string[];
   supportedLanguages: readonly CanonicalLanguage[];
+  canHandlePath?: (path: string) => boolean;
+  canHandle?: (path: string, text: string) => boolean;
   analyze(path: string, text: string): SourceAdapterAnalysisResult;
 }
 
 export interface SourceAdapterRegistry {
   adapters: readonly SourceAdapter[];
-  findAdapterForPath(path: string): SourceAdapter | undefined;
+  findAdapterForPath(path: string, text?: string): SourceAdapter | undefined;
   hasAdapterForLanguage(language: CanonicalLanguage): boolean;
   supportedExtensions(): string[];
   supportedLanguages(): CanonicalLanguage[];

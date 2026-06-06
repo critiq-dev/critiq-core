@@ -23,10 +23,10 @@ function isPrettyOrJson(format: string): format is 'pretty' | 'json' {
 /**
  * Runs the Critiq CLI and returns a stable exit code.
  */
-export function runCli(
+export async function runCli(
   args: readonly string[] = process.argv.slice(2),
   runtime: CliRuntime = {},
-): number {
+): Promise<number> {
   const resolvedRuntime = resolveRuntime(runtime);
 
   if (args.length === 0 || args[0] === 'help' || args[0] === '--help') {
@@ -64,7 +64,7 @@ export function runCli(
       return 1;
     }
 
-    return handleCheck(
+    return await handleCheck(
       parsed.positionals[0],
       parsed.format,
       resolvedRuntime,
@@ -255,7 +255,9 @@ function isCliEntrypoint(): boolean {
 }
 
 if (isCliEntrypoint()) {
-  process.exitCode = runCli();
+  void runCli().then((exitCode) => {
+    process.exitCode = exitCode;
+  });
 }
 
 export type { CliRuntime } from './cli.types';

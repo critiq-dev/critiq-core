@@ -140,6 +140,7 @@ describe('core config', () => {
           'php',
           'ruby',
           'rust',
+          'cloudformation',
         ],
       }),
     ).toEqual({
@@ -150,6 +151,7 @@ describe('core config', () => {
       disableRules: [],
       disableCategories: [],
       disableLanguages: [
+        'cloudformation',
         'go',
         'java',
         'javascript',

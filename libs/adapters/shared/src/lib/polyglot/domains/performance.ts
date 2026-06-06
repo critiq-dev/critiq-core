@@ -1,12 +1,29 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
 import { collectMatchedFacts } from './collect-matched-facts';
+import { collectSnippetFacts } from './collect-snippet-facts';
+import type { TrackedIdentifierState } from '../types';
 
 export interface PolyglotPerformancePathOptions {
   text: string;
   path: string;
   detector: string;
 }
+
+export interface PhpPerformanceFactsOptions extends PolyglotPerformancePathOptions {
+  state?: TrackedIdentifierState;
+  matchesTainted?: (
+    expression: string,
+    state: TrackedIdentifierState,
+  ) => boolean;
+}
+
+export const PHP_PERFORMANCE_FACT_KINDS = {
+  noRegexConstructionInLoop: 'php.performance.no-regex-construction-in-loop',
+  noSyncFsInRequestPath: 'php.performance.no-sync-fs-in-request-path',
+  expensiveLoopCondition: 'php.performance.expensive-loop-condition',
+  noUnboundedConcurrency: 'php.performance.no-unbounded-concurrency',
+} as const;
 
 function collectSharedPerformanceFacts(
   options: PolyglotPerformancePathOptions,
@@ -54,9 +71,78 @@ export function collectJavaPerformanceFacts(
 }
 
 export function collectPhpPerformanceFacts(
-  options: PolyglotPerformancePathOptions,
+  options: PhpPerformanceFactsOptions,
 ): ObservedFact[] {
-  return collectSharedPerformanceFacts(options, 'php');
+  const { text, detector } = options;
+
+  return [
+    ...collectMatchedFacts({
+      text,
+      detector,
+      kind: PHP_PERFORMANCE_FACT_KINDS.noRegexConstructionInLoop,
+      pattern:
+        /\b(?:for|while)\b[\s\S]{0,300}\bpreg_(?:match|match_all|replace|replace_callback|filter|grep|split)\s*\(/gu,
+      appliesTo: 'block',
+    }),
+    ...collectPhpSyncFsInRequestPathFacts(options),
+    ...collectMatchedFacts({
+      text,
+      detector,
+      kind: PHP_PERFORMANCE_FACT_KINDS.expensiveLoopCondition,
+      pattern:
+        /\b(?:for|while)\s*\([\s\S]{0,240}?\b(?:count|sizeof|strlen|preg_match|preg_match_all|array_sum|in_array|file_get_contents|file_exists|glob)\s*\(/gu,
+      appliesTo: 'block',
+    }),
+    ...collectMatchedFacts({
+      text,
+      detector,
+      kind: PHP_PERFORMANCE_FACT_KINDS.noUnboundedConcurrency,
+      appliesTo: 'block',
+      pattern:
+        /\b(?:GuzzleHttp\\Promise\\(?:all|unwrap)|Amp\\Promise\\all)\s*\(\s*\$\w+/gu,
+    }),
+  ];
+}
+
+const phpSyncFsCallPattern =
+  /\b(?:file_get_contents|fopen|readfile|file|scandir|glob)\s*\(/gu;
+
+function collectPhpSyncFsInRequestPathFacts(
+  options: PhpPerformanceFactsOptions,
+): ObservedFact[] {
+  const { text, detector, state, matchesTainted } = options;
+
+  if (!state || !matchesTainted) {
+    return [];
+  }
+
+  return collectSnippetFacts({
+    text,
+    detector,
+    kind: PHP_PERFORMANCE_FACT_KINDS.noSyncFsInRequestPath,
+    pattern: phpSyncFsCallPattern,
+    state,
+    appliesTo: 'block',
+    predicate: (snippet, scanState) =>
+      isPhpSyncFsInRequestHandler(text, snippet.startOffset) &&
+      matchesTainted(snippet.text, scanState),
+  });
+}
+
+function isPhpSyncFsInRequestHandler(
+  text: string,
+  callStartOffset: number,
+): boolean {
+  const prefix = text.slice(0, callStartOffset);
+  const functionStart = prefix.lastIndexOf('function');
+
+  if (functionStart < 0) {
+    return false;
+  }
+
+  return /\$_(?:GET|POST|REQUEST|COOKIE|FILES|SERVER)\b/u.test(
+    text.slice(functionStart, callStartOffset),
+  );
 }
 
 export function collectPythonPerformanceFacts(

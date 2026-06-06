@@ -43,6 +43,8 @@ const typescriptRule: NormalizedRule = {
   title: 'Avoid console.log',
   summary: 'Use logger',
   tags: [],
+  aliases: [],
+  references: [],
   scope: {
     languages: ['typescript'],
     includeGlobs: [],
@@ -149,9 +151,11 @@ describe('core catalog', () => {
         '/repo/src/index.php',
         '/repo/src/service.rb',
         '/repo/src/lib.rs',
+        '/repo/infra/template.yaml',
         '/repo/README.md',
       ]),
     ).toEqual([
+      'cloudformation',
       'go',
       'java',
       'javascript',

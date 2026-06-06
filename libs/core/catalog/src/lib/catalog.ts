@@ -61,7 +61,8 @@ export type RepositoryLanguage =
   | 'java'
   | 'php'
   | 'ruby'
-  | 'rust';
+  | 'rust'
+  | 'cloudformation';
 
 export interface ResolvedCatalogPackage {
   packageName: string;
@@ -262,7 +263,7 @@ export function resolveCatalogPackage(
       diagnostics: [
         createDiagnostic({
           code: 'catalog.package.not-found',
-          message: `Unable to resolve catalog package \`${packageName}\`.`,
+          message: `Unable to resolve catalog package \`${packageName}\`. Install it in this repository or globally, then run \`critiq check\` again.`,
           details: {
             packageName,
           },
@@ -295,6 +296,23 @@ export function resolveCatalogRulePaths(
       id: entry.id,
       rulePath: resolve(packageRoot, entry.rulePath),
     }));
+}
+
+function looksLikeCloudFormationPath(filePath: string): boolean {
+  const normalized = filePath.replace(/\\/gu, '/').toLowerCase();
+  const fileName = normalized.split('/').pop() ?? normalized;
+
+  if (
+    /(?:^|\/)(?:templates?|cloudformation|cfn|sam|infra|iac)(?:\/|$)/u.test(
+      normalized,
+    )
+  ) {
+    return true;
+  }
+
+  return /(?:template|cloudformation|stack|cfn|sam)[^/]*\.(?:ya?ml|json)$/u.test(
+    fileName,
+  );
 }
 
 export function detectRepositoryLanguages(
@@ -335,6 +353,15 @@ export function detectRepositoryLanguages(
 
     if (extension === '.rs') {
       detected.add('rust');
+    }
+
+    if (
+      (extension === '.yaml' ||
+        extension === '.yml' ||
+        extension === '.json') &&
+      looksLikeCloudFormationPath(filePath)
+    ) {
+      detected.add('cloudformation');
     }
   }
 

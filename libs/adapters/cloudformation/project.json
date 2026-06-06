@@ -1,0 +1,25 @@
+{
+  "name": "cloudformation",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/adapters/cloudformation/src",
+  "projectType": "library",
+  "tags": ["scope:oss-core", "type:adapter"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/adapters/cloudformation",
+        "main": "libs/adapters/cloudformation/src/index.ts",
+        "tsConfig": "libs/adapters/cloudformation/tsconfig.lib.json",
+        "assets": ["libs/adapters/cloudformation/*.md"]
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --pretty false --noEmit -p libs/adapters/cloudformation/tsconfig.lib.json"
+      }
+    }
+  }
+}

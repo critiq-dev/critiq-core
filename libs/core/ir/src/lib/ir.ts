@@ -25,7 +25,8 @@ export type CanonicalLanguage =
   | 'php'
   | 'ruby'
   | 'rust'
-  | 'dockerfile';
+  | 'dockerfile'
+  | 'cloudformation';
 
 /**
  * Represents a canonical normalized language identifier plus the catalog-wide

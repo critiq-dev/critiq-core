@@ -321,6 +321,7 @@ describe('check runner', () => {
     expect(registry.findAdapterForPath('src/example.rb')).toBeDefined();
     expect(registry.findAdapterForPath('src/example.rs')).toBeDefined();
     expect(registry.supportedLanguages()).toEqual([
+      'cloudformation',
       'go',
       'java',
       'javascript',
@@ -332,6 +333,24 @@ describe('check runner', () => {
     ]);
   });
 
+  it('selects the cloudformation adapter for SAM templates in .yml files', () => {
+    const registry = createDefaultSourceAdapterRegistry();
+    const template = [
+      'Transform: AWS::Serverless',
+      'Resources:',
+      '  Function:',
+      '    Type: AWS::Serverless::Function',
+    ].join('\n');
+
+    expect(
+      registry.findAdapterForPath('infra/template.yml', template)?.packageName,
+    ).toBe('@critiq/adapter-cloudformation');
+    expect(
+      registry.findAdapterForPath('src/application.yml', 'spring:\n  profiles:\n    active: dev')
+        ?.packageName,
+    ).toBe('@critiq/adapter-java');
+  });
+
   it('declares every adapter imported by the default registry', () => {
     const manifest = JSON.parse(
       readFileSync(join(__dirname, '../../package.json'), 'utf8'),
@@ -339,6 +358,7 @@ describe('check runner', () => {
 
     expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual(
       expect.arrayContaining([
+        '@critiq/adapter-cloudformation',
         '@critiq/adapter-go',
         '@critiq/adapter-java',
         '@critiq/adapter-php',

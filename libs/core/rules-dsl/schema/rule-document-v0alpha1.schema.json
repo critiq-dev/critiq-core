@@ -443,6 +443,7 @@
               "ruby",
               "rust",
               "dockerfile",
+              "cloudformation",
               "all"
             ]
           }

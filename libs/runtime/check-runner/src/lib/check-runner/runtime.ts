@@ -184,6 +184,7 @@ export { createSourceAdapterRegistry } from './registry';
 export { filterIgnoredPaths, resolveCheckScope, resolveCheckTarget, resolveSecretsScanScope } from './scope';
 export {
   createCliInputDiagnostic,
+  DEFAULT_CATALOG_PACKAGE_NAME,
   determineExitCode,
   hasGlobMagic,
   toDisplayPath,
@@ -518,7 +519,7 @@ export function runCheckCommand(
 
     sourceTextsByPath.set(displayPath, textResult.text);
 
-    const adapter = registry.findAdapterForPath(displayPath);
+    const adapter = registry.findAdapterForPath(displayPath, textResult.text);
 
     if (!adapter) {
       diagnostics.push(
@@ -553,6 +554,10 @@ export function runCheckCommand(
         currentFilePath: displayPath,
       });
       continue;
+    }
+
+    if (analysis.diagnostics?.length) {
+      diagnostics.push(...analysis.diagnostics);
     }
 
     analyzedFiles.push({

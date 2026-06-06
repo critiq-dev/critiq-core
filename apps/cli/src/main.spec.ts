@@ -1,9 +1,10 @@
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
 import { runCli } from './main';
+import { installDefaultRulesPackage } from './test-support/install-default-rules-package';
 
 function createTempWorkspace(): string {
   return mkdtempSync(join(tmpdir(), 'critiq-cli-'));
@@ -30,16 +31,6 @@ function writeCritiqConfig(
       'kind: CritiqConfig',
       ...bodyLines,
     ].join('\n'),
-  );
-}
-
-function installDefaultRulesPackage(rootDirectory: string): void {
-  cpSync(
-    resolve(__dirname, 'test-fixtures/default-rules-package'),
-    join(rootDirectory, 'node_modules/@critiq/rules'),
-    {
-      recursive: true,
-    },
   );
 }
 
@@ -75,10 +66,10 @@ function sanitizeOutput(value: string, tempDirectory: string): string {
     .replace(/file:\/\/\/<TMP>/g, 'file://<TMP>');
 }
 
-function runCommand(args: readonly string[], cwd: string) {
+async function runCommand(args: readonly string[], cwd: string) {
   const stdout: string[] = [];
   const stderr: string[] = [];
-  const exitCode = runCli(args, {
+  const exitCode = await runCli(args, {
     cwd,
     writeStdout: (message) => {
       stdout.push(message);
@@ -170,8 +161,8 @@ describe('cli', () => {
     rmSync(tempDirectory, { recursive: true, force: true });
   });
 
-  it('prints stable help for the default command', () => {
-    const result = runCommand([], tempDirectory);
+  it('prints stable help for the default command', async () => {
+    const result = await runCommand([], tempDirectory);
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('critiq CLI');
@@ -182,36 +173,36 @@ describe('cli', () => {
     expect(result.stdout).toContain('critiq rules test [glob]');
   });
 
-  it('returns a non-zero exit code for an invalid subcommand', () => {
-    const result = runCommand(['unknown'], tempDirectory);
+  it('returns a non-zero exit code for an invalid subcommand', async () => {
+    const result = await runCommand(['unknown'], tempDirectory);
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toBe('Unknown command: unknown');
   });
 
-  it('prints audit help for critiq audit with no subcommand', () => {
-    const result = runCommand(['audit'], tempDirectory);
+  it('prints audit help for critiq audit with no subcommand', async () => {
+    const result = await runCommand(['audit'], tempDirectory);
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('critiq audit');
     expect(result.stdout).toContain('critiq audit secrets');
   });
 
-  it('prints audit help for critiq audit --help', () => {
-    const result = runCommand(['audit', '--help'], tempDirectory);
+  it('prints audit help for critiq audit --help', async () => {
+    const result = await runCommand(['audit', '--help'], tempDirectory);
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('critiq audit secrets');
   });
 
-  it('returns a non-zero exit for unknown audit subcommand', () => {
-    const result = runCommand(['audit', 'nope'], tempDirectory);
+  it('returns a non-zero exit for unknown audit subcommand', async () => {
+    const result = await runCommand(['audit', 'nope'], tempDirectory);
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Unknown command: audit nope');
   });
 
-  it('audit secrets detects a dummy AWS key and exits non-zero', () => {
+  it('audit secrets detects a dummy AWS key and exits non-zero', async () => {
     writeCritiqConfig(tempDirectory);
     writeRuleFile(
       tempDirectory,
@@ -219,7 +210,7 @@ describe('cli', () => {
       "export const k = 'AKIAIOSFODNN7EXAMPLE';\n",
     );
 
-    const result = runCommand(['audit', 'secrets', '.', '--format=json'], tempDirectory);
+    const result = await runCommand(['audit', 'secrets', '.', '--format=json'], tempDirectory);
 
     expect(result.exitCode).toBe(1);
     const payload = JSON.parse(result.stdout) as {
@@ -235,11 +226,11 @@ describe('cli', () => {
     expect(payload.findingCount).toBeGreaterThanOrEqual(1);
   });
 
-  it('checks a repository and returns zero findings for clean files', () => {
+  it('checks a repository and returns zero findings for clean files', async () => {
     writeCritiqConfig(tempDirectory);
     writeRuleFile(tempDirectory, 'src/valid.ts', 'export const value = 1;\n');
 
-    const result = runCommand(['check', '.', '--format=json'], tempDirectory);
+    const result = await runCommand(['check', '.', '--format=json'], tempDirectory);
 
     expect(result.exitCode).toBe(0);
     const envelope = JSON.parse(result.stdout) as {
@@ -277,11 +268,11 @@ describe('cli', () => {
     expect(envelope.secretsScan?.findings).toEqual([]);
   });
 
-  it('emits findings for repository checks with stable json output', () => {
+  it('emits findings for repository checks with stable json output', async () => {
     writeCritiqConfig(tempDirectory);
     writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
 
-    const result = runCommand(['check', '.', '--format=json'], tempDirectory);
+    const result = await runCommand(['check', '.', '--format=json'], tempDirectory);
 
     expect(result.exitCode).toBe(1);
     const envelope = JSON.parse(result.stdout) as {
@@ -340,11 +331,11 @@ describe('cli', () => {
     ]);
   });
 
-  it('renders pretty check output like a test runner failure report', () => {
+  it('renders pretty check output like a test runner failure report', async () => {
     writeCritiqConfig(tempDirectory);
     writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
 
-    const result = runCommand(['check'], tempDirectory);
+    const result = await runCommand(['check'], tempDirectory);
     const output = sanitizeOutput(result.stdout, tempDirectory);
 
     expect(result.exitCode).toBe(1);
@@ -369,11 +360,11 @@ describe('cli', () => {
     expect(output).toContain('Findings:    1 total');
   });
 
-  it('exports check findings as SARIF', () => {
+  it('exports check findings as SARIF', async () => {
     writeCritiqConfig(tempDirectory);
     writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
 
-    const result = runCommand(['check', '.', '--format=sarif'], tempDirectory);
+    const result = await runCommand(['check', '.', '--format=sarif'], tempDirectory);
 
     expect(result.exitCode).toBe(1);
     const sarif = JSON.parse(result.stdout) as {
@@ -392,11 +383,11 @@ describe('cli', () => {
     );
   });
 
-  it('exports check findings as HTML', () => {
+  it('exports check findings as HTML', async () => {
     writeCritiqConfig(tempDirectory);
     writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
 
-    const result = runCommand(['check', '.', '--format=html'], tempDirectory);
+    const result = await runCommand(['check', '.', '--format=html'], tempDirectory);
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toContain('<!doctype html>');
@@ -405,11 +396,11 @@ describe('cli', () => {
     expect(result.stdout).toContain('src/invalid.ts:1:1');
   });
 
-  it('defaults to the public rules catalog when config omits catalog.package', () => {
+  it('defaults to the public rules catalog when config omits catalog.package', async () => {
     writeCritiqConfig(tempDirectory, ['preset: recommended']);
     writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
 
-    const result = runCommand(['check', '.', '--format=json'], tempDirectory);
+    const result = await runCommand(['check', '.', '--format=json'], tempDirectory);
 
     expect(result.exitCode).toBe(1);
     const envelope = JSON.parse(result.stdout) as {
@@ -423,10 +414,10 @@ describe('cli', () => {
     expect(envelope.findingCount).toBe(1);
   });
 
-  it('uses default settings when the repo config is missing', () => {
+  it('uses default settings when the repo config is missing', async () => {
     writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
 
-    const result = runCommand(['check', '.', '--format=json'], tempDirectory);
+    const result = await runCommand(['check', '.', '--format=json'], tempDirectory);
 
     expect(result.exitCode).toBe(1);
     const envelope = JSON.parse(result.stdout) as {
@@ -446,14 +437,14 @@ describe('cli', () => {
     expect(envelope.diagnostics).toEqual([]);
   });
 
-  it('ignores unit test files by default', () => {
+  it('ignores unit test files by default', async () => {
     writeRuleFile(
       tempDirectory,
       'src/invalid.test.ts',
       'console.log("hello from test");\n',
     );
 
-    const result = runCommand(['check', '.', '--format=json'], tempDirectory);
+    const result = await runCommand(['check', '.', '--format=json'], tempDirectory);
     const envelope = JSON.parse(result.stdout) as {
       scannedFileCount: number;
       findingCount: number;
@@ -470,7 +461,7 @@ describe('cli', () => {
     ]);
   });
 
-  it('includes unit test files when config opts in', () => {
+  it('includes unit test files when config opts in', async () => {
     writeCritiqConfig(tempDirectory, ['includeTests: true']);
     writeRuleFile(
       tempDirectory,
@@ -478,7 +469,7 @@ describe('cli', () => {
       'console.log("hello from test");\n',
     );
 
-    const result = runCommand(['check', '.', '--format=json'], tempDirectory);
+    const result = await runCommand(['check', '.', '--format=json'], tempDirectory);
     const envelope = JSON.parse(result.stdout) as {
       scannedFileCount: number;
       findingCount: number;
@@ -489,11 +480,11 @@ describe('cli', () => {
     expect(envelope.findingCount).toBe(1);
   });
 
-  it('returns an error when diff mode is used outside a git repository', () => {
+  it('returns an error when diff mode is used outside a git repository', async () => {
     writeCritiqConfig(tempDirectory);
     writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
 
-    const result = runCommand(
+    const result = await runCommand(
       ['check', '.', '--base', 'HEAD~1', '--head', 'HEAD'],
       tempDirectory,
     );
@@ -504,7 +495,7 @@ describe('cli', () => {
     );
   });
 
-  it('checks only changed supported files in diff mode', () => {
+  it('checks only changed supported files in diff mode', async () => {
     initializeGitRepository(tempDirectory);
     writeCritiqConfig(tempDirectory);
     writeRuleFile(tempDirectory, 'src/changed.ts', 'export const value = 1;\n');
@@ -513,7 +504,7 @@ describe('cli', () => {
     writeRuleFile(tempDirectory, 'src/changed.ts', 'console.log("new");\n');
     commitAll(tempDirectory, 'change source');
 
-    const result = runCommand(
+    const result = await runCommand(
       ['check', '.', '--base', 'HEAD~1', '--head', 'HEAD', '--format=json'],
       tempDirectory,
     );
@@ -533,7 +524,7 @@ describe('cli', () => {
     ).toEqual(['src/changed.ts']);
   });
 
-  it('returns success when a diff contains no changed supported files', () => {
+  it('returns success when a diff contains no changed supported files', async () => {
     initializeGitRepository(tempDirectory);
     writeCritiqConfig(tempDirectory);
     writeRuleFile(tempDirectory, 'README.md', '# readme\n');
@@ -541,7 +532,7 @@ describe('cli', () => {
     writeRuleFile(tempDirectory, 'README.md', '# updated readme\n');
     commitAll(tempDirectory, 'docs');
 
-    const result = runCommand(
+    const result = await runCommand(
       ['check', '.', '--base', 'HEAD~1', '--head', 'HEAD', '--format=json'],
       tempDirectory,
     );
@@ -559,7 +550,7 @@ describe('cli', () => {
     expect(envelope.findingCount).toBe(0);
   });
 
-  it('uses strict preset to activate strict-only rules', () => {
+  it('uses strict preset to activate strict-only rules', async () => {
     writeCritiqConfig(tempDirectory, ['preset: strict']);
     writeRuleFile(
       tempDirectory,
@@ -567,7 +558,7 @@ describe('cli', () => {
       'export const value = Math.random();\n',
     );
 
-    const result = runCommand(['check', '.', '--format=json'], tempDirectory);
+    const result = await runCommand(['check', '.', '--format=json'], tempDirectory);
 
     expect(result.exitCode).toBe(1);
     const envelope = JSON.parse(result.stdout) as {
@@ -589,12 +580,12 @@ describe('cli', () => {
     );
   });
 
-  it('applies severity overrides without changing finding fingerprints', () => {
+  it('applies severity overrides without changing finding fingerprints', async () => {
     writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
 
     writeCritiqConfig(tempDirectory);
     const baseline = JSON.parse(
-      runCommand(['check', '.', '--format=json'], tempDirectory).stdout,
+      (await runCommand(['check', '.', '--format=json'], tempDirectory)).stdout,
     ) as {
       findings: Array<{ severity: string; fingerprints: { primary: string } }>;
     };
@@ -604,7 +595,7 @@ describe('cli', () => {
       '  ts.logging.no-console-log: high',
     ]);
     const overridden = JSON.parse(
-      runCommand(['check', '.', '--format=json'], tempDirectory).stdout,
+      (await runCommand(['check', '.', '--format=json'], tempDirectory)).stdout,
     ) as {
       findings: Array<{ severity: string; fingerprints: { primary: string } }>;
     };
@@ -616,7 +607,7 @@ describe('cli', () => {
     );
   });
 
-  it('supports disableCategories and ignorePaths in config', () => {
+  it('supports disableCategories and ignorePaths in config', async () => {
     writeCritiqConfig(tempDirectory, [
       'disableCategories:',
       '  - maintainability',
@@ -626,7 +617,7 @@ describe('cli', () => {
     writeRuleFile(tempDirectory, 'src/ignored/file.ts', 'console.log("x");\n');
     writeRuleFile(tempDirectory, 'src/live.ts', 'console.log("y");\n');
 
-    const result = runCommand(['check', '.', '--format=json'], tempDirectory);
+    const result = await runCommand(['check', '.', '--format=json'], tempDirectory);
     const envelope = JSON.parse(result.stdout) as {
       findingCount: number;
       matchedRuleCount: number;
@@ -637,7 +628,7 @@ describe('cli', () => {
     expect(envelope.findingCount).toBe(0);
   });
 
-  it('truncates multiline function frames in pretty output', () => {
+  it('truncates multiline function frames in pretty output', async () => {
     writeCritiqConfig(tempDirectory);
     writeRuleFile(
       tempDirectory,
@@ -694,7 +685,7 @@ describe('cli', () => {
       ].join('\n'),
     );
 
-    const result = runCommand(['check'], tempDirectory);
+    const result = await runCommand(['check'], tempDirectory);
     const output = sanitizeOutput(result.stdout, tempDirectory);
 
     expect(result.exitCode).toBe(1);
@@ -702,7 +693,7 @@ describe('cli', () => {
     expect(output).not.toContain('return first + second + third;');
   });
 
-  it('renders an interactive scan banner and progress updates', () => {
+  it('renders an interactive scan banner and progress updates', async () => {
     writeCritiqConfig(tempDirectory);
     writeRuleFile(tempDirectory, 'src/invalid.ts', 'console.log("hello");\n');
 
@@ -710,7 +701,7 @@ describe('cli', () => {
     const stderr: string[] = [];
     const raw: string[] = [];
 
-    const exitCode = runCli(['check'], {
+    const exitCode = await runCli(['check'], {
       cwd: tempDirectory,
       isInteractive: true,
       writeStdout: (message) => {
@@ -732,11 +723,11 @@ describe('cli', () => {
     expect(raw.join('')).toContain('Scanning files');
   });
 
-  it('returns success with an info diagnostic when no supported languages are detected', () => {
+  it('returns success with an info diagnostic when no supported languages are detected', async () => {
     writeCritiqConfig(tempDirectory);
     writeRuleFile(tempDirectory, 'README.md', '# docs\n');
 
-    const result = runCommand(['check', '.', '--format=json'], tempDirectory);
+    const result = await runCommand(['check', '.', '--format=json'], tempDirectory);
     const envelope = JSON.parse(result.stdout) as {
       exitCode: number;
       diagnostics: Array<{ code: string; severity: string }>;
@@ -752,8 +743,8 @@ describe('cli', () => {
     ]);
   });
 
-  it('rejects SARIF format for audit secrets', () => {
-    const result = runCommand(
+  it('rejects SARIF format for audit secrets', async () => {
+    const result = await runCommand(
       ['audit', 'secrets', '.', '--format=sarif'],
       tempDirectory,
     );
@@ -762,10 +753,10 @@ describe('cli', () => {
     expect(result.stderr).toContain('Expected `--format` to be `pretty` or `json`');
   });
 
-  it('rejects legacy rules-glob check usage with a migration error', () => {
+  it('rejects legacy rules-glob check usage with a migration error', async () => {
     writeCritiqConfig(tempDirectory);
 
-    const result = runCommand(
+    const result = await runCommand(
       ['check', 'rules/*.rule.yaml', '.', '--format=json'],
       tempDirectory,
     );
@@ -776,11 +767,11 @@ describe('cli', () => {
     );
   });
 
-  it('renders pretty validate output for multiple files', () => {
+  it('renders pretty validate output for multiple files', async () => {
     writeRuleFile(tempDirectory, 'valid.rule.yaml', validRule);
     writeRuleFile(tempDirectory, 'invalid.rule.yaml', invalidRule);
 
-    const result = runCommand(
+    const result = await runCommand(
       ['rules', 'validate', '*.rule.yaml'],
       tempDirectory,
     );
@@ -820,11 +811,11 @@ Exit code: 1"
 `);
   });
 
-  it('renders json validate output with a stable envelope', () => {
+  it('renders json validate output with a stable envelope', async () => {
     writeRuleFile(tempDirectory, 'valid.rule.yaml', validRule);
     writeRuleFile(tempDirectory, 'invalid.rule.yaml', invalidRule);
 
-    const result = runCommand(
+    const result = await runCommand(
       ['rules', 'validate', '*.rule.yaml', '--format', 'json'],
       tempDirectory,
     );
@@ -860,10 +851,10 @@ Exit code: 1"
     ]);
   });
 
-  it('renders pretty normalize output', () => {
+  it('renders pretty normalize output', async () => {
     writeRuleFile(tempDirectory, 'valid.rule.yaml', validRule);
 
-    const result = runCommand(
+    const result = await runCommand(
       ['rules', 'normalize', 'valid.rule.yaml'],
       tempDirectory,
     );
@@ -882,10 +873,10 @@ Exit code: 1"
     );
   });
 
-  it('renders json explain output', () => {
+  it('renders json explain output', async () => {
     writeRuleFile(tempDirectory, 'valid.rule.yaml', validRule);
 
-    const result = runCommand(
+    const result = await runCommand(
       ['rules', 'explain', 'valid.rule.yaml', '--format=json'],
       tempDirectory,
     );
@@ -920,12 +911,12 @@ Exit code: 1"
     ).toEqual(['rule.title', 'file.path']);
   });
 
-  it('runs rule specs in pretty mode', () => {
+  it('runs rule specs in pretty mode', async () => {
     writeRuleFile(tempDirectory, 'valid.rule.yaml', validRule);
     writeRuleFile(tempDirectory, 'valid.spec.yaml', validRuleSpec);
     writeRuleFile(tempDirectory, 'invalid.ts', 'console.log("hello");\n');
 
-    const result = runCommand(['rules', 'test'], tempDirectory);
+    const result = await runCommand(['rules', 'test'], tempDirectory);
 
     expect(result.exitCode).toBe(0);
     expect(sanitizeOutput(result.stdout, tempDirectory)).toContain(
@@ -936,12 +927,12 @@ Exit code: 1"
     );
   });
 
-  it('renders json test output with a stable envelope', () => {
+  it('renders json test output with a stable envelope', async () => {
     writeRuleFile(tempDirectory, 'valid.rule.yaml', validRule);
     writeRuleFile(tempDirectory, 'valid.spec.yaml', validRuleSpec);
     writeRuleFile(tempDirectory, 'invalid.ts', 'console.log("hello");\n');
 
-    const result = runCommand(
+    const result = await runCommand(
       ['rules', 'test', '*.spec.yaml', '--format=json'],
       tempDirectory,
     );
@@ -974,8 +965,8 @@ Exit code: 1"
     );
   });
 
-  it('returns exit code 1 when a glob matches no files', () => {
-    const result = runCommand(
+  it('returns exit code 1 when a glob matches no files', async () => {
+    const result = await runCommand(
       ['rules', 'validate', '*.missing.yaml'],
       tempDirectory,
     );
@@ -984,8 +975,8 @@ Exit code: 1"
     expect(result.stderr).toContain('No files matched');
   });
 
-  it('returns exit code 2 for unreadable normalize paths', () => {
-    const result = runCommand(
+  it('returns exit code 2 for unreadable normalize paths', async () => {
+    const result = await runCommand(
       ['rules', 'normalize', 'missing.rule.yaml', '--format=json'],
       tempDirectory,
     );
@@ -995,8 +986,8 @@ Exit code: 1"
     expect(result.stdout).toContain('runtime.internal.error');
   });
 
-  it('rejects globs for explain', () => {
-    const result = runCommand(
+  it('rejects globs for explain', async () => {
+    const result = await runCommand(
       ['rules', 'explain', '*.rule.yaml'],
       tempDirectory,
     );

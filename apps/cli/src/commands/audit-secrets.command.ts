@@ -7,7 +7,7 @@ import { formatDiagnosticsForTerminal } from '@critiq/core-diagnostics';
 import { readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 
-import { type CliRuntime, type OutputFormat } from '../cli.types';
+import { type RequiredCliRuntime, type OutputFormat } from '../cli.types';
 import { renderAuditSecretsPretty } from '../rendering/check.rendering';
 import { renderJson } from '../rendering/json.rendering';
 
@@ -41,7 +41,7 @@ function collectSourceTextsForFindings(
 export function handleAuditSecrets(
   target: string | undefined,
   format: OutputFormat,
-  runtime: Required<CliRuntime>,
+  runtime: RequiredCliRuntime,
   baseRef?: string,
   headRef?: string,
   staged = false,

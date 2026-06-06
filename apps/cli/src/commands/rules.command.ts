@@ -18,7 +18,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import {
-  type CliRuntime,
+  type RequiredCliRuntime,
   type ExplainCommandEnvelope,
   type ExplainParsedSummary,
   type NormalizeCommandEnvelope,
@@ -246,7 +246,7 @@ function createInvalidSingleFileState(
 export function handleValidate(
   target: string,
   format: OutputFormat,
-  runtime: Required<CliRuntime>,
+  runtime: RequiredCliRuntime,
 ): number {
   const resolved = resolveValidateTargets(runtime.cwd, target);
 
@@ -306,7 +306,7 @@ export function handleValidate(
 export function handleTest(
   target: string | undefined,
   format: OutputFormat,
-  runtime: Required<CliRuntime>,
+  runtime: RequiredCliRuntime,
 ): number {
   const resolved = resolveTestTargets(runtime.cwd, target);
 
@@ -386,7 +386,7 @@ export function handleNormalizeOrExplain(
   command: 'normalize' | 'explain',
   inputPath: string,
   format: OutputFormat,
-  runtime: Required<CliRuntime>,
+  runtime: RequiredCliRuntime,
 ): number {
   const resolved = resolveSingleFilePath(runtime.cwd, inputPath);
 

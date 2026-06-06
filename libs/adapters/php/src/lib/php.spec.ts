@@ -136,12 +136,19 @@ describe('phpSourceAdapter', () => {
   });
 
 
-  it('emits shared performance hygiene facts', () => {
+  it('emits PHP performance hygiene facts', () => {
     const result = phpSourceAdapter.analyze(
-      'service_test.php',
+      'service.php',
       [
         '<?php',
-        'Promise.all($items->map(fn($item) => task($item)));',
+        'function handle(): void {',
+        '  $path = $_GET["path"];',
+        '  while ($index < count($items)) {',
+        '    $index++;',
+        '    preg_match("/\\d+/", $items[$index]);',
+        '  }',
+        '  file_get_contents($path);',
+        '}',
       ].join('\n'),
     );
 
@@ -151,9 +158,12 @@ describe('phpSourceAdapter', () => {
       throw new Error('Expected analysis success.');
     }
 
-    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toContain(
-      'php.performance.no-unbounded-concurrency',
+    expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toEqual(
+      expect.arrayContaining([
+        'php.performance.no-regex-construction-in-loop',
+        'php.performance.no-sync-fs-in-request-path',
+        'php.performance.expensive-loop-condition',
+      ]),
     );
   });
-
 });

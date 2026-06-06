@@ -35,6 +35,10 @@
       "publishName": "adapter-shared"
     },
     {
+      "distPath": "dist/libs/adapters/cloudformation",
+      "publishName": "adapter-cloudformation"
+    },
+    {
       "distPath": "dist/libs/adapters/go",
       "publishName": "adapter-go"
     },

@@ -1,3 +1,4 @@
+import { cloudformationSourceAdapter } from '@critiq/adapter-cloudformation';
 import { goSourceAdapter } from '@critiq/adapter-go';
 import { javaSourceAdapter } from '@critiq/adapter-java';
 import { phpSourceAdapter } from '@critiq/adapter-php';
@@ -27,12 +28,41 @@ export function createSourceAdapterRegistry(
 
   return {
     adapters: normalizedAdapters,
-    findAdapterForPath(path: string) {
+    findAdapterForPath(path: string, text?: string) {
       const extension = normalizeExtension(extname(path));
-
-      return normalizedAdapters.find((adapter) =>
+      const candidates = normalizedAdapters.filter((adapter) =>
         adapter.supportedExtensions.includes(extension),
       );
+
+      if (candidates.length === 0) {
+        return undefined;
+      }
+
+      if (candidates.length === 1) {
+        const adapter = candidates[0];
+
+        if (adapter.canHandle) {
+          if (text === undefined) {
+            return adapter.canHandlePath?.(path) ? adapter : undefined;
+          }
+
+          return adapter.canHandle(path, text) ? adapter : undefined;
+        }
+
+        return adapter;
+      }
+
+      if (text !== undefined) {
+        for (const adapter of candidates) {
+          if (adapter.canHandle?.(path, text)) {
+            return adapter;
+          }
+        }
+
+        return candidates.find((adapter) => !adapter.canHandle) ?? candidates[0];
+      }
+
+      return candidates.find((adapter) => !adapter.canHandle) ?? candidates[0];
     },
     hasAdapterForLanguage(language: CanonicalLanguage) {
       return normalizedAdapters.some((adapter) =>
@@ -58,6 +88,7 @@ export function createSourceAdapterRegistry(
 
 export function createDefaultSourceAdapterRegistry(): SourceAdapterRegistry {
   return createSourceAdapterRegistry([
+    cloudformationSourceAdapter,
     goSourceAdapter,
     javaSourceAdapter,
     phpSourceAdapter,

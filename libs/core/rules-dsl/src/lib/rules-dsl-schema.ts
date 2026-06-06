@@ -38,6 +38,7 @@ export const ruleLanguageSchema = z.enum([
   'ruby',
   'rust',
   'dockerfile',
+  'cloudformation',
   'all',
 ]);
 

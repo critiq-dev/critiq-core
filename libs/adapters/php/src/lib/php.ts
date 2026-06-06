@@ -173,7 +173,13 @@ const phpAdapterDefinition: PolyglotAdapterDefinition<PhpScanState> = {
     }),
     ...collectPhpTestingHygieneFacts({ text, path, detector }),
     ...collectPhpQualityMaintainabilityFacts({ text, path, detector }),
-    ...collectPhpPerformanceFacts({ text, path, detector }),
+    ...collectPhpPerformanceFacts({
+      text,
+      path,
+      detector,
+      state,
+      matchesTainted: matchesPhpTainted,
+    }),
     ...collectPhpCorrectnessFacts({ text, detector }),
   ],
 };

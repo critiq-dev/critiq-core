@@ -190,4 +190,39 @@ describe('php baseline security collectors', () => {
       ),
     ).toBe(false);
   });
+
+  it('flags new static in non-final classes', () => {
+    const facts = collectPhpBaselineSecurityFacts({
+      ...baseOptions,
+      text: 'class Worker { public function build() { return new static(); } }',
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      PHP_BASELINE_SECURITY_FACT_KINDS.unsafeNewStatic,
+    );
+  });
+
+  it('does not flag new static in final classes', () => {
+    const facts = collectPhpBaselineSecurityFacts({
+      ...baseOptions,
+      text: 'final class Worker { public function build() { return new static(); } }',
+    });
+
+    expect(
+      facts.some(
+        (fact) => fact.kind === PHP_BASELINE_SECURITY_FACT_KINDS.unsafeNewStatic,
+      ),
+    ).toBe(false);
+  });
+
+  it('flags deprecated libxml_disable_entity_loader usage', () => {
+    const facts = collectPhpBaselineSecurityFacts({
+      ...baseOptions,
+      text: 'libxml_disable_entity_loader(true);',
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      PHP_BASELINE_SECURITY_FACT_KINDS.deprecatedLibxmlEntityLoader,
+    );
+  });
 });

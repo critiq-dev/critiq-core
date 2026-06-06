@@ -1,6 +1,6 @@
-import { type CliRuntime } from './cli.types';
+import { type CliRuntime, type RequiredCliRuntime } from './cli.types';
 
-const defaultRuntime: Required<CliRuntime> = {
+const defaultRuntime: Required<Omit<RequiredCliRuntime, 'promptChoice' | 'runPackageInstall' | 'cliInstallScope'>> & Pick<RequiredCliRuntime, 'promptChoice' | 'runPackageInstall' | 'cliInstallScope'> = {
   cwd: process.cwd(),
   writeStdout: (message: string) => {
     process.stdout.write(`${message}\n`);
@@ -16,7 +16,7 @@ const defaultRuntime: Required<CliRuntime> = {
 
 const discardOutput = (_message: string) => undefined;
 
-export function resolveRuntime(runtime: CliRuntime = {}): Required<CliRuntime> {
+export function resolveRuntime(runtime: CliRuntime = {}): RequiredCliRuntime {
   return {
     cwd: runtime.cwd ?? defaultRuntime.cwd,
     writeStdout: runtime.writeStdout ?? defaultRuntime.writeStdout,
@@ -33,5 +33,8 @@ export function resolveRuntime(runtime: CliRuntime = {}): Required<CliRuntime> {
         : runtime.writeStdout || runtime.writeStderr
           ? false
           : defaultRuntime.isInteractive),
+    cliInstallScope: runtime.cliInstallScope,
+    promptChoice: runtime.promptChoice,
+    runPackageInstall: runtime.runPackageInstall,
   };
 }
