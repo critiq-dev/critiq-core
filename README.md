@@ -44,13 +44,13 @@ Run Critiq on your repo:
 
 ```bash
 npm install -D @critiq/cli @critiq/rules
-npx critiq check .
+npx @critiq/cli check .
 ```
 
 Run Critiq against a diff:
 
 ```bash
-npx critiq check . --base origin/main --head HEAD
+npx @critiq/cli check . --base origin/main --head HEAD
 ```
 
 The npm package surface we are standardizing on is:
