@@ -13,6 +13,9 @@ import {
   isUploadDerivedExpression,
   isValidationLikeCall,
 } from './analysis';
+
+const pathJoinResolveCalleePattern =
+  /(?:^|\.)path(?:\.(?:posix|win32))?\.(?:join|resolve)$/u;
 import {
   FACT_KINDS,
   fileReadSinkNames,
@@ -172,6 +175,37 @@ function collectTrustedGeneratedNameIdentifiers(
   });
 
   return names;
+}
+
+function isPathJoinResolveCallee(calleeText: string): boolean {
+  return pathJoinResolveCalleePattern.test(calleeText);
+}
+
+function callHasTaintedPathSegment(
+  node: TSESTree.CallExpression,
+  requestDerivedNames: ReadonlySet<string>,
+  uploadDerivedNames: ReadonlySet<string>,
+  sourceText: string,
+): boolean {
+  return node.arguments.some((argument) => {
+    if (!argument || argument.type === 'SpreadElement') {
+      return false;
+    }
+
+    if (
+      argument.type === 'CallExpression' &&
+      isValidationLikeCall(argument, sourceText)
+    ) {
+      return false;
+    }
+
+    return isRequestOrUploadDerivedExpression(
+      argument,
+      requestDerivedNames,
+      uploadDerivedNames,
+      sourceText,
+    );
+  });
 }
 
 function hasSafeRoot(
@@ -351,6 +385,32 @@ export function collectFilesystemSafetyFacts(
           text: calleeText,
         }),
       );
+
+      return;
+    }
+
+    if (isPathJoinResolveCallee(calleeText)) {
+      if (
+        callHasTaintedPathSegment(
+          node,
+          requestDerivedNames,
+          uploadDerivedNames,
+          context.sourceText,
+        )
+      ) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: FACT_KINDS.pathJoinUserInput,
+            node,
+            nodeIds: context.nodeIds,
+            props: {
+              sink: calleeText,
+            },
+            text: calleeText,
+          }),
+        );
+      }
 
       return;
     }

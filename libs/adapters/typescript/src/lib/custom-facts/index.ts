@@ -12,6 +12,7 @@ import {
   collectInsecureCookieJwtSessionFacts,
 } from './insecure-cookie-jwt-session';
 import { collectInsecureTransportFacts } from './insecure-transport';
+import { collectInsecureServerListenFacts } from './insecure-server-listen';
 import { collectNetworkExposureFacts } from './network-exposure';
 import { collectOpenRedirectFacts } from './open-redirect';
 import { collectPhase1PolyglotSecurityFacts } from './phase1-polyglot-security';
@@ -29,6 +30,7 @@ import { collectQueryCommandDynamicExecutionFacts } from './query-command-dynami
 import { collectSyncChildProcessExecFactsDetector } from './sync-child-process-exec';
 import { collectTypescriptRuntimeSecurityFacts } from './typescript-runtime-security';
 import type { TypeScriptFactDetectorContext } from './shared';
+import { collectUserControlledRegexpFacts } from './user-controlled-regexp';
 import { collectWeakCryptoFacts } from './weak-crypto';
 
 export function collectAdditionalTypeScriptFacts(
@@ -43,6 +45,7 @@ export function collectAdditionalTypeScriptFacts(
     ...collectTypescriptCorrectnessLanguageExtendedFacts(context),
     ...collectInsecureCookieJwtSessionFacts(context),
     ...collectInsecureTransportFacts(context),
+    ...collectInsecureServerListenFacts(context),
     ...collectNetworkExposureFacts(context),
     ...collectOpenRedirectFacts(context),
     ...collectQueryCommandDynamicExecutionFacts(context),
@@ -60,6 +63,7 @@ export function collectAdditionalTypeScriptFacts(
     ...collectSsrfFacts(context),
     ...collectNestJsSecurityFacts(context),
     ...collectWeakCryptoFacts(context),
+    ...collectUserControlledRegexpFacts(context),
   ];
   const uniqueFacts = new Map<string, ObservedFact>();
 

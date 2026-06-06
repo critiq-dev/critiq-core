@@ -17,19 +17,25 @@ export const PYTHON_GENERAL_SECURITY_FACT_KINDS = {
   jinjaAutoescapeDisabled: 'python.security.jinja-autoescape-disabled',
 } as const;
 
-export interface CollectPythonGeneralSecurityFactsOptions {
+const CONFIG_LOADER_CONTEXT_PATTERN =
+  /\bdef\s+(?:from_object|from_pyfile|from_envvar|load_config)\s*\(/iu;
+const CONFIG_EXEC_PATTERN = /\bexec\s*\(\s*compile\s*\(/u;
+
+export interface CollectPythonGeneralSecurityFactsOptions<TState = Record<string, never>> {
   text: string;
   detector: string;
+  state?: TState;
+  matchesTainted?: (expression: string, state: TState) => boolean;
 }
 
-export function collectPythonGeneralSecurityFacts(
-  options: CollectPythonGeneralSecurityFactsOptions,
+export function collectPythonGeneralSecurityFacts<TState = Record<string, never>>(
+  options: CollectPythonGeneralSecurityFactsOptions<TState>,
 ): ObservedFact[] {
-  const { text, detector } = options;
+  const { text, detector, state, matchesTainted } = options;
 
   return [
     ...collectSubprocessShellEnabledFacts(text, detector),
-    ...collectDynamicCodeExecutionFacts(text, detector),
+    ...collectDynamicCodeExecutionFacts(text, detector, state, matchesTainted),
     ...collectInsecureYamlLoadFacts(text, detector),
     ...collectInsecureTempFileFacts(text, detector),
     ...collectBindAllInterfacesFacts(text, detector),
@@ -53,17 +59,56 @@ function collectSubprocessShellEnabledFacts(
   });
 }
 
-function collectDynamicCodeExecutionFacts(
+function collectDynamicCodeExecutionFacts<TState>(
   text: string,
   detector: string,
+  state: TState | undefined,
+  matchesTainted: ((expression: string, state: TState) => boolean) | undefined,
 ): ObservedFact[] {
-  return collectMatchedFacts({
+  const snippetState = state ?? ({} as TState);
+
+  return collectSnippetFacts({
     text,
     detector,
     kind: PYTHON_GENERAL_SECURITY_FACT_KINDS.dynamicCodeExecution,
     appliesTo: 'block',
     pattern: /\b(?:eval|exec)\s*\(/g,
+    state: snippetState,
+    predicate: (snippet) => {
+      if (isConfigLoaderExecution(text, snippet.startOffset, snippet.text)) {
+        return false;
+      }
+
+      const argumentRegion = snippet.text.includes('(')
+        ? snippet.text.slice(snippet.text.indexOf('(') + 1, -1)
+        : '';
+
+      if (!argumentRegion.trim()) {
+        return false;
+      }
+
+      if (!matchesTainted) {
+        return false;
+      }
+
+      return matchesTainted(argumentRegion, snippetState);
+    },
   });
+}
+
+function isConfigLoaderExecution(
+  text: string,
+  startOffset: number,
+  snippetText: string,
+): boolean {
+  const windowStart = Math.max(0, startOffset - 900);
+  const window = text.slice(windowStart, startOffset + snippetText.length);
+
+  return (
+    CONFIG_LOADER_CONTEXT_PATTERN.test(window) ||
+    CONFIG_EXEC_PATTERN.test(snippetText) ||
+    /\bget_ipython\s*\(\s*\)\s*\.\s*run_line_magic\b/u.test(window)
+  );
 }
 
 function collectInsecureYamlLoadFacts(

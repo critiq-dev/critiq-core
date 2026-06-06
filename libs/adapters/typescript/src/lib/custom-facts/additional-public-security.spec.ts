@@ -185,19 +185,22 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     );
   });
 
-  it('flags unsafe DOM HTML sinks but ignores trusted sanitizers and fixed HTML', () => {
+  it('flags request-tainted DOM HTML sinks but ignores trusted sanitizers and fixed HTML', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([
-        'const escaped = escapeHtml(req.query.title);',
-        'const sanitized = DOMPurify.sanitize(req.body.html);',
-        'container.innerHTML = html;',
-        'container.innerHTML = sanitized;',
-        'container.outerHTML = html;',
-        'container.outerHTML = "<div>fixed</div>";',
-        'document.write(html);',
-        'document.writeln(`<div>${escaped}</div>`);',
-        'container.insertAdjacentHTML("beforeend", html);',
-        'container.insertAdjacentHTML("beforeend", `<div>${escaped}</div>`);',
+        'export function render(req, container, panel) {',
+        '  const html = req.query.html;',
+        '  const escaped = escapeHtml(req.query.title);',
+        '  const sanitized = DOMPurify.sanitize(req.body.html);',
+        '  container.innerHTML = html;',
+        '  container.innerHTML = sanitized;',
+        '  container.outerHTML = html;',
+        '  container.outerHTML = "<div>fixed</div>";',
+        '  document.write(html);',
+        '  document.writeln(`<div>${escaped}</div>`);',
+        '  container.insertAdjacentHTML("beforeend", html);',
+        '  container.insertAdjacentHTML("beforeend", `<div>${escaped}</div>`);',
+        '}',
       ].join('\n')),
     );
 
@@ -461,6 +464,25 @@ describe('collectAdditionalPublicSecurityFacts', () => {
         (fact) => fact.kind === 'security.express-permissive-cookie-config',
       ),
     ).toHaveLength(2);
+  });
+
+  it('flags request-controlled path.join segments', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'import path from "node:path";',
+        'function serveAsset(req) {',
+        '  const assetPath = path.join(__dirname, "assets", req.query.name);',
+        '  return assetPath;',
+        '}',
+        'function safeAsset() {',
+        '  return path.join(__dirname, "assets", "logo.png");',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.path-join-user-input'),
+    ).toHaveLength(1);
   });
 
   it('flags request and upload controlled filesystem reads, writes, upload filenames, and permissive modes', () => {

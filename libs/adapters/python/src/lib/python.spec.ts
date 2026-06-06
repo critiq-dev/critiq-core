@@ -65,6 +65,7 @@ describe('pythonSourceAdapter', () => {
 
     expect(result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind)).toEqual([
       'security.hardcoded-credentials',
+      'python.security.path-traversal-user-input',
       'security.sensitive-data-in-logs-and-telemetry',
       'python.security.subprocess-shell-enabled',
       'security.command-execution-with-request-input',
@@ -82,10 +83,10 @@ describe('pythonSourceAdapter', () => {
         'import requests',
         'import ssl',
         '',
-        'def fetch(data: bytes):',
+        'def sign_session(payload: bytes, secret: bytes):',
         '    requests.get("http://api.example.com/users")',
         '    requests.get("https://api.example.com/users", verify=False)',
-        '    digest = hashlib.md5(data).hexdigest()',
+        '    digest = hashlib.sha1(payload + secret).hexdigest()',
         '    context = ssl._create_unverified_context()',
         '    return digest, context',
       ].join('\n'),
@@ -343,6 +344,36 @@ describe('pythonSourceAdapter', () => {
     expect(
       result.data.semantics?.controlFlow?.facts.filter(
         (fact) => fact.kind === 'python.security.flask-debug-enabled',
+      ),
+    ).toHaveLength(3);
+  });
+
+  it('emits Python path traversal user-input facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'app.py',
+      [
+        'from pathlib import Path',
+        'from flask import send_file',
+        'import os',
+        '',
+        'REPORT_ROOT = Path("reports")',
+        '',
+        '@app.get("/reports/<path:report_name>")',
+        'def get_report(report_name):',
+        '    target = REPORT_ROOT / report_name',
+        '    return send_file(os.path.join("/tmp", request.args["name"]))',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    expect(
+      result.data.semantics?.controlFlow?.facts.filter(
+        (fact) => fact.kind === 'python.security.path-traversal-user-input',
       ),
     ).toHaveLength(3);
   });

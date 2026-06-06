@@ -5,6 +5,8 @@ import {
   collectPythonCorrectnessFacts,
   collectPythonFrameworkSecurityFacts,
   collectPythonGeneralSecurityFacts,
+  collectPythonPathTraversalUserInputFacts,
+  collectPythonWeakHashFacts,
   collectRequestPathFileReadFacts,
   collectSharedArchivePathTraversalFacts,
   collectSharedExternalFileUploadFacts,
@@ -18,7 +20,6 @@ import {
   collectTlsVerificationDisabledFacts,
   collectTrackedIdentifiers,
   collectUnsafeDeserializationFacts,
-  collectWeakHashFacts,
   containsIdentifier,
   createRegexPolyglotAdapter,
   findFirstUnmatchedDelimiter,
@@ -58,8 +59,6 @@ const insecureHttpCallPattern =
 const tlsVerificationCallPattern =
   /\b(?:requests|httpx)\.(?:delete|get|head|options|patch|post|put|request)\s*\(|\b[A-Za-z_][A-Za-z0-9_]*\.(?:delete|get|head|options|patch|post|put|request)\s*\(/g;
 const unverifiedContextPattern = /\bssl\._create_unverified_context\s*\(/g;
-const weakHashCallPattern = /\bhashlib\.(?:md5|sha1)\s*\(/g;
-
 const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
   language: 'python',
   detector: 'python-detector',
@@ -82,6 +81,12 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
       text,
       detector,
       pattern: fileReadCallPattern,
+      state,
+      matchesTainted: matchesPythonTainted,
+    }),
+    ...collectPythonPathTraversalUserInputFacts({
+      text,
+      detector,
       state,
       matchesTainted: matchesPythonTainted,
     }),
@@ -124,10 +129,9 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
       pattern: insecureHttpCallPattern,
       state,
     }),
-    ...collectWeakHashFacts({
+    ...collectPythonWeakHashFacts({
       text,
       detector,
-      pattern: weakHashCallPattern,
     }),
     ...collectPythonFrameworkSecurityFacts({
       text,
@@ -136,6 +140,8 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
     ...collectPythonGeneralSecurityFacts({
       text,
       detector,
+      state,
+      matchesTainted: matchesPythonTainted,
     }),
     ...collectPythonCorrectnessFacts({
       text,

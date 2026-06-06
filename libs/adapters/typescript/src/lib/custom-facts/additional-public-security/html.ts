@@ -303,10 +303,38 @@ export function collectHtmlOutputFacts(
       const propertyName = getMemberPropertyName(node.left);
       const value = unwrapExpression(node.right);
 
+      if (!value || (propertyName !== 'innerHTML' && propertyName !== 'outerHTML')) {
+        return;
+      }
+
+      if (propertyName === 'innerHTML') {
+        if (isTrustedHtmlExpression(value, trustedNames, context.sourceText)) {
+          return;
+        }
+
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: FACT_KINDS.noInnerHtmlAssignment,
+            node,
+            nodeIds: context.nodeIds,
+            props: {
+              sink: propertyName,
+            },
+            text: excerptFor(node, context.sourceText),
+          }),
+        );
+
+        return;
+      }
+
       if (
-        !value ||
-        (propertyName !== 'innerHTML' && propertyName !== 'outerHTML') ||
-        isTrustedHtmlExpression(value, trustedNames, context.sourceText)
+        !hasUnsafeRequestHtmlExpression(
+          value,
+          taintedNames,
+          trustedNames,
+          context.sourceText,
+        )
       ) {
         return;
       }
@@ -314,10 +342,7 @@ export function collectHtmlOutputFacts(
       facts.push(
         createObservedFact({
           appliesTo: 'block',
-          kind:
-            propertyName === 'innerHTML'
-              ? FACT_KINDS.noInnerHtmlAssignment
-              : FACT_KINDS.dangerousInsertHtml,
+          kind: FACT_KINDS.dangerousInsertHtml,
           node,
           nodeIds: context.nodeIds,
           props: {
@@ -399,18 +424,16 @@ export function collectHtmlOutputFacts(
         if (propertyName && dangerousDocumentMethods.has(propertyName)) {
           const hasUnsafeArgument = node.arguments.some((argument) => {
             if (argument.type === 'SpreadElement') {
-              return true;
+              return false;
             }
 
             const expression = unwrapExpression(argument);
 
-            return Boolean(
-              expression &&
-                !isTrustedHtmlExpression(
-                  expression,
-                  trustedNames,
-                  context.sourceText,
-                ),
+            return hasUnsafeRequestHtmlExpression(
+              expression,
+              taintedNames,
+              trustedNames,
+              context.sourceText,
             );
           });
 
@@ -452,7 +475,12 @@ export function collectHtmlOutputFacts(
 
       if (
         payload &&
-        !isTrustedHtmlExpression(payload, trustedNames, context.sourceText)
+        hasUnsafeRequestHtmlExpression(
+          payload,
+          taintedNames,
+          trustedNames,
+          context.sourceText,
+        )
       ) {
         facts.push(
           createObservedFact({

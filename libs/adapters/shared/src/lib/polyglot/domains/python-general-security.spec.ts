@@ -22,7 +22,13 @@ describe('python-general-security collectors', () => {
     ).toHaveLength(2);
   });
 
-  it('flags eval and exec usage', () => {
+  it('flags request-tainted eval and exec usage', () => {
+    const state = { taintedIdentifiers: new Set(['payload', 'expr']) };
+    const matchesTainted = (expression: string, scanState: typeof state) =>
+      [...scanState.taintedIdentifiers].some((name) =>
+        new RegExp(`\\b${name}\\b`, 'u').test(expression),
+      );
+
     const facts = collectPythonGeneralSecurityFacts({
       detector,
       text: [
@@ -30,11 +36,33 @@ describe('python-general-security collectors', () => {
         'eval(payload)',
         'exec("print(42)")',
       ].join('\n'),
+      state,
+      matchesTainted,
     });
 
     expect(
       facts.filter((fact) => fact.kind === 'python.security.dynamic-code-execution'),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
+  });
+
+  it('suppresses config-loader exec usage', () => {
+    const state = { taintedIdentifiers: new Set<string>() };
+    const matchesTainted = () => false;
+
+    const facts = collectPythonGeneralSecurityFacts({
+      detector,
+      text: [
+        'class Config:',
+        '    def from_object(self, obj):',
+        '        exec(compile(open(obj).read(), "<string>", "exec"))',
+      ].join('\n'),
+      state,
+      matchesTainted,
+    });
+
+    expect(
+      facts.filter((fact) => fact.kind === 'python.security.dynamic-code-execution'),
+    ).toHaveLength(0);
   });
 
   it('flags yaml.load without safe loader and allows SafeLoader', () => {

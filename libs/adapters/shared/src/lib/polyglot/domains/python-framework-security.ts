@@ -399,6 +399,10 @@ function collectFlaskDebugEnabledFacts(
   return facts;
 }
 
+const FLASK_REQUEST_SOURCE_PATTERN =
+  /\b(?:flask\.)?request\.(?:args|cookies|data|files|form|headers|json|values|view_args)\b|\brequest\.get(?:_json)?\s*\(/u;
+const FLASK_JSON_TAG_SERIALIZER_PATTERN = /\bclass\s+\w*Tag\b/u;
+
 function collectFlaskUnsafeHtmlFacts(
   text: string,
   detector: string,
@@ -415,9 +419,7 @@ function collectFlaskUnsafeHtmlFacts(
       pattern: /\bMarkup\s*\(/g,
       state: emptySnippetState,
       predicate: (snippet) =>
-        /\brequest\.(?:args|form|data|files|headers|cookies)\b/u.test(
-          snippet.text,
-        ),
+        isFlaskRequestTaintedMarkup(text, snippet.startOffset, snippet.text),
     }),
   );
 
@@ -429,10 +431,7 @@ function collectFlaskUnsafeHtmlFacts(
       appliesTo: 'block',
       pattern: /\brender_template_string\s*\(/g,
       state: emptySnippetState,
-      predicate: (snippet) =>
-        /\brequest\.(?:args|form|data|files|headers|cookies)\b/u.test(
-          snippet.text,
-        ),
+      predicate: (snippet) => FLASK_REQUEST_SOURCE_PATTERN.test(snippet.text),
     }),
   );
 
@@ -442,11 +441,34 @@ function collectFlaskUnsafeHtmlFacts(
       detector,
       kind,
       appliesTo: 'block',
-      pattern: /return\s+[^\n]*\|\s*safe[^\n]*request\.(?:args|form|data)/u,
+      pattern:
+        /return\s+[^\n]*\|\s*safe[^\n]*(?:flask\.)?request\.(?:args|cookies|data|files|form|headers|json|values)/u,
     }),
   );
 
   return facts;
+}
+
+function isFlaskRequestTaintedMarkup(
+  text: string,
+  startOffset: number,
+  snippetText: string,
+): boolean {
+  if (!FLASK_REQUEST_SOURCE_PATTERN.test(snippetText)) {
+    return false;
+  }
+
+  const windowStart = Math.max(0, startOffset - 500);
+  const window = text.slice(windowStart, startOffset + snippetText.length);
+
+  if (
+    FLASK_JSON_TAG_SERIALIZER_PATTERN.test(window) &&
+    !FLASK_REQUEST_SOURCE_PATTERN.test(window)
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function collectFlaskUnsafeUploadFilenameFacts(
