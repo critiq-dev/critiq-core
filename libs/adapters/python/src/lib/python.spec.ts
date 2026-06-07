@@ -474,4 +474,32 @@ describe('pythonSourceAdapter', () => {
     );
   });
 
+  it('emits Python open redirect and SSRF facts', () => {
+    const result = pythonSourceAdapter.analyze(
+      'app.py',
+      [
+        'from flask import redirect',
+        'import requests',
+        '',
+        'def login():',
+        '    return redirect(request.args.get("next"))',
+        '',
+        'def fetch():',
+        '    requests.get(request.args["url"])',
+        '    requests.get("http://169.254.169.254/latest/meta-data")',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((fact) => fact.kind) ?? [];
+
+    expect(kinds).toContain('security.open-redirect');
+    expect(kinds.filter((kind) => kind === 'security.ssrf')).toHaveLength(2);
+  });
+
 });

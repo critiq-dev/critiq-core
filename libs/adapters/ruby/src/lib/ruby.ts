@@ -5,6 +5,7 @@ import {
   collectRequestPathFileReadFacts,
   collectRubyBugRiskFacts,
   collectRubyGeneralSecurityFacts,
+  collectRubyRailsApiFacts,
   collectRubyRailsSecurityFacts,
   collectRubySensitiveDataEgressFacts,
   collectSensitiveLoggingFacts,
@@ -130,6 +131,7 @@ const rubyAdapterDefinition: PolyglotAdapterDefinition<RubyScanState> = {
       state,
       matchesTainted: matchesRubyTainted,
     }),
+    ...collectRubyRailsApiFacts({ text, path, detector }),
     ...collectRubySensitiveDataEgressFacts({
       text,
       detector,

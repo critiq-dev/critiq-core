@@ -13,6 +13,10 @@ export const RUBY_BUG_RISK_FACT_KINDS = {
   assignmentInCondition: 'ruby.bug-risk.assignment-in-condition',
   duplicateHashKeys: 'ruby.bug-risk.duplicate-hash-keys',
   deprecatedUriEscape: 'ruby.bug-risk.deprecated-uri-escape',
+  deprecatedUriRegexp: 'ruby.bug-risk.deprecated-uri-regexp',
+  deprecatedOpensslApi: 'ruby.bug-risk.deprecated-openssl-api',
+  rescueException: 'ruby.bug-risk.rescue-exception',
+  errorInheritsException: 'ruby.bug-risk.error-inherits-exception',
 } as const;
 
 const RESCUE_EXCEPTION_CLASS_NAMES =
@@ -35,6 +39,10 @@ export function collectRubyBugRiskFacts(
     ...collectAssignmentInConditionFacts(text, detector),
     ...collectDuplicateHashKeyFacts(text, detector),
     ...collectDeprecatedUriEscapeFacts(text, detector),
+    ...collectDeprecatedUriRegexpFacts(text, detector),
+    ...collectDeprecatedOpensslApiFacts(text, detector),
+    ...collectRescueExceptionFacts(text, detector),
+    ...collectErrorInheritsExceptionFacts(text, detector),
   ]);
 }
 
@@ -138,6 +146,68 @@ function collectDeprecatedUriEscapeFacts(
     kind: RUBY_BUG_RISK_FACT_KINDS.deprecatedUriEscape,
     appliesTo: 'block',
     pattern: /\bURI\.(?:escape|unescape|encode|decode)\s*\(/g,
+  });
+}
+
+function collectDeprecatedUriRegexpFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.deprecatedUriRegexp,
+    appliesTo: 'block',
+    pattern: /\bURI\.regexp\b/g,
+  });
+}
+
+function collectDeprecatedOpensslApiFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.deprecatedOpensslApi;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\bOpenSSL::Cipher::\w+\.new\s*\(/g,
+  }).concat(
+    collectMatchedFacts({
+      text,
+      detector,
+      kind,
+      appliesTo: 'block',
+      pattern: /\bOpenSSL::Digest::\w+\.(?:digest|new)\s*\(/g,
+    }),
+  );
+}
+
+function collectRescueExceptionFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.rescueException,
+    appliesTo: 'block',
+    pattern: /\brescue\s+(?:::)?Exception\b/g,
+  });
+}
+
+function collectErrorInheritsExceptionFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.errorInheritsException,
+    appliesTo: 'block',
+    pattern: /\bclass\s+[\w:]+\s*<\s*(?:::)?Exception\b/g,
   });
 }
 

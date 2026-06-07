@@ -31,6 +31,18 @@ describe('ruby-general-security collectors', () => {
     ).toHaveLength(1);
   });
 
+  it('flags IO class reads that may invoke a shell command', () => {
+    const facts = collectRubyGeneralSecurityFacts({
+      text: `output = IO.read('|whoami')`,
+      path: 'lib/runner.rb',
+      detector,
+    });
+
+    expect(
+      facts.filter((fact) => fact.kind === 'ruby.security.io-shell-command'),
+    ).toHaveLength(1);
+  });
+
   it('flags insecure JSON loaders', () => {
     const facts = collectRubyGeneralSecurityFacts({
       text: [

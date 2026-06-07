@@ -27,22 +27,32 @@ export const PYTHON_FRAMEWORK_SECURITY_FACT_KINDS = {
   fastapiInsecureCors: 'python.security.fastapi-insecure-cors',
 } as const;
 
-export interface CollectPythonFrameworkSecurityFactsOptions {
+export interface CollectPythonFrameworkSecurityFactsOptions<TState = Record<string, never>> {
   text: string;
   detector: string;
+  state?: TState;
+  matchesTainted?: (expression: string, state: TState) => boolean;
+  looksLikeRequestSource?: (expression: string) => boolean;
 }
 
-export function collectPythonFrameworkSecurityFacts(
-  options: CollectPythonFrameworkSecurityFactsOptions,
+export function collectPythonFrameworkSecurityFacts<TState = Record<string, never>>(
+  options: CollectPythonFrameworkSecurityFactsOptions<TState>,
 ): ObservedFact[] {
-  const { text, detector } = options;
+  const { text, detector, state, matchesTainted, looksLikeRequestSource } =
+    options;
 
   return [
     ...collectDjangoUnsafeProductionSettingsFacts(text, detector),
     ...collectDjangoCsrfExemptMutationFacts(text, detector),
     ...collectDjangoMissingCsrfMiddlewareFacts(text, detector),
     ...collectDjangoMissingSecurityMiddlewareFacts(text, detector),
-    ...collectDjangoMarkSafeFacts(text, detector),
+    ...collectDjangoMarkSafeFacts(
+      text,
+      detector,
+      state,
+      matchesTainted,
+      looksLikeRequestSource,
+    ),
     ...collectDjangoUnsafeFormatHtmlFacts(text, detector),
     ...collectDrfAllowAnyDefaultFacts(text, detector),
     ...collectDrfAllowAnyUnsafeMethodFacts(text, detector),
@@ -234,18 +244,37 @@ function collectDjangoMissingSecurityMiddlewareFacts(
   ];
 }
 
-function collectDjangoMarkSafeFacts(
+const DJANGO_REQUEST_SOURCE_PATTERN =
+  /\b(?:request\.(?:GET|POST|COOKIES|FILES|META|body)|self\.request\.)/u;
+
+function collectDjangoMarkSafeFacts<TState>(
   text: string,
   detector: string,
+  state: TState | undefined,
+  matchesTainted: ((expression: string, state: TState) => boolean) | undefined,
+  looksLikeRequestSource: ((expression: string) => boolean) | undefined,
 ): ObservedFact[] {
   const kind = PYTHON_FRAMEWORK_SECURITY_FACT_KINDS.djangoMarkSafe;
+  const snippetState = state ?? ({} as TState);
 
-  return collectMatchedFacts({
+  return collectSnippetFacts({
     text,
     detector,
     kind,
     appliesTo: 'block',
     pattern: /\b(?:django\.utils\.safestring\.)?mark_safe\s*\(/g,
+    state: snippetState,
+    predicate: (snippet, scanState) => {
+      if (DJANGO_REQUEST_SOURCE_PATTERN.test(snippet.text)) {
+        return true;
+      }
+
+      if (looksLikeRequestSource?.(snippet.text)) {
+        return true;
+      }
+
+      return matchesTainted?.(snippet.text, scanState) ?? false;
+    },
   });
 }
 

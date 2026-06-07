@@ -73,6 +73,48 @@ describe('ruby-bug-risk collectors', () => {
     ).toHaveLength(1);
   });
 
+  it('flags rescue of Exception', () => {
+    const text = `
+      begin
+        run
+      rescue Exception => e
+        log(e)
+      end
+    `;
+    const facts = collectRubyBugRiskFacts({ text, detector });
+
+    expect(
+      facts.filter((f) => f.kind === 'ruby.bug-risk.rescue-exception'),
+    ).toHaveLength(1);
+  });
+
+  it('flags custom errors inheriting from Exception', () => {
+    const text = 'class AppFailure < Exception; end';
+    const facts = collectRubyBugRiskFacts({ text, detector });
+
+    expect(
+      facts.filter((f) => f.kind === 'ruby.bug-risk.error-inherits-exception'),
+    ).toHaveLength(1);
+  });
+
+  it('flags deprecated URI.regexp', () => {
+    const text = 'URI.regexp';
+    const facts = collectRubyBugRiskFacts({ text, detector });
+
+    expect(
+      facts.filter((f) => f.kind === 'ruby.bug-risk.deprecated-uri-regexp'),
+    ).toHaveLength(1);
+  });
+
+  it('flags deprecated OpenSSL constant APIs', () => {
+    const text = 'OpenSSL::Digest::SHA256.digest("payload")';
+    const facts = collectRubyBugRiskFacts({ text, detector });
+
+    expect(
+      facts.filter((f) => f.kind === 'ruby.bug-risk.deprecated-openssl-api'),
+    ).toHaveLength(1);
+  });
+
   it('flags deprecated URI escape helpers', () => {
     const facts = collectRubyBugRiskFacts({
       text: 'URI.escape(value)',

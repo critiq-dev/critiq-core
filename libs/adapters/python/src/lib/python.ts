@@ -6,6 +6,8 @@ import {
   collectPythonFrameworkSecurityFacts,
   collectPythonGeneralSecurityFacts,
   collectPythonPathTraversalUserInputFacts,
+  collectPythonOpenRedirectFacts,
+  collectPythonSsrfFacts,
   collectPythonWeakHashFacts,
   collectRequestPathFileReadFacts,
   collectSharedArchivePathTraversalFacts,
@@ -136,6 +138,23 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
     ...collectPythonFrameworkSecurityFacts({
       text,
       detector,
+      state,
+      matchesTainted: matchesPythonTainted,
+      looksLikeRequestSource: looksLikePythonRequestSource,
+    }),
+    ...collectPythonOpenRedirectFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesPythonTainted,
+      looksLikeRequestSource: looksLikePythonRequestSource,
+    }),
+    ...collectPythonSsrfFacts({
+      text,
+      detector,
+      state,
+      matchesTainted: matchesPythonTainted,
+      looksLikeRequestSource: looksLikePythonRequestSource,
     }),
     ...collectPythonGeneralSecurityFacts({
       text,
