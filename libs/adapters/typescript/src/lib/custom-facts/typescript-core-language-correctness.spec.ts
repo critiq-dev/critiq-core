@@ -204,4 +204,45 @@ describe('collectTypescriptCoreLanguageCorrectnessFacts', () => {
       escapedBackslash.filter((f) => f.kind === 'language.regexp-pattern-unusual-control-character'),
     ).toHaveLength(0);
   });
+
+  it('flags batch-01 core language hygiene facts', () => {
+    const facts = analyze(
+      [
+        'export const emptyClass = /[]/;',
+        'function declared() {}',
+        'declared = function () {};',
+        'if (true) {',
+        '  function nested() {}',
+        '  var nestedVar = 1;',
+        '}',
+        'export const invalidCtor = new RegExp("[");',
+        'export const unsafeNegation = !key in object;',
+        'export function callGlobal() {',
+        '  return Math();',
+        '}',
+        'export function protoBuiltin(obj: object) {',
+        '  return obj.hasOwnProperty("x");',
+        '}',
+        'export const sparse = [1, , 3];',
+        'export const safeProto = Object.prototype.hasOwnProperty.call(obj, "x");',
+        'export const dense = [1, 2, 3];',
+        'export const validClass = /[a]/;',
+      ].join('\n'),
+    );
+
+    expect(facts.filter((f) => f.kind === 'language.regexp-empty-character-class')).toHaveLength(1);
+    expect(facts.filter((f) => f.kind === 'language.reassign-function-declaration')).toHaveLength(1);
+    expect(facts.filter((f) => f.kind === 'language.declaration-in-nested-block')).toHaveLength(2);
+    expect(facts.filter((f) => f.kind === 'language.regexp-constructor-invalid-pattern')).toHaveLength(
+      1,
+    );
+    expect(facts.filter((f) => f.kind === 'language.unsafe-negation-in-relational')).toHaveLength(1);
+    expect(facts.filter((f) => f.kind === 'language.global-object-called-as-function')).toHaveLength(
+      1,
+    );
+    expect(facts.filter((f) => f.kind === 'language.prototype-builtin-called-directly')).toHaveLength(
+      1,
+    );
+    expect(facts.filter((f) => f.kind === 'language.sparse-array-literal')).toHaveLength(1);
+  });
 });

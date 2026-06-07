@@ -29,6 +29,7 @@ export * from './polyglot/domains/ruby-bug-risk';
 export * from './polyglot/domains/ruby-rails-api';
 export * from './polyglot/domains/php-framework-security';
 export * from './polyglot/domains/php-correctness';
+export * from './polyglot/domains/php-structure-correctness';
 export * from './polyglot/domains/php-baseline-security';
 export * from './polyglot/domains/java-open-redirect';
 export * from './polyglot/domains/java-insecure-cookie';

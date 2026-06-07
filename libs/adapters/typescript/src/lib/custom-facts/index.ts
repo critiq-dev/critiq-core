@@ -7,7 +7,9 @@ import { collectElectronShellOpenExternalUnvalidatedFacts } from './additional-p
 import { collectClientApplicationSecurityFacts } from './client-application-security';
 import { collectTypescriptAsyncCorrectnessFacts } from './typescript-async-correctness';
 import { collectTypescriptCoreLanguageCorrectnessFacts } from './typescript-core-language-correctness';
+import { collectTypescriptClassAndSyntaxCorrectnessFacts } from './typescript-class-and-syntax-correctness';
 import { collectTypescriptCorrectnessLanguageExtendedFacts } from './typescript-correctness-language-extended';
+import { collectTypescriptScopeCorrectnessFacts } from './typescript-scope-correctness';
 import {
   collectInsecureCookieJwtSessionFacts,
 } from './insecure-cookie-jwt-session';
@@ -43,6 +45,8 @@ export function collectAdditionalTypeScriptFacts(
     ...collectTypescriptAsyncCorrectnessFacts(context),
     ...collectTypescriptCoreLanguageCorrectnessFacts(context),
     ...collectTypescriptCorrectnessLanguageExtendedFacts(context),
+    ...collectTypescriptScopeCorrectnessFacts(context),
+    ...collectTypescriptClassAndSyntaxCorrectnessFacts(context),
     ...collectInsecureCookieJwtSessionFacts(context),
     ...collectInsecureTransportFacts(context),
     ...collectInsecureServerListenFacts(context),

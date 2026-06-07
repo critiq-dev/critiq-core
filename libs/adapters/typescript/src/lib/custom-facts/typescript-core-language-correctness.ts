@@ -213,6 +213,306 @@ function readFixedHexValue(
  * when they appear only as `\xNN` / `\uNNNN` / `\u{...}` escapes in the pattern
  * source (what `regex.pattern` exposes from typescript-estree).
  */
+function countCapturingGroups(pattern: string): number {
+  let count = 0;
+  let index = 0;
+  let inClass = false;
+
+  while (index < pattern.length) {
+    const char = pattern[index] ?? '';
+
+    if (char === '\\') {
+      index += 2;
+      continue;
+    }
+
+    if (char === '[') {
+      inClass = true;
+      index += 1;
+      continue;
+    }
+
+    if (char === ']' && inClass) {
+      inClass = false;
+      index += 1;
+      continue;
+    }
+
+    if (!inClass && char === '(') {
+      const nextTwo = pattern.slice(index, index + 3);
+      if (!nextTwo.startsWith('(?:') && !nextTwo.startsWith('(?=') && !nextTwo.startsWith('(?!') && !nextTwo.startsWith('(?<')) {
+        count += 1;
+      }
+    }
+
+    index += 1;
+  }
+
+  return count;
+}
+
+function regexpHasUselessBackreference(pattern: string): boolean {
+  const capturingGroups = countCapturingGroups(pattern);
+  const backrefPattern = /\\([1-9]\d*)/g;
+  let match: RegExpExecArray | null = backrefPattern.exec(pattern);
+
+  while (match) {
+    const groupNumber = Number(match[1]);
+    if (groupNumber > capturingGroups) {
+      return true;
+    }
+
+    match = backrefPattern.exec(pattern);
+  }
+
+  return false;
+}
+
+function regexpCharacterClassHasMultiCodePointChar(pattern: string): boolean {
+  let index = 0;
+
+  while (index < pattern.length) {
+    if (pattern.charCodeAt(index) === 92) {
+      index += 2;
+      continue;
+    }
+
+    if (pattern[index] !== '[') {
+      index += 1;
+      continue;
+    }
+
+    let close = index + 1;
+
+    while (close < pattern.length) {
+      if (pattern.charCodeAt(close) === 92) {
+        close += 2;
+        continue;
+      }
+
+      if (pattern[close] === ']') {
+        break;
+      }
+
+      const codePoint = pattern.codePointAt(close);
+      if (codePoint !== undefined && codePoint > 0xffff) {
+        return true;
+      }
+
+      close += codePoint !== undefined && codePoint > 0xffff ? 2 : 1;
+    }
+
+    index = close + 1;
+  }
+
+  return false;
+}
+
+function regexpPatternHasEmptyCharacterClass(pattern: string): boolean {
+  let index = 0;
+
+  while (index < pattern.length) {
+    if (pattern.charCodeAt(index) === 92) {
+      index += 2;
+      continue;
+    }
+
+    if (pattern[index] !== '[') {
+      index += 1;
+      continue;
+    }
+
+    let close = index + 1;
+
+    while (close < pattern.length) {
+      if (pattern.charCodeAt(close) === 92) {
+        close += 2;
+        continue;
+      }
+
+      if (pattern[close] === ']') {
+        if (close === index + 1) {
+          return true;
+        }
+
+        break;
+      }
+
+      close += 1;
+    }
+
+    index = close + 1;
+  }
+
+  return false;
+}
+
+function stringLiteralValue(node: TSESTree.Node | null | undefined): string | undefined {
+  if (node?.type !== 'Literal' || typeof node.value !== 'string') {
+    return undefined;
+  }
+
+  return node.value;
+}
+
+function isRegExpCallee(node: TSESTree.Expression | TSESTree.Super): boolean {
+  if (node.type === 'Identifier' && node.name === 'RegExp') {
+    return true;
+  }
+
+  return false;
+}
+
+function regexpConstructorPatternIsInvalid(
+  pattern: string,
+  flags: string,
+): boolean {
+  try {
+    // eslint-disable-next-line no-new
+    new RegExp(pattern, flags);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+const GLOBAL_NON_CALLABLE_OBJECTS = new Set([
+  'Math',
+  'JSON',
+  'Reflect',
+  'Atomics',
+  'Intl',
+]);
+
+const PROTOTYPE_BUILTIN_METHODS = new Set([
+  'hasOwnProperty',
+  'isPrototypeOf',
+  'propertyIsEnumerable',
+  'valueOf',
+  'toString',
+]);
+
+const UNSAFE_NEGATION_RELATIONAL_OPERATORS = new Set([
+  'in',
+  'instanceof',
+  '<',
+  '>',
+  '<=',
+  '>=',
+]);
+
+function isFunctionBodyBlock(
+  block: TSESTree.BlockStatement,
+  parent: TSESTree.Node | undefined,
+): boolean {
+  if (!parent) {
+    return false;
+  }
+
+  return (
+    (parent.type === 'FunctionDeclaration' ||
+      parent.type === 'FunctionExpression' ||
+      parent.type === 'ArrowFunctionExpression') &&
+    parent.body === block
+  );
+}
+
+function isTopLevelProgramStatement(
+  node: TSESTree.Node,
+  parent: TSESTree.Node | undefined,
+): boolean {
+  return parent?.type === 'Program';
+}
+
+function isNestedBlockDeclaration(
+  node: TSESTree.FunctionDeclaration | TSESTree.VariableDeclaration,
+  ancestors: readonly TSESTree.Node[],
+): boolean {
+  const parent = ancestors[ancestors.length - 1];
+
+  if (isTopLevelProgramStatement(node, parent)) {
+    return false;
+  }
+
+  if (parent?.type === 'BlockStatement') {
+    const blockParent = ancestors.length > 1 ? ancestors[ancestors.length - 2] : undefined;
+    return !isFunctionBodyBlock(parent, blockParent);
+  }
+
+  for (let index = ancestors.length - 2; index >= 0; index -= 1) {
+    const ancestor = ancestors[index];
+    const ancestorParent = index > 0 ? ancestors[index - 1] : undefined;
+
+    if (ancestor.type !== 'BlockStatement') {
+      continue;
+    }
+
+    if (isFunctionBodyBlock(ancestor, ancestorParent)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+function isSafePrototypeBuiltinCall(callee: TSESTree.MemberExpression): boolean {
+  const property = callee.property;
+  if (property.type !== 'Identifier' || property.name !== 'call') {
+    return false;
+  }
+
+  const object = callee.object;
+  if (object.type !== 'MemberExpression') {
+    return false;
+  }
+
+  const builtin = object.property;
+  if (builtin.type !== 'Identifier' || !PROTOTYPE_BUILTIN_METHODS.has(builtin.name)) {
+    return false;
+  }
+
+  const receiver = object.object;
+  return (
+    receiver.type === 'MemberExpression' &&
+    receiver.object.type === 'Identifier' &&
+    receiver.object.name === 'Object' &&
+    receiver.property.type === 'Identifier' &&
+    receiver.property.name === 'prototype'
+  );
+}
+
+function isDirectPrototypeBuiltinCall(callee: TSESTree.Expression): boolean {
+  if (callee.type !== 'MemberExpression' || callee.computed) {
+    return false;
+  }
+
+  if (isSafePrototypeBuiltinCall(callee)) {
+    return false;
+  }
+
+  if (callee.property.type !== 'Identifier') {
+    return false;
+  }
+
+  if (!PROTOTYPE_BUILTIN_METHODS.has(callee.property.name)) {
+    return false;
+  }
+
+  if (
+    callee.object.type === 'MemberExpression' &&
+    callee.object.object.type === 'Identifier' &&
+    callee.object.object.name === 'Object' &&
+    callee.object.property.type === 'Identifier' &&
+    callee.object.property.name === 'prototype'
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 function regexpPatternHasUnusualAsciiControl(pattern: string): boolean {
   let index = 0;
 
@@ -418,6 +718,13 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
     const facts: ObservedFact[] = [];
     const importedBindings = collectImportedBindingNames(program);
     const importSourceCounts = new Map<string, number>();
+    const functionDeclarationNames = new Set<string>();
+
+    walkAst(program, (node) => {
+      if (node.type === 'FunctionDeclaration' && node.id) {
+        functionDeclarationNames.add(node.id.name);
+      }
+    });
 
     walkAst(program, (node) => {
       if (node.type === 'ImportDeclaration') {
@@ -635,6 +942,21 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
             }),
           );
         }
+
+        if (node.left.type === 'Identifier' && functionDeclarationNames.has(node.left.name)) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'file',
+              kind: 'language.reassign-function-declaration',
+              node,
+              nodeIds,
+              text: getNodeText(node, sourceText),
+              props: {
+                binding: node.left.name,
+              },
+            }),
+          );
+        }
       }
 
       if (node.type === 'UpdateExpression' && node.argument.type === 'Identifier') {
@@ -677,6 +999,121 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
           );
         }
       }
+
+      if (
+        node.type === 'BinaryExpression' &&
+        UNSAFE_NEGATION_RELATIONAL_OPERATORS.has(node.operator) &&
+        node.left.type === 'UnaryExpression' &&
+        node.left.operator === '!'
+      ) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.unsafe-negation-in-relational',
+            node: node.left,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {
+              operator: node.operator,
+            },
+          }),
+        );
+      }
+
+      if (node.type === 'CallExpression' && node.callee.type === 'Identifier') {
+        if (GLOBAL_NON_CALLABLE_OBJECTS.has(node.callee.name)) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'file',
+              kind: 'language.global-object-called-as-function',
+              node: node.callee,
+              nodeIds,
+              text: getNodeText(node, sourceText),
+              props: {
+                object: node.callee.name,
+              },
+            }),
+          );
+        }
+      }
+
+      if (node.type === 'CallExpression' && isDirectPrototypeBuiltinCall(node.callee)) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.prototype-builtin-called-directly',
+            node: node.callee,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {
+              method:
+                node.callee.type === 'MemberExpression' &&
+                node.callee.property.type === 'Identifier'
+                  ? node.callee.property.name
+                  : undefined,
+            },
+          }),
+        );
+      }
+
+      if (
+        node.type === 'NewExpression' &&
+        isRegExpCallee(node.callee) &&
+        node.arguments.length > 0
+      ) {
+        const pattern = stringLiteralValue(node.arguments[0]);
+        if (pattern !== undefined) {
+          const flags = stringLiteralValue(node.arguments[1]) ?? '';
+          if (regexpConstructorPatternIsInvalid(pattern, flags)) {
+            facts.push(
+              createObservedFact({
+                appliesTo: 'file',
+                kind: 'language.regexp-constructor-invalid-pattern',
+                node: node.arguments[0] ?? node,
+                nodeIds,
+                text: getNodeText(node, sourceText),
+                props: {},
+              }),
+            );
+          }
+        }
+      }
+
+      if (
+        node.type === 'CallExpression' &&
+        isRegExpCallee(node.callee) &&
+        node.arguments.length > 0
+      ) {
+        const pattern = stringLiteralValue(node.arguments[0]);
+        if (pattern !== undefined) {
+          const flags = stringLiteralValue(node.arguments[1]) ?? '';
+          if (regexpConstructorPatternIsInvalid(pattern, flags)) {
+            facts.push(
+              createObservedFact({
+                appliesTo: 'file',
+                kind: 'language.regexp-constructor-invalid-pattern',
+                node: node.arguments[0] ?? node,
+                nodeIds,
+                text: getNodeText(node, sourceText),
+                props: {},
+              }),
+            );
+          }
+        }
+      }
+
+      if (node.type === 'ArrayExpression' && node.elements.some((element) => element === null)) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.sparse-array-literal',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {},
+          }),
+        );
+      }
     });
 
     walkAstWithAncestors(program, (node, ancestors) => {
@@ -707,6 +1144,79 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
             nodeIds,
             text: getNodeText(node, sourceText),
             props: {},
+          }),
+        );
+      }
+
+      if (pattern && regexpPatternHasEmptyCharacterClass(pattern)) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.regexp-empty-character-class',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {},
+          }),
+        );
+      }
+
+      if (pattern && regexpCharacterClassHasMultiCodePointChar(pattern)) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.regexp-multicodepoint-character-class',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {},
+          }),
+        );
+      }
+
+      if (pattern && regexpHasUselessBackreference(pattern)) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.regexp-useless-backreference',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {},
+          }),
+        );
+      }
+
+      if (node.type === 'FunctionDeclaration' && isNestedBlockDeclaration(node, ancestors)) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.declaration-in-nested-block',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {
+              declarationKind: 'function',
+            },
+          }),
+        );
+      }
+
+      if (
+        node.type === 'VariableDeclaration' &&
+        node.kind === 'var' &&
+        isNestedBlockDeclaration(node, ancestors)
+      ) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.declaration-in-nested-block',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {
+              declarationKind: 'var',
+            },
           }),
         );
       }

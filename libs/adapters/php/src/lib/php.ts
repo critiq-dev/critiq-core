@@ -1,6 +1,7 @@
 import {
   collectPhpBaselineSecurityFacts,
   collectPhpCorrectnessFacts,
+  collectPhpStructureCorrectnessFacts,
   collectPhpFrameworkSecurityFacts,
   collectPhpSensitiveDataEgressFacts,
   collectCommandExecutionFacts,
@@ -181,6 +182,7 @@ const phpAdapterDefinition: PolyglotAdapterDefinition<PhpScanState> = {
       matchesTainted: matchesPhpTainted,
     }),
     ...collectPhpCorrectnessFacts({ text, detector }),
+    ...collectPhpStructureCorrectnessFacts({ text, detector }),
   ],
 };
 
