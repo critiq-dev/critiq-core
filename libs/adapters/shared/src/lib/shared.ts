@@ -23,6 +23,8 @@ export * from './polyglot/domains/python-general-security';
 export * from './polyglot/domains/python-path-traversal-user-input';
 export * from './polyglot/domains/python-network-security';
 export * from './polyglot/domains/python-correctness';
+export * from './polyglot/domains/python-bandit-security';
+export * from './polyglot/domains/python-code-quality';
 export * from './polyglot/domains/ruby-rails-security';
 export * from './polyglot/domains/ruby-general-security';
 export * from './polyglot/domains/ruby-bug-risk';

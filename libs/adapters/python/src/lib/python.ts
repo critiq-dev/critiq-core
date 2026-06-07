@@ -2,6 +2,7 @@ import {
   collectCommandExecutionFacts,
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
+  collectPythonBanditSecurityFacts,
   collectPythonCorrectnessFacts,
   collectPythonFrameworkSecurityFacts,
   collectPythonGeneralSecurityFacts,
@@ -163,6 +164,10 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
       matchesTainted: matchesPythonTainted,
     }),
     ...collectPythonCorrectnessFacts({
+      text,
+      detector,
+    }),
+    ...collectPythonBanditSecurityFacts({
       text,
       detector,
     }),

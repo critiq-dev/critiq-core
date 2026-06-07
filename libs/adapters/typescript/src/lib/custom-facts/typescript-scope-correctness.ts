@@ -267,16 +267,33 @@ function analyzeReferencesInStatement(
     }
 
     if (!GLOBAL_IDENTIFIERS.has(name) && !parentBindings.has(name)) {
-      facts.push(
-        createObservedFact({
-          appliesTo: 'file',
-          kind: 'language.undeclared-variable',
-          node,
-          nodeIds,
-          text: getNodeText(node, sourceText),
-          props: { binding: name },
-        }),
-      );
+      // Skip identifiers that are parameters of nested function/arrow expressions
+      // (param bindings inside object literals are not captured by collectDeclarations)
+      const isNestedFunctionParam = ancestors.some((ancestor) => {
+        if (
+          ancestor.type === 'ArrowFunctionExpression' ||
+          ancestor.type === 'FunctionExpression'
+        ) {
+          const fn = ancestor as { params?: { type: string; name?: string }[] };
+          return fn.params?.some(
+            (param) => param.type === 'Identifier' && param.name === name,
+          );
+        }
+        return false;
+      });
+
+      if (!isNestedFunctionParam) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.undeclared-variable',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: { binding: name },
+          }),
+        );
+      }
     }
   });
 }

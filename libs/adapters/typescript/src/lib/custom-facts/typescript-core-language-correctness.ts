@@ -389,7 +389,6 @@ const PROTOTYPE_BUILTIN_METHODS = new Set([
   'isPrototypeOf',
   'propertyIsEnumerable',
   'valueOf',
-  'toString',
 ]);
 
 const UNSAFE_NEGATION_RELATIONAL_OPERATORS = new Set([

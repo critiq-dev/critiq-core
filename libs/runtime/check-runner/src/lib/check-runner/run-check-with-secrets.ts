@@ -123,28 +123,32 @@ export async function runCheckWithSecretsScan(
 
   timer?.mark('secrets:start');
 
+  const promiseCheck = Promise.resolve().then(() => {
+    const r = runCheckCommand({
+      ...checkOptions,
+      scanContext,
+      profile: timer,
+    });
+    return r;
+  });
+  const promiseSecrets = Promise.resolve().then(() => {
+    const r = runSecretsScan({
+      cwd: options.cwd,
+      target: options.target,
+      baseRef: options.baseRef,
+      headRef: options.headRef,
+      staged: options.staged,
+      includeTests: options.includeTests,
+      ignorePaths: options.ignorePaths,
+      failOnFindings: options.failOnFindings,
+      scanContext,
+      profile: timer,
+    });
+    return r;
+  });
   const [check, secretsResult] = await Promise.all([
-    Promise.resolve().then(() =>
-      runCheckCommand({
-        ...checkOptions,
-        scanContext,
-        profile: timer,
-      }),
-    ),
-    Promise.resolve().then(() =>
-      runSecretsScan({
-        cwd: options.cwd,
-        target: options.target,
-        baseRef: options.baseRef,
-        headRef: options.headRef,
-        staged: options.staged,
-        includeTests: options.includeTests,
-        ignorePaths: options.ignorePaths,
-        failOnFindings: options.failOnFindings,
-        scanContext,
-        profile: timer,
-      }),
-    ),
+    promiseCheck,
+    promiseSecrets,
   ]);
 
   timer?.mark('secrets:end');

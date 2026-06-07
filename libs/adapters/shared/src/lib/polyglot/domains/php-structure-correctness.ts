@@ -756,6 +756,42 @@ function collectDefinedConstants(text: string): Set<string> {
   return defined;
 }
 
+const PHP_BUILTIN_CONSTANT_PREFIXES = new Set([
+  'FILTER_',
+  'CURLOPT_',
+  'JSON_',
+  'PDO_',
+  'LIBXML_',
+  'PHP_',
+  'STD_',
+  'SOCKET_',
+  'E_',
+  'PGSQL_',
+  'MYSQL_',
+  'MCRYPT_',
+  'OPENSSL_',
+  'SOAP_',
+  'XML_',
+  'XMLRPC_',
+  'XSL_',
+  'ZEND_',
+  'T_',
+  'U_',
+  'PKCS7_',
+]);
+
+const PHP_SUPERGLOBALS = new Set([
+  '_POST',
+  '_GET',
+  '_REQUEST',
+  '_SERVER',
+  '_SESSION',
+  '_COOKIE',
+  '_FILES',
+  '_ENV',
+  'GLOBALS',
+]);
+
 function collectUndefinedConstantReferenceFacts(
   text: string,
   detector: string,
@@ -768,20 +804,30 @@ function collectUndefinedConstantReferenceFacts(
   for (const match of findAllCapturingMatches(text, pattern)) {
     const name = match.groups[0] ?? '';
 
-    if (
-      !name ||
-      defined.has(name) ||
-      name.startsWith('FILTER_') ||
-      name.startsWith('CURLOPT_') ||
-      name.startsWith('JSON_') ||
-      name.startsWith('PDO_')
-    ) {
+    if (!name || defined.has(name)) {
+      continue;
+    }
+
+    // Skip PHP superglobals (e.g. _POST, _GET)
+    if (PHP_SUPERGLOBALS.has(name)) {
+      continue;
+    }
+
+    // Skip known PHP built-in constant prefixes
+    let matchedPrefix = false;
+    for (const prefix of PHP_BUILTIN_CONSTANT_PREFIXES) {
+      if (name.startsWith(prefix)) {
+        matchedPrefix = true;
+        break;
+      }
+    }
+    if (matchedPrefix) {
       continue;
     }
 
     const before = text.slice(Math.max(0, match.startOffset - 2), match.startOffset);
 
-    if (before.endsWith('::') || before.endsWith('->')) {
+    if (before.endsWith('::') || before.endsWith('->') || before.endsWith('$')) {
       continue;
     }
 

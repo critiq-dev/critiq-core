@@ -502,4 +502,37 @@ describe('pythonSourceAdapter', () => {
     expect(kinds.filter((kind) => kind === 'security.ssrf')).toHaveLength(2);
   });
 
+  it('emits bandit security facts', () => {
+    // insecure-cipher
+    const r1 = pythonSourceAdapter.analyze(
+      'crypto.py',
+      'cipher = Crypto.Cipher.DES.new(key, Crypto.Cipher.DES.MODE_ECB)',
+    );
+    expect(r1.success).toBe(true);
+    if (!r1.success) throw new Error('Expected analysis success.');
+    const facts1 = r1.data.semantics?.controlFlow?.facts ?? [];
+    expect(facts1.filter(f => f.kind === 'python.security.insecure-cipher')).not.toHaveLength(0);
+
+    // insecure-xml-parser
+    const r2 = pythonSourceAdapter.analyze(
+      'parse_xml.py',
+      'xml.etree.ElementTree.parse("data.xml")',
+    );
+    expect(r2.success).toBe(true);
+    if (!r2.success) throw new Error('Expected analysis success.');
+    const facts2 = r2.data.semantics?.controlFlow?.facts ?? [];
+    expect(facts2.filter(f => f.kind === 'python.security.insecure-xml-parser')).not.toHaveLength(0);
+
+    // assert-outside-test (already works)
+    const r3 = pythonSourceAdapter.analyze(
+      'app.py',
+      'assert x > 0',
+    );
+    expect(r3.success).toBe(true);
+    if (!r3.success) throw new Error('Expected analysis success.');
+    expect(
+      r3.data.semantics?.controlFlow?.facts.some(f => f.kind === 'python.correctness.assert-outside-test'),
+    ).toBe(true);
+  });
+
 });
