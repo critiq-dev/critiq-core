@@ -8,6 +8,8 @@ import {
 import { createOffsetFact, dedupeFacts } from '../fact-utils';
 import { collectMatchedFacts } from './collect-matched-facts';
 import { collectSnippetFacts } from './collect-snippet-facts';
+import type { TrackedIdentifierState } from '../types';
+
 
 const emptySnippetState: Record<string, never> = {};
 
@@ -33,6 +35,10 @@ export const RUST_GENERAL_SECURITY_FACT_KINDS = {
   shellCommandSpawn: 'rust.security.shell-command-spawn',
   insecureYamlLoad: 'rust.security.insecure-yaml-load',
   panicInAsyncHandler: 'rust.security.panic-in-async-handler',
+  openRedirect: 'rust.security.open-redirect',
+  invisibleUnicode: 'rust.security.invisible-unicode',
+  potentiallyVulnerableRegex: 'rust.security.potentially-vulnerable-regex',
+  globalWritePermission: 'rust.security.global-write-permission',
 } as const;
 
 /**
@@ -77,6 +83,9 @@ export function collectRustGeneralSecurityFacts(
     ...collectShellCommandSpawnFacts(text, detector),
     ...collectInsecureYamlLoadFacts(text, detector),
     ...collectPanicInAsyncHandlerFacts(text, detector),
+    ...collectInvisibleUnicodeFacts(text, detector),
+    ...collectPotentiallyVulnerableRegexFacts(text, detector),
+    ...collectGlobalWritePermissionFacts(text, detector),
   ]);
 }
 
@@ -537,6 +546,130 @@ function collectPanicInAsyncHandlerFacts(
         }),
       );
     }
+  }
+
+  return facts;
+}
+
+function collectInvisibleUnicodeFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const zeroWidthSpace = '\u200B';
+  const zeroWidthNonJoiner = '\u200C';
+  const zeroWidthJoiner = '\u200D';
+  const leftToRightEmbed = '\u202A';
+  const popDirectionalFormatting = '\u202B';
+  const leftToRightOverride = '\u202D';
+  const rightToLeftOverride = '\u202E';
+  const wordJoiner = '\u2060';
+  const functionApplication = '\u2061';
+  const invisibleTimes = '\u2062';
+  const invisibleSeparator = '\u2063';
+  const invisiblePlus = '\u2064';
+  const leftToRightIsolate = '\u2066';
+  const rightToLeftIsolate = '\u2067';
+  const firstStrongIsolate = '\u2068';
+  const popDirectionalIsolate = '\u2069';
+  const bom = '\uFEFF';
+
+  const invisibleChars =
+    '[' +
+    zeroWidthSpace +
+    '-' +
+    zeroWidthJoiner +
+    leftToRightEmbed +
+    '-' +
+    rightToLeftOverride +
+    wordJoiner +
+    '-' +
+    invisiblePlus +
+    leftToRightIsolate +
+    '-' +
+    popDirectionalIsolate +
+    bom +
+    ']';
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUST_GENERAL_SECURITY_FACT_KINDS.invisibleUnicode,
+    appliesTo: 'block',
+    pattern: new RegExp(invisibleChars, 'gu'),
+  });
+}
+
+function collectPotentiallyVulnerableRegexFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUST_GENERAL_SECURITY_FACT_KINDS.potentiallyVulnerableRegex;
+  return collectSnippetFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\bregex::Regex::new\s*\(/g,
+    state: emptySnippetState,
+    predicate: (snippet) => {
+      return /\(\?(?:a\+|\w\*|\w\+)\+\)|\((?:\?[^)]+)?(?:\w+\+)+\)\+/u.test(
+        snippet.text,
+      );
+    },
+  });
+}
+
+function collectGlobalWritePermissionFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUST_GENERAL_SECURITY_FACT_KINDS.globalWritePermission;
+  return collectSnippetFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\b(?:chmod|set_permissions|from_mode|\.mode)\s*\(/g,
+    state: emptySnippetState,
+    predicate: (snippet) =>
+      /\b(?:0o777|0o666|0o222|0o702|0o706|0o607)\b/u.test(snippet.text),
+  });
+}
+
+export interface CollectOpenRedirectFactsOptions {
+  text: string;
+  detector: string;
+  state: TrackedIdentifierState;
+  matchesTainted: (expression: string, state: TrackedIdentifierState) => boolean;
+}
+
+export function collectOpenRedirectFacts(
+  options: CollectOpenRedirectFactsOptions,
+): ObservedFact[] {
+  const { text, detector, state, matchesTainted } = options;
+  const kind = RUST_GENERAL_SECURITY_FACT_KINDS.openRedirect;
+  const facts: ObservedFact[] = [];
+
+  const redirectPatterns = [
+    /\b(?:Redirect::to|Redirect::found)\s*\(/g,
+    /\bwarp::redirect\s*\(/g,
+    /\breply::redirect\s*\(/g,
+  ];
+
+  for (const pattern of redirectPatterns) {
+    facts.push(
+      ...collectSnippetFacts({
+        text,
+        detector,
+        kind,
+        appliesTo: 'block',
+        pattern,
+        state,
+        predicate: (_snippet, st) => {
+          return matchesTainted(_snippet.text, st);
+        },
+      }),
+    );
   }
 
   return facts;

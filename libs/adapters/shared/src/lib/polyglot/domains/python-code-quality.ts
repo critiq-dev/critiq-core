@@ -101,7 +101,7 @@ function collectUndefinedLoopVariableFacts(
     detector,
     kind: PYTHON_CODE_QUALITY_FACT_KINDS.undefinedLoopVariable,
     appliesTo: 'block',
-    pattern: /^\s*for\s+(\w+)\s+in[\s\S]*?\n(?:\s*.*\n)*?\s*print\s*\(\s*\1\s*\)/gm,
+    pattern: /^\s*for\s+(\w+)\s+in[\s\S]*?\n[\s\S]*?\s*print\s*\(\s*\1\s*\)/gm,
   });
 }
 
@@ -201,7 +201,7 @@ function collectUselessElseOnLoopFacts(
     detector,
     kind: PYTHON_CODE_QUALITY_FACT_KINDS.uselessElseOnLoop,
     appliesTo: 'block',
-    pattern: /^\s*(?:for|while)\b[\s\S]*?\n(?:.*\n)*?\bbreak\b[\s\S]*?\n\s*else\s*:/gm,
+    pattern: /^\s*(?:for|while)\b[\s\S]*?\n[\s\S]*?\bbreak\b[\s\S]*?\n\s*else\s*:/gm,
   });
 }
 
@@ -227,7 +227,7 @@ function collectUndefinedVariableFacts(
     detector,
     kind: PYTHON_CODE_QUALITY_FACT_KINDS.undefinedVariable,
     appliesTo: 'block',
-    pattern: /if\s+[^:]+:\s*\n\s+(\w+)\s*=[^\n]+\n(?:\s*.*\n)*?\s*return\s+\1\b/gm,
+    pattern: /if\s+[^:]+:\s*\n\s+(\w+)\s*=[^\n]+\n[\s\S]*?\s*return\s+\1\b/gm,
   });
 }
 

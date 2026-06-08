@@ -1,4 +1,5 @@
 import {
+  collectOpenRedirectFacts,
   collectRustGeneralSecurityFacts,
   RUST_GENERAL_SECURITY_FACT_KINDS,
 } from './rust-general-security';
@@ -263,6 +264,96 @@ describe('rust-general-security collectors', () => {
     });
 
     expect(facts).toHaveLength(0);
+  });
+
+  it('flags invisible unicode characters', () => {
+    const facts = collectRustGeneralSecurityFacts({
+      detector,
+      // Contains zero-width space (U+200B) after "if"
+      text: [
+        'fn check(user: &str) -> bool {',
+        '  if\u200B(user == "admin") {',
+        '    return true;',
+        '  }',
+        '  false',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === RUST_GENERAL_SECURITY_FACT_KINDS.invisibleUnicode,
+      ).length,
+    ).toBeGreaterThanOrEqual(1);
+  });
+
+  it('flags regex with nested quantifiers', () => {
+    const facts = collectRustGeneralSecurityFacts({
+      detector,
+      text: [
+        'fn test(input: &str) -> bool {',
+        '  let re = regex::Regex::new(r"((a+)+)").unwrap();',
+        '  re.is_match(input)',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind ===
+          RUST_GENERAL_SECURITY_FACT_KINDS.potentiallyVulnerableRegex,
+      ).length,
+    ).toBeGreaterThanOrEqual(1);
+  });
+
+  it('flags global write permissions in chmod-like calls', () => {
+    const facts = collectRustGeneralSecurityFacts({
+      detector,
+      text: [
+        'use std::os::unix::fs::PermissionsExt;',
+        'fn set_perm(path: &str) {',
+        '  let _ = std::fs::set_permissions(path, PermissionsExt::from_mode(0o777));',
+        '  let _ = std::fs::set_permissions(path, PermissionsExt::from_mode(0o600));',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind ===
+          RUST_GENERAL_SECURITY_FACT_KINDS.globalWritePermission,
+      ).length,
+    ).toBeGreaterThanOrEqual(1);
+  });
+
+  it('collectOpenRedirectFacts flags redirect with tainted source', () => {
+    const facts = collectOpenRedirectFacts({
+      detector,
+      text: [
+        'fn handle(req: HttpRequest) {',
+        '  let dest = req.query_string();',
+        '  let _ = Redirect::to(dest);',
+        '}',
+      ].join('\n'),
+      state: { taintedIdentifiers: new Set(['dest']), sqlInterpolatedIdentifiers: new Set() },
+      matchesTainted: (expr, st) => {
+        for (const id of st.taintedIdentifiers) {
+          if (expr.includes(id)) {
+            return true;
+          }
+        }
+        return false;
+      },
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === RUST_GENERAL_SECURITY_FACT_KINDS.openRedirect,
+      ).length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it('skips all collectors when path is a test source', () => {

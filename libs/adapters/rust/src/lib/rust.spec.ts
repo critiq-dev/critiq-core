@@ -170,4 +170,122 @@ describe('rustSourceAdapter', () => {
     ).toBe(false);
   });
 
+  it('emits batch-03 correctness facts', () => {
+    const result = rustSourceAdapter.analyze('bug_risk.rs', [
+      'fn return_self() -> self {',
+      '    self',
+      '}',
+      '',
+      'fn bad_regex() {',
+      '    let _ = regex::Regex::new("[z-a]");',
+      '}',
+      '',
+      'fn bad_step() {',
+      '    let _ = (0..10).step_by(0);',
+      '}',
+      '',
+      'fn iter_next_loop() {',
+      '    let iter = [1,2,3].iter();',
+      '    for x in iter.next() {',
+      '        println!("{}", x);',
+      '    }',
+      '}',
+      '',
+      'fn empty_range() {',
+      '    for _ in 42..21 { }',
+      '}',
+    ].join('\n'));
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
+    expect(kinds).toEqual(expect.arrayContaining([
+      'rust.correctness.self-not-self-type',
+      'rust.correctness.invalid-regex-literal',
+      'rust.correctness.step-by-zero',
+      'rust.correctness.iter-next-in-for-loop',
+      'rust.correctness.empty-range-expression',
+    ]));
+  });
+
+  it('emits batch-07 security facts (unsafe code, invisible unicode, global permissions)', () => {
+    const result = rustSourceAdapter.analyze('security.rs', [
+      'fn ptr_cast(ptr: *const u8) -> *mut u8 {',
+      '    unsafe { ptr as *mut u8 }',
+      '}',
+      '',
+      'fn slice_ptr(data: &[u8]) -> *const u8 {',
+      '    &data[..] as *const u8',
+      '}',
+      '',
+      'fn check(user: &str) -> bool {',
+      '    if\u200B(user == "admin") { return true; }',
+      '    false',
+      '}',
+      '',
+      'use std::os::unix::fs::PermissionsExt;',
+      'fn set_perm(path: &str) {',
+      '    std::fs::set_permissions(path, PermissionsExt::from_mode(0o777));',
+      '}',
+      '',
+      'fn test_regex(input: &str) -> bool {',
+      '    let re = regex::Regex::new(r"((a+)+)").unwrap();',
+      '    re.is_match(input)',
+      '}',
+    ].join('\n'));
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected analysis success.');
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
+    expect(kinds).toEqual(expect.arrayContaining([
+      'rust.security.const-to-mut-ptr',
+      'rust.security.raw-slice-to-ptr',
+      'rust.security.invisible-unicode',
+      'rust.security.global-write-permission',
+      'rust.security.potentially-vulnerable-regex',
+    ]));
+  });
+
+  it('emits batch-05 transmute and print-in-display correctness facts', () => {
+    const result = rustSourceAdapter.analyze('transmute.rs', [
+      'fn transmute_bugs(x: i32) {',
+      '    let _y: NonZeroI32 = unsafe { std::mem::transmute::<i32, NonZeroI32>(x) };',
+      '    let _c: char = unsafe { std::mem::transmute::<u32, char>(x as u32) };',
+      '    let _arr: [u8; 4] = unsafe { std::mem::transmute::<i32, [u8; 4]>(x) };',
+      '    let _tup_arr: [u8; 4] = unsafe { std::mem::transmute::<(u16, u8), [u8; 4]>((0, 0)) };',
+      '    let _p: fn(i32) -> bool = unsafe { std::mem::transmute::<usize, fn(i32) -> bool>(0usize) };',
+      '    let _q: *const u8 = unsafe { std::mem::transmute::<usize, *const u8>(0usize) };',
+      '    let _r: &u8 = unsafe { std::mem::transmute::<f32, &u8>(0.0f32) };',
+      '}',
+      '',
+      'use std::fmt::{self, Display, Formatter};',
+      'struct BadDisplay;',
+      'impl Display for BadDisplay {',
+      '    fn fmt(&self, f: &mut Formatter) -> fmt::Result {',
+      '        println!("formatting");',
+      '        write!(f, "...")',
+      '    }',
+      '}',
+    ].join('\n'));
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected analysis success.');
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
+    expect(kinds).toEqual(expect.arrayContaining([
+      'rust.correctness.transmute-integer-to-nonzero',
+      'rust.correctness.transmute-integer-to-char',
+      'rust.correctness.transmute-number-to-slice-or-array',
+      'rust.correctness.transmute-tuple-to-slice-or-array',
+      'rust.correctness.print-in-display-impl',
+      'rust.correctness.transmute-int-to-fn-ptr',
+      'rust.correctness.transmute-int-lit-to-raw-ptr',
+      'rust.correctness.transmute-float-char-to-ref-or-ptr',
+    ]));
+  });
 });

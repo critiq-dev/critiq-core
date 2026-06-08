@@ -157,8 +157,31 @@ export function collectRubyPerformanceFacts(
   return collectSharedPerformanceFacts(options, 'ruby');
 }
 
+export const RUST_PERFORMANCE_FACT_KINDS = {
+  singleCharStringLiteralPattern:
+    'rust.performance.single-char-string-literal-pattern',
+} as const;
+
+function collectRustSingleCharStringLiteralFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUST_PERFORMANCE_FACT_KINDS.singleCharStringLiteralPattern,
+    pattern:
+      /\.(?:find|rfind|contains|starts_with|ends_with|strip_prefix|strip_suffix|trim_start_matches|trim_end_matches|trim_matches|split|rsplit|splitn|rsplitn|split_terminator|matches|rmatches|match_indices|rmatch_indices|replace|replacen)\s*\(\s*"(?:[^"\\]|\\.)"\s*[,)]/g,
+    appliesTo: 'block',
+  });
+}
+
 export function collectRustPerformanceFacts(
   options: PolyglotPerformancePathOptions,
 ): ObservedFact[] {
-  return collectSharedPerformanceFacts(options, 'rust');
+  const { text, detector } = options;
+  return [
+    ...collectSharedPerformanceFacts(options, 'rust'),
+    ...collectRustSingleCharStringLiteralFacts(text, detector),
+  ];
 }

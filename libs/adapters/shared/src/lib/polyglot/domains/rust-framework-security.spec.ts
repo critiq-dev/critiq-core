@@ -1,4 +1,5 @@
 import {
+  collectActixNamedFileOpenFacts,
   collectRustFrameworkSecurityFacts,
   isRustFrameworkSuppressedPath,
   RUST_FRAMEWORK_SECURITY_FACT_KINDS,
@@ -138,6 +139,43 @@ describe('rust framework security collectors', () => {
           RUST_FRAMEWORK_SECURITY_FACT_KINDS.sqlxDieselRawInterpolatedQuery,
       ),
     ).toBe(true);
+  });
+
+  it('collectActixNamedFileOpenFacts flags NamedFile::open with tainted path', () => {
+    const facts = collectActixNamedFileOpenFacts({
+      text: 'let file = NamedFile::open(user_input);',
+      path: 'src/handler.rs',
+      detector,
+      state: { taintedIdentifiers: new Set(['user_input']), sqlInterpolatedIdentifiers: new Set() },
+      matchesTainted: (expr, st) => {
+        for (const id of st.taintedIdentifiers) {
+          if (expr.includes(id)) {
+            return true;
+          }
+        }
+        return false;
+      },
+    });
+
+    expect(
+      facts.some(
+        (f) =>
+          f.kind ===
+          RUST_FRAMEWORK_SECURITY_FACT_KINDS.actixNamedFilePathTraversal,
+      ),
+    ).toBe(true);
+  });
+
+  it('collectActixNamedFileOpenFacts skips safe NamedFile::open', () => {
+    const facts = collectActixNamedFileOpenFacts({
+      text: 'let file = NamedFile::open("./static/index.html");',
+      path: 'src/handler.rs',
+      detector,
+      state: { taintedIdentifiers: new Set(), sqlInterpolatedIdentifiers: new Set() },
+      matchesTainted: () => false,
+    });
+
+    expect(facts).toHaveLength(0);
   });
 
   it('flags tera context insert from query without sanitizer', () => {

@@ -1,8 +1,9 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
-import { findAllMatches } from '../../runtime';
-import { createOffsetFact, dedupeFacts } from '../fact-utils';
+import { findAllMatches, findCallSnippets } from '../../runtime';
+import { createOffsetFact, createSnippetFact, dedupeFacts } from '../fact-utils';
 import { collectMatchedFacts } from './collect-matched-facts';
+import type { TrackedIdentifierState } from '../types';
 
 /** Fact kinds emitted for Rust web framework hardening (OSS). */
 export const RUST_FRAMEWORK_SECURITY_FACT_KINDS = {
@@ -20,6 +21,8 @@ export const RUST_FRAMEWORK_SECURITY_FACT_KINDS = {
     'rust.security.sqlx-diesel-raw-interpolated-query',
   templateUnescapedRequestValue:
     'rust.security.template-unescaped-request-value',
+  actixNamedFilePathTraversal:
+    'rust.security.actix-namedfile-path-traversal',
 } as const;
 
 /**
@@ -393,6 +396,45 @@ function collectSqlxDieselRawQueryFacts(
       pattern: /\bdiesel::sql_query\s*\(\s*format!\s*\(/g,
     }),
   );
+
+  return facts;
+}
+
+export interface CollectActixNamedFileOpenFactsOptions {
+  text: string;
+  detector: string;
+  path: string;
+  state: TrackedIdentifierState;
+  matchesTainted: (expression: string, state: TrackedIdentifierState) => boolean;
+}
+
+export function collectActixNamedFileOpenFacts(
+  options: CollectActixNamedFileOpenFactsOptions,
+): ObservedFact[] {
+  const { text, detector, path, state, matchesTainted } = options;
+
+  if (isRustFrameworkSuppressedPath(path)) {
+    return [];
+  }
+
+  const kind = RUST_FRAMEWORK_SECURITY_FACT_KINDS.actixNamedFilePathTraversal;
+  const facts: ObservedFact[] = [];
+
+  for (const snippet of findCallSnippets(
+    text,
+    /\bNamedFile::open\s*\(/g,
+  )) {
+    if (matchesTainted(snippet.text, state)) {
+      facts.push(
+        createSnippetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          snippet,
+        }),
+      );
+    }
+  }
 
   return facts;
 }

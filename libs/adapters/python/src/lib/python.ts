@@ -3,6 +3,7 @@ import {
   collectHardcodedCredentialFacts,
   collectInsecureHttpTransportFacts,
   collectPythonBanditSecurityFacts,
+  collectPythonCodeQualityFacts,
   collectPythonCorrectnessFacts,
   collectPythonFrameworkSecurityFacts,
   collectPythonGeneralSecurityFacts,
@@ -72,6 +73,7 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
       text,
       detector,
       assignmentPattern: hardcodedCredentialPattern,
+      appliesTo: 'block',
     }),
     ...collectSensitiveLoggingFacts({
       text,
@@ -164,6 +166,10 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
       matchesTainted: matchesPythonTainted,
     }),
     ...collectPythonCorrectnessFacts({
+      text,
+      detector,
+    }),
+    ...collectPythonCodeQualityFacts({
       text,
       detector,
     }),

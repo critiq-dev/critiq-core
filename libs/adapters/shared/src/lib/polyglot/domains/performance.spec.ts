@@ -1,6 +1,8 @@
 import {
   collectPhpPerformanceFacts,
+  collectRustPerformanceFacts,
   PHP_PERFORMANCE_FACT_KINDS,
+  RUST_PERFORMANCE_FACT_KINDS,
 } from './performance';
 
 describe('php performance collectors', () => {
@@ -104,6 +106,110 @@ describe('php performance collectors', () => {
 
     expect(
       facts.some((fact) => fact.kind.includes('no-unbounded-concurrency')),
+    ).toBe(false);
+  });
+});
+
+describe('rust performance collectors', () => {
+  it('flags single-char string literal in find', () => {
+    const facts = collectRustPerformanceFacts({
+      path: 'test.rs',
+      detector: 'rust-detector',
+      text: 's.find("o");',
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      RUST_PERFORMANCE_FACT_KINDS.singleCharStringLiteralPattern,
+    );
+  });
+
+  it('flags single-char string literal in split', () => {
+    const facts = collectRustPerformanceFacts({
+      path: 'test.rs',
+      detector: 'rust-detector',
+      text: 's.split("x");',
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      RUST_PERFORMANCE_FACT_KINDS.singleCharStringLiteralPattern,
+    );
+  });
+
+  it('flags single-char string literal in contains', () => {
+    const facts = collectRustPerformanceFacts({
+      path: 'test.rs',
+      detector: 'rust-detector',
+      text: 's.contains("a");',
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      RUST_PERFORMANCE_FACT_KINDS.singleCharStringLiteralPattern,
+    );
+  });
+
+  it('flags single-char string literal in starts_with', () => {
+    const facts = collectRustPerformanceFacts({
+      path: 'test.rs',
+      detector: 'rust-detector',
+      text: 's.starts_with("H");',
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      RUST_PERFORMANCE_FACT_KINDS.singleCharStringLiteralPattern,
+    );
+  });
+
+  it('flags single-char string literal in replace first arg', () => {
+    const facts = collectRustPerformanceFacts({
+      path: 'test.rs',
+      detector: 'rust-detector',
+      text: 's.replace("e", "E");',
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      RUST_PERFORMANCE_FACT_KINDS.singleCharStringLiteralPattern,
+    );
+  });
+
+  it('does not flag char literals', () => {
+    const facts = collectRustPerformanceFacts({
+      path: 'test.rs',
+      detector: 'rust-detector',
+      text: "s.find('o');",
+    });
+
+    expect(
+      facts.some((fact) =>
+        fact.kind.includes(RUST_PERFORMANCE_FACT_KINDS.singleCharStringLiteralPattern),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not flag multi-character strings', () => {
+    const facts = collectRustPerformanceFacts({
+      path: 'test.rs',
+      detector: 'rust-detector',
+      text: 's.split("hello");',
+    });
+
+    expect(
+      facts.some((fact) =>
+        fact.kind.includes(RUST_PERFORMANCE_FACT_KINDS.singleCharStringLiteralPattern),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not flag empty strings', () => {
+    const facts = collectRustPerformanceFacts({
+      path: 'test.rs',
+      detector: 'rust-detector',
+      text: 's.split("");',
+    });
+
+    expect(
+      facts.some((fact) =>
+        fact.kind.includes(RUST_PERFORMANCE_FACT_KINDS.singleCharStringLiteralPattern),
+      ),
     ).toBe(false);
   });
 });
