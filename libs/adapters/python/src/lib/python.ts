@@ -73,7 +73,6 @@ const pythonAdapterDefinition: PolyglotAdapterDefinition<PythonScanState> = {
       text,
       detector,
       assignmentPattern: hardcodedCredentialPattern,
-      appliesTo: 'block',
     }),
     ...collectSensitiveLoggingFacts({
       text,

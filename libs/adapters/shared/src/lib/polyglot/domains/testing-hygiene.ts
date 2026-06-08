@@ -4,7 +4,9 @@ import {
   isTestLikeSourcePath,
   TICKET_OR_SUPPRESSION_PATTERN,
 } from '../../testing-paths';
+import { createOffsetFact } from '../fact-utils';
 import { collectMatchedFacts } from './collect-matched-facts';
+import { findMatchingDelimiter } from '../../runtime';
 
 const E2E_OR_INTEGRATION_PATH = /(?:^|\/)(?:e2e|integration)(?:\/|$)|[._]integration[._]/i;
 
@@ -206,7 +208,7 @@ export function collectJavaTestingHygieneFacts(
 ): ObservedFact[] {
   const { text, path, detector } = options;
 
-  if (!isNarrowUnitTestPath(path) || !/Test\.java$/i.test(path)) {
+  if (!isNarrowUnitTestPath(path) && !/Test\.java$/i.test(path)) {
     return [];
   }
 
@@ -246,7 +248,118 @@ export function collectJavaTestingHygieneFacts(
         /\b(?:HttpClient\.newHttpClient|new\s+URL\s*\(|HttpURLConnection|RestTemplate)\b/g,
       appliesTo: 'block',
     }),
+    ...collectSetupTeardownAnnotationFacts(text, detector),
+    ...collectSetupWithoutSuperFacts(text, detector),
+    ...collectTeardownWithoutSuperFacts(text, detector),
   ];
+}
+
+function collectSetupTeardownAnnotationFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const findings: ObservedFact[] = [];
+  const kind = 'java.testing.setup-teardown-annotation';
+
+  const methodPattern =
+    /(?:(?:public|protected|private)\s+)?void\s+(setUp|tearDown)\s*\(\s*\)/gu;
+  for (const match of text.matchAll(methodPattern)) {
+    const methodName = match[1];
+    if (!methodName) continue;
+    const matchedText = match[0];
+    const startOffset = match.index ?? 0;
+    const endOffset = startOffset + matchedText.length;
+    const lineStart = text.lastIndexOf('\n', startOffset) + 1;
+    const beforeMethod = text.slice(Math.max(0, lineStart - 200), lineStart);
+
+    const hasAnnotation =
+      /@(?:Override|Before|BeforeEach|After|AfterEach)/.test(beforeMethod) ||
+      /@(?:Override|Before|BeforeEach|After|AfterEach)/.test(
+        text.slice(text.lastIndexOf('\n', Math.max(0, lineStart - 2)) + 1, lineStart),
+      );
+
+    if (hasAnnotation) continue;
+
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset,
+        endOffset,
+        text: matchedText,
+      }),
+    );
+  }
+
+  return findings;
+}
+
+export function collectSetupWithoutSuperFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const findings: ObservedFact[] = [];
+  const kind = 'java.testing.setup-without-super';
+
+  const methodPattern = /(?:(?:public|protected|private)\s+)?void\s+setUp\s*\(\s*\)/gu;
+  for (const match of text.matchAll(methodPattern)) {
+    const startOffset = match.index!;
+    const endOffset = startOffset + match[0].length;
+    const braceStart = text.indexOf('{', endOffset);
+    if (braceStart < 0) continue;
+    const methodBody = text.slice(endOffset, braceStart);
+    const bodyStart = braceStart + 1;
+    const blockEnd = findMatchingDelimiter(text, braceStart, '{', '}');
+    if (blockEnd < 0) continue;
+    const body = text.slice(bodyStart, blockEnd);
+    if (/\bsuper\s*\.\s*setUp\s*\(\s*\)/.test(body)) continue;
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset,
+        endOffset,
+        text: match[0],
+      }),
+    );
+  }
+
+  return findings;
+}
+
+export function collectTeardownWithoutSuperFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const findings: ObservedFact[] = [];
+  const kind = 'java.testing.teardown-without-super';
+
+  const methodPattern = /(?:(?:public|protected|private)\s+)?void\s+tearDown\s*\(\s*\)/gu;
+  for (const match of text.matchAll(methodPattern)) {
+    const startOffset = match.index!;
+    const endOffset = startOffset + match[0].length;
+    const braceStart = text.indexOf('{', endOffset);
+    if (braceStart < 0) continue;
+    const bodyStart = braceStart + 1;
+    const blockEnd = findMatchingDelimiter(text, braceStart, '{', '}');
+    if (blockEnd < 0) continue;
+    const body = text.slice(bodyStart, blockEnd);
+    if (/\bsuper\s*\.\s*tearDown\s*\(\s*\)/.test(body)) continue;
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset,
+        endOffset,
+        text: match[0],
+      }),
+    );
+  }
+
+  return findings;
 }
 
 export function collectPhpTestingHygieneFacts(

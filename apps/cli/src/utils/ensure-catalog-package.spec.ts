@@ -170,7 +170,7 @@ describe('ensureCatalogPackageForCheck', () => {
     );
   });
 
-  it('offers repo, global, or cancel when the CLI is installed globally', async () => {
+  it('resolves the catalog when the CLI is installed globally', async () => {
     writeFileSync(join(tempDirectory, 'package.json'), '{}\n', 'utf8');
 
     const { runtime } = captureRuntime(tempDirectory, {
@@ -181,23 +181,7 @@ describe('ensureCatalogPackageForCheck', () => {
 
     const result = await ensureCatalogPackageForCheck(runtime, 'pretty');
 
-    expect(result.ok).toBe(false);
-
-    if (result.ok !== false) {
-      throw new Error('Expected catalog ensure to fail.');
-    }
-
-    expect(result.message).toContain('Cancelled.');
-
-    expect(runtime.promptChoice).toHaveBeenCalledWith(
-      expect.objectContaining({
-        options: expect.arrayContaining([
-          expect.objectContaining({ id: 'local' }),
-          expect.objectContaining({ id: 'global' }),
-          expect.objectContaining({ id: 'cancel' }),
-        ]),
-      }),
-    );
+    expect(result.ok).toBe(true);
   });
 
   it('skips interactive install for machine-readable output formats', async () => {

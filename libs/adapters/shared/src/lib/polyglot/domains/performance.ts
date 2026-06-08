@@ -64,10 +64,149 @@ export function collectGoPerformanceFacts(
   return collectSharedPerformanceFacts(options, 'go');
 }
 
+function collectThreadAsRunnableFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: 'java.performance.thread-as-runnable',
+    appliesTo: 'block',
+    pattern:
+      /\.(?:submit|execute|schedule)\s*\(\s*new\s+Thread\s*\(/gu,
+  });
+}
+
+function collectUrlInCollectionFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: 'java.performance.url-in-collection',
+    appliesTo: 'file',
+    pattern:
+      /\b(?:HashMap|HashSet|Map|Set)\b\s*<\s*(?:[\w.]+\s*\.\s*)?\bURL\s*(?:,|>)/gu,
+  });
+}
+
+function collectInefficientStringConstructorFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: 'java.performance.inefficient-string-constructor',
+    appliesTo: 'block',
+    pattern:
+      /new\s+String\s*\(\s*"[^"]*"\s*\)/gu,
+  });
+}
+
+function collectEmptyStringConstructorFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: 'java.performance.empty-string-constructor',
+    appliesTo: 'block',
+    pattern:
+      /new\s+String\s*\(\s*\)/gu,
+  });
+}
+
+function collectStringToStringFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: 'java.performance.string-to-string',
+    appliesTo: 'block',
+    pattern:
+      /"[^"]*"\s*\.\s*toString\s*\(/gu,
+  });
+}
+
+function collectExplicitGcFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: 'java.performance.explicit-gc',
+    appliesTo: 'block',
+    pattern:
+      /\bSystem\s*\.\s*gc\s*\(|Runtime\s*\.\s*getRuntime\s*\(\s*\)\s*\.\s*gc\s*\(/gu,
+  });
+}
+
+function collectBooleanConstructorFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: 'java.performance.boxed-boolean-constructor',
+    appliesTo: 'block',
+    pattern:
+      /new\s+Boolean\s*\(/gu,
+  });
+}
+
+function collectIntegerLongConstructorFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: 'java.performance.boxed-integer-constructor',
+    appliesTo: 'block',
+    pattern:
+      /new\s+(?:Integer|Long)\s*\(/gu,
+  });
+}
+
+function collectFloatDoubleConstructorFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: 'java.performance.boxed-double-constructor',
+    appliesTo: 'block',
+    pattern:
+      /new\s+(?:Float|Double)\s*\(/gu,
+  });
+}
+
 export function collectJavaPerformanceFacts(
   options: PolyglotPerformancePathOptions,
 ): ObservedFact[] {
-  return collectSharedPerformanceFacts(options, 'java');
+  const { text, detector } = options;
+
+  return [
+    ...collectSharedPerformanceFacts(options, 'java'),
+    ...collectThreadAsRunnableFacts(text, detector),
+    ...collectUrlInCollectionFacts(text, detector),
+    ...collectInefficientStringConstructorFacts(text, detector),
+    ...collectEmptyStringConstructorFacts(text, detector),
+    ...collectStringToStringFacts(text, detector),
+    ...collectExplicitGcFacts(text, detector),
+    ...collectBooleanConstructorFacts(text, detector),
+    ...collectIntegerLongConstructorFacts(text, detector),
+    ...collectFloatDoubleConstructorFacts(text, detector),
+  ];
 }
 
 export function collectPhpPerformanceFacts(
