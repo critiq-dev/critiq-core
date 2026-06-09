@@ -442,6 +442,7 @@
               "php",
               "ruby",
               "rust",
+              "sql",
               "dockerfile",
               "cloudformation",
               "all"

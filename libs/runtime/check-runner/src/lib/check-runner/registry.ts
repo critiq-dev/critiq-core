@@ -5,6 +5,7 @@ import { phpSourceAdapter } from '@critiq/adapter-php';
 import { pythonSourceAdapter } from '@critiq/adapter-python';
 import { rubySourceAdapter } from '@critiq/adapter-ruby';
 import { rustSourceAdapter } from '@critiq/adapter-rust';
+import { sqlSourceAdapter } from '@critiq/adapter-sql';
 import { typescriptSourceAdapter } from '@critiq/adapter-typescript';
 import type { CanonicalLanguage } from '@critiq/core-ir';
 import { extname } from 'node:path';
@@ -95,6 +96,7 @@ export function createDefaultSourceAdapterRegistry(): SourceAdapterRegistry {
     pythonSourceAdapter,
     rubySourceAdapter,
     rustSourceAdapter,
+    sqlSourceAdapter,
     typescriptSourceAdapter,
   ]);
 }

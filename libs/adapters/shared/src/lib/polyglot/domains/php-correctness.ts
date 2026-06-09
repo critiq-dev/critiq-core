@@ -1,6 +1,6 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
-import { findAllMatches, findMatchingDelimiter } from '../../runtime';
+import { escapeRegExp, findAllMatches, findMatchingDelimiter } from '../../runtime';
 import { createOffsetFact, dedupeFacts } from '../fact-utils';
 import { collectMatchedFacts } from './collect-matched-facts';
 
@@ -35,6 +35,17 @@ export const PHP_CORRECTNESS_FACT_KINDS = {
   uselessPostIncrement: 'php.correctness.useless-post-increment',
   nestedSwitch: 'php.correctness.nested-switch',
   invalidCookieOptions: 'php.correctness.invalid-cookie-options',
+  missingReturnStatement: 'php.correctness.missing-return-statement',
+  uninitializedTypedProperty: 'php.correctness.uninitialized-typed-property',
+  throwNonException: 'php.correctness.throw-non-exception',
+  unusedConstructorParameter:
+    'php.correctness.unused-constructor-parameter',
+  echoInvalidValue: 'php.correctness.echo-invalid-value',
+  printInvalidValue: 'php.correctness.print-invalid-value',
+  invalidStringInterpolationType:
+    'php.correctness.invalid-string-interpolation-type',
+  undefinedStaticProperty:
+    'php.correctness.undefined-static-property',
 } as const;
 
 const PHP_VALID_MAGIC_METHODS = new Set([
@@ -109,6 +120,14 @@ export function collectPhpCorrectnessFacts(
     ...collectUselessPostIncrementFacts(text, detector),
     ...collectNestedSwitchFacts(text, detector),
     ...collectInvalidCookieOptionsFacts(text, detector),
+    ...collectMissingReturnStatementFacts(text, detector),
+    ...collectUninitializedTypedPropertyFacts(text, detector),
+    ...collectThrowNonExceptionFacts(text, detector),
+    ...collectUnusedConstructorParameterFacts(text, detector),
+    ...collectEchoInvalidValueFacts(text, detector),
+    ...collectPrintInvalidValueFacts(text, detector),
+    ...collectInvalidStringInterpolationTypeFacts(text, detector),
+    ...collectUndefinedStaticPropertyFacts(text, detector),
   ]);
 }
 
@@ -1703,6 +1722,438 @@ function collectInvalidCookieOptionsFacts(
         }),
       );
     }
+  }
+
+  return findings;
+}
+
+function collectMissingReturnStatementFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = PHP_CORRECTNESS_FACT_KINDS.missingReturnStatement;
+  const findings: ObservedFact[] = [];
+  const funcPattern =
+    /\bfunction\s+(?:&\s*)?[A-Za-z_][\w]*\s*\([^)]*\)\s*:\s*[^{;]+\{/gu;
+
+  for (const match of findAllMatches(text, funcPattern)) {
+    const bodyStart = match.endOffset - 1;
+    const bodyEnd = findMatchingDelimiter(text, bodyStart, '{', '}');
+
+    if (bodyEnd < 0) {
+      continue;
+    }
+
+    const body = text.slice(bodyStart + 1, bodyEnd);
+    const returnTypeText = /:\s*(\S+)/u.exec(match.matchedText)?.[1] ?? '';
+
+    if (returnTypeText === 'void' || returnTypeText === 'never') {
+      continue;
+    }
+
+    if (!/\breturn\b/u.test(body)) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: match.startOffset,
+          endOffset: bodyEnd + 1,
+          text: match.matchedText.trim(),
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectUninitializedTypedPropertyFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = PHP_CORRECTNESS_FACT_KINDS.uninitializedTypedProperty;
+  const findings: ObservedFact[] = [];
+  const classPattern =
+    /\b(?:abstract\s+|final\s+)?(?:class|trait)\s+[A-Za-z_][\w]*\b[^{]*\{/gu;
+
+  for (const classMatch of findAllMatches(text, classPattern)) {
+    const classOpen = classMatch.endOffset - 1;
+    const classClose = findMatchingDelimiter(text, classOpen, '{', '}');
+
+    if (classClose < 0) {
+      continue;
+    }
+
+    const body = text.slice(classOpen + 1, classClose);
+    const typedPropPattern =
+      /(?:public|protected|private|var)\s+(?:readonly\s+)?(?:static\s+)?([A-Za-z_\\][\w[\]\\|]*)\s+\$([A-Za-z_][\w]*)\s*(?:(;)|=)/gu;
+
+    for (const propMatch of findAllMatches(body, typedPropPattern)) {
+      const matchedText = propMatch.matchedText;
+
+      if (matchedText.trimEnd().endsWith('=')) {
+        continue;
+      }
+
+      const propName = matchedText.match(
+        /\$([A-Za-z_][\w]*)/u,
+      )?.[1];
+
+      if (!propName) {
+        continue;
+      }
+
+      const constructorPattern =
+        /\bfunction\s+__construct\s*\(/gu;
+      let foundInConstructor = false;
+
+      for (const ctorMatch of findAllMatches(body, constructorPattern)) {
+        const ctorDeclEnd = ctorMatch.endOffset;
+        let depth = 0;
+        let gotParams = false;
+        let gotBody = false;
+        let ctorBody = '';
+
+        for (let index = ctorDeclEnd; index < body.length; index += 1) {
+          const ch = body[index];
+
+          if (!gotParams) {
+            if (ch === ')') {
+              gotParams = true;
+            }
+            continue;
+          }
+
+          if (!gotBody) {
+            if (ch === '{') {
+              gotBody = true;
+              depth = 1;
+            }
+            continue;
+          }
+
+          if (ch === '{') {
+            depth += 1;
+            continue;
+          }
+
+          if (ch === '}') {
+            depth -= 1;
+
+            if (depth === 0) {
+              break;
+            }
+            continue;
+          }
+
+          ctorBody += ch;
+        }
+
+        if (ctorBody.includes(`$this->${propName}`)) {
+          foundInConstructor = true;
+          break;
+        }
+      }
+
+      if (!foundInConstructor) {
+        const absoluteStart = classOpen + 1 + propMatch.startOffset;
+        const absoluteEnd = classOpen + 1 + propMatch.endOffset;
+
+        findings.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: absoluteStart,
+            endOffset: absoluteEnd,
+            text: matchedText.trim(),
+          }),
+        );
+      }
+    }
+  }
+
+  return findings;
+}
+
+function collectUnusedConstructorParameterFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = PHP_CORRECTNESS_FACT_KINDS.unusedConstructorParameter;
+  const findings: ObservedFact[] = [];
+  const constructorPattern = /\bfunction\s+__construct\s*\(/gu;
+
+  for (const ctorMatch of findAllMatches(text, constructorPattern)) {
+    const openParen = ctorMatch.endOffset - 1;
+    const paramsClose = findMatchingDelimiter(text, openParen, '(', ')');
+
+    if (paramsClose < 0) {
+      continue;
+    }
+
+    const paramsText = text.slice(openParen + 1, paramsClose);
+    const params = splitParameterList(paramsText);
+    const nonPromotedParams: Array<{ name: string; startOffset: number; endOffset: number }> = [];
+
+    for (const param of params) {
+      const trimmed = param.text.trim();
+
+      if (!trimmed) {
+        continue;
+      }
+
+      if (/^(?:public|protected|private|readonly)\b/u.test(trimmed)) {
+        continue;
+      }
+
+      const nameMatch = /\$([A-Za-z_][A-Za-z0-9_]*)\b/u.exec(trimmed);
+
+      if (!nameMatch) {
+        continue;
+      }
+
+      nonPromotedParams.push({
+        name: nameMatch[1],
+        startOffset: openParen + 1 + param.startOffset + (nameMatch.index ?? 0),
+        endOffset: openParen + 1 + param.startOffset + (nameMatch.index ?? 0) + nameMatch[0].length,
+      });
+    }
+
+    if (nonPromotedParams.length === 0) {
+      continue;
+    }
+
+    const openBrace = findMatchingDelimiter(text, paramsClose, ')', '{');
+
+    if (openBrace < 0) {
+      continue;
+    }
+
+    const bodyEnd = findMatchingDelimiter(text, openBrace, '{', '}');
+
+    if (bodyEnd < 0) {
+      continue;
+    }
+
+    const body = text.slice(openBrace + 1, bodyEnd);
+
+    for (const param of nonPromotedParams) {
+      const paramRefPattern = new RegExp(
+        `\\$${escapeRegExp(param.name)}\\b`,
+        'u',
+      );
+
+      if (paramRefPattern.test(body)) {
+        continue;
+      }
+
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: param.startOffset,
+          endOffset: param.endOffset,
+          text: `$${param.name}`,
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectEchoInvalidValueFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = PHP_CORRECTNESS_FACT_KINDS.echoInvalidValue;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern:
+      /\becho\s+(?:new\s+\w+\(|array\s*\(|\[)/g,
+  });
+}
+
+function collectPrintInvalidValueFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = PHP_CORRECTNESS_FACT_KINDS.printInvalidValue;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern:
+      /\bprint\s+(?:new\s+\w+\(|array\s*\(|\[)/g,
+  });
+}
+
+function collectInvalidStringInterpolationTypeFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = PHP_CORRECTNESS_FACT_KINDS.invalidStringInterpolationType;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern:
+      /\$\{(?:new\s+\w+(?:\s*\([^)]*\))?|array\s*\([^)]*\)|\[[^\]]*\])\s*\}/g,
+  });
+}
+
+function collectThrowNonExceptionFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const KNOWN_EXCEPTION_SUFFIXES = /(?:Exception|Error)$/u;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: PHP_CORRECTNESS_FACT_KINDS.throwNonException,
+    appliesTo: 'block',
+    pattern:
+      /throw\s+new\s+(?:\\(?:[A-Za-z_][\w]*\\)*)?([A-Za-z_][\w]*)\s*\(/gu,
+    predicate: (match) => {
+      const className =
+        /throw\s+new\s+(?:\\(?:[A-Za-z_][\w]*\\)*)?([A-Za-z_][\w]*)\s*\(/u.exec(
+          match.matchedText,
+        )?.[1] ?? '';
+
+      return !KNOWN_EXCEPTION_SUFFIXES.test(className);
+    },
+  });
+}
+
+interface StaticPropertySet {
+  className: string;
+  openBrace: number;
+  closeBrace: number;
+  staticProperties: Set<string>;
+}
+
+function collectPhpClassBodies(text: string): StaticPropertySet[] {
+  const results: StaticPropertySet[] = [];
+  const classPattern =
+    /\b(?:abstract\s+|final\s+)?(?:class|trait)\s+([A-Za-z_][A-Za-z0-9_]*)\b[^{]*\{/gu;
+
+  for (const match of findAllMatches(text, classPattern)) {
+    const className = match.matchedText.match(
+      /(?:class|trait)\s+([A-Za-z_][A-Za-z0-9_]*)\b/u,
+    )?.[1];
+    if (!className) continue;
+
+    const openBrace = match.endOffset - 1;
+    const closeBrace = findMatchingDelimiter(text, openBrace, '{', '}');
+    if (closeBrace < 0) continue;
+
+    const body = text.slice(openBrace + 1, closeBrace);
+    const staticProperties = new Set<string>();
+    const staticPropPattern =
+      /(?:public|protected|private|static|var)\s+(?:(?:static|public|protected|private)\s+)*(?:readonly\s+)?(?:string|int|float|bool|array|callable|iterable|object|mixed|self|parent|void|never|null|[A-Za-z_][\w]*)?\s*\$([A-Za-z_][A-Za-z0-9_]*)\s*[=;]/gu;
+
+    for (const propMatch of findAllMatches(body, staticPropPattern)) {
+      const nameMatch = /\$([A-Za-z_][A-Za-z0-9_]*)\b/u.exec(propMatch.matchedText);
+      if (nameMatch) {
+        staticProperties.add(nameMatch[1]);
+      }
+    }
+
+    const staticOnlyPattern =
+      /(?<![$\w])static\s+\$([A-Za-z_][A-Za-z0-9_]*)\s*[=;]/gu;
+    for (const propMatch of findAllMatches(body, staticOnlyPattern)) {
+      const nameMatch = /\$([A-Za-z_][A-Za-z0-9_]*)\b/u.exec(propMatch.matchedText);
+      if (nameMatch) {
+        staticProperties.add(nameMatch[1]);
+      }
+    }
+
+    results.push({
+      className,
+      openBrace,
+      closeBrace,
+      staticProperties,
+    });
+  }
+
+  return results;
+}
+
+function collectUndefinedStaticPropertyFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = PHP_CORRECTNESS_FACT_KINDS.undefinedStaticProperty;
+  const findings: ObservedFact[] = [];
+  const classBodies = collectPhpClassBodies(text);
+  const classMap = new Map<string, StaticPropertySet>();
+  for (const cb of classBodies) {
+    classMap.set(cb.className, cb);
+  }
+
+  const accessPattern =
+    /(?:(?:([A-Za-z_][A-Za-z0-9_]*(?:\\[A-Za-z_][\w]*)*)|self|static|parent)\s*::\s*\$([A-Za-z_][A-Za-z0-9_]*))\b/gu;
+
+  for (const match of findAllMatches(text, accessPattern)) {
+    const fullMatch = match.matchedText;
+    const accessMatch =
+      /(?:(?:([A-Za-z_][A-Za-z0-9_]*(?:\\[A-Za-z_][\w]*)*)|self|static|parent))\s*::\s*\$([A-Za-z_][A-Za-z0-9_]*)\b/u.exec(
+        fullMatch,
+      );
+    if (!accessMatch) continue;
+
+    const rawClassRef = accessMatch[1];
+    const propName = accessMatch[2];
+    const keyword = /^(self|static|parent)$/u.exec(
+      fullMatch.split('::')[0].trim(),
+    )?.[1];
+
+    if (keyword === 'parent') continue;
+
+    let resolvedClass: string | undefined;
+    if (keyword === 'self' || keyword === 'static') {
+      const pos = match.startOffset;
+      for (const cb of classBodies) {
+        if (pos > cb.openBrace && pos < cb.closeBrace) {
+          resolvedClass = cb.className;
+          break;
+        }
+      }
+      if (!resolvedClass) continue;
+    } else if (rawClassRef) {
+      const shortName = rawClassRef.split('\\').pop() ?? rawClassRef;
+      resolvedClass = shortName;
+    } else {
+      continue;
+    }
+
+    const classInfo = classMap.get(resolvedClass);
+    if (!classInfo) continue;
+
+    if (classInfo.staticProperties.has(propName)) continue;
+
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.startOffset,
+        endOffset: match.endOffset,
+        text: `$${propName}`,
+      }),
+    );
   }
 
   return findings;

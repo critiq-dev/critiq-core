@@ -329,6 +329,7 @@ describe('check runner', () => {
       'python',
       'ruby',
       'rust',
+      'sql',
       'typescript',
     ]);
   });

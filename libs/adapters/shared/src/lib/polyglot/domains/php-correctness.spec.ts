@@ -414,4 +414,508 @@ describe('php-correctness collectors', () => {
       PHP_CORRECTNESS_FACT_KINDS.invalidCookieOptions,
     );
   });
+
+  it('flags functions with return type but no return statement', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'function getName(): string {',
+        '  $name = "hello";',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      PHP_CORRECTNESS_FACT_KINDS.missingReturnStatement,
+    );
+  });
+
+  it('does not flag function with return type and return statement', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'function getName(): string {',
+        '  return "hello";',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === PHP_CORRECTNESS_FACT_KINDS.missingReturnStatement,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag void functions without return', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'function log(string $msg): void {',
+        '  echo $msg;',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === PHP_CORRECTNESS_FACT_KINDS.missingReturnStatement,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags typed properties without defaults and no constructor assignment', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'class User {',
+        '  public string $name;',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      PHP_CORRECTNESS_FACT_KINDS.uninitializedTypedProperty,
+    );
+  });
+
+  it('does not flag typed property with constructor assignment', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'class User {',
+        '  public string $name;',
+        '  public function __construct(string $name) {',
+        '    $this->name = $name;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === PHP_CORRECTNESS_FACT_KINDS.uninitializedTypedProperty,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag typed property with default value', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'class Config {',
+        "  public string $mode = 'safe';",
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === PHP_CORRECTNESS_FACT_KINDS.uninitializedTypedProperty,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags throw with non-exception class', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'throw new stdClass();',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      PHP_CORRECTNESS_FACT_KINDS.throwNonException,
+    );
+  });
+
+  it('does not flag throw with exception class', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'throw new \\RuntimeException("fail");',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === PHP_CORRECTNESS_FACT_KINDS.throwNonException,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag throw with Error class', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'throw new \\TypeError("bad");',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === PHP_CORRECTNESS_FACT_KINDS.throwNonException,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags unused constructor parameters', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'class Service {',
+        '  public function __construct($db, $cache) {',
+        '    $this->db = $db;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    const cacheFacts = facts.filter(
+      (fact) =>
+        fact.kind === PHP_CORRECTNESS_FACT_KINDS.unusedConstructorParameter &&
+        fact.text === '$cache',
+    );
+    expect(cacheFacts).toHaveLength(1);
+  });
+
+  it('does not flag used constructor parameters', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'class Service {',
+        '  public function __construct($db, $cache) {',
+        '    $this->db = $db;',
+        '    $this->cache = $cache;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === PHP_CORRECTNESS_FACT_KINDS.unusedConstructorParameter,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag promoted constructor properties', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'class User {',
+        '  public function __construct(',
+        '    private string $name,',
+        '    protected int $age',
+        '  ) {}',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === PHP_CORRECTNESS_FACT_KINDS.unusedConstructorParameter,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags echo with object instantiation', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'echo new stdClass();',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      PHP_CORRECTNESS_FACT_KINDS.echoInvalidValue,
+    );
+  });
+
+  it('flags echo with array literal', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'echo [1, 2, 3];',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      PHP_CORRECTNESS_FACT_KINDS.echoInvalidValue,
+    );
+  });
+
+  it('flags echo with array() call', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'echo array(1, 2);',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      PHP_CORRECTNESS_FACT_KINDS.echoInvalidValue,
+    );
+  });
+
+  it('does not flag echo with string', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'echo "hello world";',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === PHP_CORRECTNESS_FACT_KINDS.echoInvalidValue,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags print with object instantiation', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'print new DateTime();',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      PHP_CORRECTNESS_FACT_KINDS.printInvalidValue,
+    );
+  });
+
+  it('flags print with array literal', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'print [1, 2];',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      PHP_CORRECTNESS_FACT_KINDS.printInvalidValue,
+    );
+  });
+
+  it('does not flag print with string', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'print "hello";',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === PHP_CORRECTNESS_FACT_KINDS.printInvalidValue,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags invalid string interpolation with array literal', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'echo "value: ${[1,2,3]}";',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      PHP_CORRECTNESS_FACT_KINDS.invalidStringInterpolationType,
+    );
+  });
+
+  it('flags invalid string interpolation with new expression', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        'echo "object: ${new stdClass()}";',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      PHP_CORRECTNESS_FACT_KINDS.invalidStringInterpolationType,
+    );
+  });
+
+  it('does not flag simple variable interpolation', () => {
+    const facts = collectPhpCorrectnessFacts({
+      detector: 'php-detector',
+      text: [
+        '<?php',
+        '$name = "world";',
+        'echo "hello $name";',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === PHP_CORRECTNESS_FACT_KINDS.invalidStringInterpolationType,
+      ),
+    ).toHaveLength(0);
+  });
+
+  describe('undefined-static-property', () => {
+    it('flags ClassName::$undefinedProp when property is not declared', () => {
+      const facts = collectPhpCorrectnessFacts({
+        detector: 'php-detector',
+        text: [
+          '<?php',
+          'class Foo {',
+          '  public static string $definedProp = "ok";',
+          '}',
+          '$val = Foo::$undefinedProp;',
+        ].join('\n'),
+      });
+
+      expect(
+        facts.filter(
+          (fact) =>
+            fact.kind === PHP_CORRECTNESS_FACT_KINDS.undefinedStaticProperty,
+        ),
+      ).toHaveLength(1);
+    });
+
+    it('flags self::$missing inside a class lacking that static property', () => {
+      const facts = collectPhpCorrectnessFacts({
+        detector: 'php-detector',
+        text: [
+          '<?php',
+          'class Bar {',
+          '  public static string $declared = "ok";',
+          '  public function test(): void {',
+          '    echo self::$missing;',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+
+      expect(
+        facts.filter(
+          (fact) =>
+            fact.kind === PHP_CORRECTNESS_FACT_KINDS.undefinedStaticProperty,
+        ),
+      ).toHaveLength(1);
+    });
+
+    it('ignores Foo::$definedProp where the property is declared static', () => {
+      const facts = collectPhpCorrectnessFacts({
+        detector: 'php-detector',
+        text: [
+          '<?php',
+          'class Foo {',
+          '  public static string $definedProp = "ok";',
+          '}',
+          '$val = Foo::$definedProp;',
+        ].join('\n'),
+      });
+
+      expect(
+        facts.filter(
+          (fact) =>
+            fact.kind === PHP_CORRECTNESS_FACT_KINDS.undefinedStaticProperty,
+        ),
+      ).toHaveLength(0);
+    });
+
+    it('ignores $someVar::$prop (dynamic class reference)', () => {
+      const facts = collectPhpCorrectnessFacts({
+        detector: 'php-detector',
+        text: [
+          '<?php',
+          'class Foo {',
+          '  public static string $prop = "ok";',
+          '}',
+          '$className = "Foo";',
+          '$val = $className::$prop;',
+        ].join('\n'),
+      });
+
+      expect(
+        facts.filter(
+          (fact) =>
+            fact.kind === PHP_CORRECTNESS_FACT_KINDS.undefinedStaticProperty,
+        ),
+      ).toHaveLength(0);
+    });
+
+    it('ignores parent::$prop (cannot resolve parent class)', () => {
+      const facts = collectPhpCorrectnessFacts({
+        detector: 'php-detector',
+        text: [
+          '<?php',
+          'class Child extends Base {',
+          '  public function test(): void {',
+          '    echo parent::$prop;',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+
+      expect(
+        facts.filter(
+          (fact) =>
+            fact.kind === PHP_CORRECTNESS_FACT_KINDS.undefinedStaticProperty,
+        ),
+      ).toHaveLength(0);
+    });
+
+    it('handles multiple classes in same file', () => {
+      const facts = collectPhpCorrectnessFacts({
+        detector: 'php-detector',
+        text: [
+          '<?php',
+          'class First {',
+          '  public static string $a = "ok";',
+          '}',
+          'class Second {',
+          '  public static string $b = "ok";',
+          '}',
+          '$val = First::$missing;',
+          '$val2 = Second::$b;',
+        ].join('\n'),
+      });
+
+      expect(
+        facts.filter(
+          (fact) =>
+            fact.kind === PHP_CORRECTNESS_FACT_KINDS.undefinedStaticProperty,
+        ),
+      ).toHaveLength(1);
+    });
+  });
 });

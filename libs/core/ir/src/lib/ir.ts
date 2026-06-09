@@ -25,6 +25,7 @@ export type CanonicalLanguage =
   | 'php'
   | 'ruby'
   | 'rust'
+  | 'sql'
   | 'dockerfile'
   | 'cloudformation';
 

@@ -70,6 +70,8 @@ export const PHP_STRUCTURE_CORRECTNESS_FACT_KINDS = {
   invalidArrowFunctionTypehint: 'php.correctness.invalid-arrow-function-typehint',
   invalidClosureReturnTypehint: 'php.correctness.invalid-closure-return-typehint',
   interfaceImplementsKeyword: 'php.correctness.interface-implements-keyword',
+  instanceofInvalidType: 'php.correctness.instanceof-invalid-type',
+  attributeOnProperty: 'php.correctness.attribute-on-property',
 } as const;
 
 const PHP_BUILTIN_CONSTANTS = new Set([
@@ -191,6 +193,8 @@ export function collectPhpStructureCorrectnessFacts(
     ...collectInvalidArrowFunctionTypehintFacts(text, detector),
     ...collectInvalidClosureReturnTypehintFacts(text, detector),
     ...collectInterfaceImplementsKeywordFacts(text, detector),
+    ...collectInstanceofInvalidTypeFacts(text, detector),
+    ...collectAttributeOnPropertyFacts(text, detector),
   ]);
 }
 
@@ -1122,4 +1126,285 @@ function collectInterfaceImplementsKeywordFacts(
     appliesTo: 'block',
     pattern: /\binterface\s+[A-Za-z_][A-Za-z0-9_]*\b[^{]*\bimplements\b/gu,
   });
+}
+
+const PHP_INSTANCEOF_INVALID_OPERANDS = new Set([
+  'true',
+  'false',
+  'null',
+  'array',
+  'fn',
+  'function',
+  'class',
+  'interface',
+  'trait',
+  'enum',
+  'new',
+  'clone',
+  'match',
+  'throw',
+  'print',
+  'echo',
+  'die',
+  'exit',
+  'empty',
+  'eval',
+  'include',
+  'include_once',
+  'require',
+  'require_once',
+  'return',
+  'yield',
+  'list',
+  'unset',
+  'isset',
+  'global',
+  'static',
+  'abstract',
+  'final',
+  'readonly',
+  'var',
+  'const',
+]);
+
+function isInsideClassBody(text: string, offset: number): boolean {
+  const beforeText = text.slice(0, offset);
+  const classPattern = /\b(?:abstract\s+)?(class|interface|trait|enum)(?:\s+\w+)?/gu;
+  let classMatch: RegExpExecArray | null;
+
+  while ((classMatch = classPattern.exec(beforeText)) !== null) {
+    const declEnd = classMatch.index + classMatch[0].length;
+    const afterBefore = beforeText.slice(declEnd);
+    const braceIdx = afterBefore.search(/\{/u);
+
+    if (braceIdx < 0) {
+      continue;
+    }
+
+    const bracePos = declEnd + braceIdx;
+    const closeBrace = findMatchingDelimiter(text, bracePos, '{', '}');
+
+    if (closeBrace >= 0 && offset > bracePos && offset < closeBrace) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function collectInstanceofInvalidTypeFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = PHP_STRUCTURE_CORRECTNESS_FACT_KINDS.instanceofInvalidType;
+  const findings: ObservedFact[] = [];
+  const pattern = /\binstanceof\b/gu;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    const opStart = match.index;
+    const opEnd = match.index + match[0].length;
+    let pos = opEnd;
+
+    while (pos < text.length && /\s/u.test(text[pos])) {
+      pos++;
+    }
+
+    if (pos >= text.length) {
+      continue;
+    }
+
+    const operand = text.slice(pos);
+
+    if (operand.startsWith('$')) {
+      continue;
+    }
+
+    if (operand.startsWith('(')) {
+      continue;
+    }
+
+    const wordMatch = operand.match(/^([A-Za-z_][A-Za-z0-9_]*)/u);
+
+    if (!wordMatch) {
+      if (operand.startsWith("'") || operand.startsWith('"')) {
+        findings.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: opStart,
+            endOffset: pos + 1,
+            text: text.slice(opStart, pos + 1),
+          }),
+        );
+        continue;
+      }
+
+      if (/^\d/u.test(operand)) {
+        findings.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: opStart,
+            endOffset: pos + 1,
+            text: text.slice(opStart, pos + 1),
+          }),
+        );
+        continue;
+      }
+
+      if (operand.startsWith('[')) {
+        findings.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: opStart,
+            endOffset: opEnd,
+            text: text.slice(opStart, opEnd),
+          }),
+        );
+        continue;
+      }
+
+      continue;
+    }
+
+    const word = wordMatch[1];
+    const wordLower = word.toLowerCase();
+
+    if ((wordLower === 'self' || wordLower === 'parent') && !isInsideClassBody(text, opStart)) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: opStart,
+          endOffset: pos + word.length,
+          text: text.slice(opStart, pos + word.length),
+        }),
+      );
+      continue;
+    }
+
+    if (PHP_INSTANCEOF_INVALID_OPERANDS.has(wordLower)) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: opStart,
+          endOffset: pos + word.length,
+          text: text.slice(opStart, pos + word.length),
+        }),
+      );
+      continue;
+    }
+  }
+
+  return findings;
+}
+
+interface AttributeDefinition {
+  className: string;
+  targetFlags: Set<string>;
+}
+
+function collectAttributeDefinitions(text: string): Map<string, AttributeDefinition> {
+  const attrs = new Map<string, AttributeDefinition>();
+  const classPattern =
+    /\b(?:abstract\s+|final\s+)?class\s+([A-Za-z_][A-Za-z0-9_]*)\b[^{]*\{/gu;
+
+  for (const match of findAllMatches(text, classPattern)) {
+    const className = match.matchedText.match(
+      /class\s+([A-Za-z_][A-Za-z0-9_]*)\b/u,
+    )?.[1];
+    if (!className) continue;
+
+    const beforeClass = text.slice(0, match.startOffset).trimEnd();
+    const attrPattern = /#\[Attribute\s*(?:\(([^)]*)\))?\]\s*$/u;
+    const attrMatch = attrPattern.exec(beforeClass);
+
+    if (!attrMatch) continue;
+
+    const attrArgs = attrMatch[1] ?? '';
+    const flags = new Set<string>();
+
+    if (attrArgs.length === 0) {
+      flags.add('TARGET_ALL');
+    } else {
+      const flagPattern = /Attribute::(\w+)/gu;
+      let flagMatch: RegExpExecArray | null;
+      while ((flagMatch = flagPattern.exec(attrArgs)) !== null) {
+        flags.add(flagMatch[1]);
+      }
+    }
+
+    attrs.set(className, { className, targetFlags: flags });
+  }
+
+  return attrs;
+}
+
+function collectAttributeOnPropertyFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = PHP_STRUCTURE_CORRECTNESS_FACT_KINDS.attributeOnProperty;
+  const findings: ObservedFact[] = [];
+  const attributeDefs = collectAttributeDefinitions(text);
+
+  if (attributeDefs.size === 0) return findings;
+
+  const classPattern =
+    /\b(?:abstract\s+|final\s+)?(?:class|trait)\s+[A-Za-z_][A-Za-z0-9_]*\b[^{]*\{/gu;
+
+  for (const classMatch of findAllMatches(text, classPattern)) {
+    const openBrace = classMatch.endOffset - 1;
+    const closeBrace = findMatchingDelimiter(text, openBrace, '{', '}');
+    if (closeBrace < 0) continue;
+
+    const body = text.slice(openBrace + 1, closeBrace);
+    const attrPattern = /#\[([A-Za-z_\\][\w\\]*)\]/gu;
+
+    for (const attrMatch of findAllMatches(body, attrPattern)) {
+      const attrNameExec = /#\[([A-Za-z_\\][\w\\]*)\]/u.exec(attrMatch.matchedText);
+      const rawAttrName = attrNameExec?.[1] ?? '';
+      const shortName = rawAttrName.replace(/^\\+/, '').split('\\').pop() ?? '';
+
+      let pos = attrMatch.endOffset;
+      while (pos < body.length && /\s/u.test(body[pos])) {
+        pos++;
+      }
+
+      const after = body.slice(pos);
+      const isOnProperty = /^(?:(?:public|protected|private|static|readonly|var)\s+(?:[\w[\]\\|]+\s+)?)?\$/u.test(after);
+
+      if (!isOnProperty) continue;
+
+      const attrDef = attributeDefs.get(shortName);
+      if (!attrDef) continue;
+
+      const flags = attrDef.targetFlags;
+      if (flags.has('TARGET_ALL') || flags.has('TARGET_PROPERTY')) continue;
+
+      const absoluteStart = openBrace + 1 + attrMatch.startOffset;
+      const absoluteEnd = openBrace + 1 + attrMatch.endOffset;
+
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: absoluteStart,
+          endOffset: absoluteEnd,
+          text: attrMatch.matchedText,
+        }),
+      );
+    }
+  }
+
+  return findings;
 }
