@@ -53,6 +53,12 @@ export const GO_GENERAL_SECURITY_FACT_KINDS = {
   insecureTempFile: 'go.security.insecure-temp-file',
   weakRsaKeySize: 'go.security.weak-rsa-key-size',
   weakCryptoImport: 'go.security.weak-crypto-import',
+  decompressionBomb: 'go.security.decompression-bomb',
+  httpDirPathTraversal: 'go.security.http-dir-path-traversal',
+  weakFilePermission: 'go.security.weak-file-permission',
+  unsafeDeferClose: 'go.security.unsafe-defer-close',
+  taintedValueSink: 'go.security.tainted-value-sink',
+  incompleteHostnameRegex: 'go.security.incomplete-hostname-regex',
 } as const;
 
 export interface CollectGoGeneralSecurityFactsOptions {
@@ -84,6 +90,12 @@ export function collectGoGeneralSecurityFacts(
     ...collectInsecureTempFileFacts(text, detector),
     ...collectWeakRsaKeySizeFacts(text, detector),
     ...collectWeakCryptoImportFacts(text, detector),
+    ...collectDecompressionBombFacts(text, detector),
+    ...collectHttpDirPathTraversalFacts(text, detector),
+    ...collectWeakFilePermissionFacts(text, detector),
+    ...collectUnsafeDeferCloseFacts(text, detector),
+    ...collectTaintedValueSinkFacts(text, detector),
+    ...collectIncompleteHostnameRegexFacts(text, detector),
   ]);
 }
 
@@ -519,6 +531,307 @@ function collectWeakCryptoImportFacts(
   }
 
   return facts;
+}
+
+function collectDecompressionBombFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = GO_GENERAL_SECURITY_FACT_KINDS.decompressionBomb;
+  const facts: ObservedFact[] = [];
+
+  for (const snippet of findCallSnippets(text, /\bio\.Copy\s*\(/g)) {
+    const windowStart = Math.max(0, snippet.startOffset - 600);
+    const preceding = text.slice(windowStart, snippet.startOffset);
+
+    const hasDecompressor =
+      /\b(?:zlib|gzip|flate|bzip2|lzw)\.NewReader\s*\(/u.test(preceding);
+
+    if (hasDecompressor) {
+      facts.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: snippet.startOffset,
+          endOffset: snippet.endOffset,
+          text: snippet.text,
+          props: { sink: 'io.Copy' },
+        }),
+      );
+    }
+  }
+
+  for (const snippet of findCallSnippets(text, /\bio\.CopyBuffer\s*\(/g)) {
+    const windowStart = Math.max(0, snippet.startOffset - 600);
+    const preceding = text.slice(windowStart, snippet.startOffset);
+
+    const hasDecompressor =
+      /\b(?:zlib|gzip|flate|bzip2|lzw)\.NewReader\s*\(/u.test(preceding);
+
+    if (hasDecompressor) {
+      facts.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: snippet.startOffset,
+          endOffset: snippet.endOffset,
+          text: snippet.text,
+          props: { sink: 'io.CopyBuffer' },
+        }),
+      );
+    }
+  }
+
+  return facts;
+}
+
+function collectHttpDirPathTraversalFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = GO_GENERAL_SECURITY_FACT_KINDS.httpDirPathTraversal;
+
+  return collectSnippetFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\bhttp\.(?:FileServer|StripPrefix)\s*\(/g,
+    state: emptySnippetState,
+    predicate: (snippet) => {
+      const fulltext = snippet.text;
+      return /\bhttp\.Dir\s*\(\s*["'`]\/["'`]\s*\)/u.test(fulltext);
+    },
+  });
+}
+
+function collectWeakFilePermissionFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = GO_GENERAL_SECURITY_FACT_KINDS.weakFilePermission;
+  const facts: ObservedFact[] = [];
+
+  for (const snippet of findCallSnippets(
+    text,
+    /\bos\.(?:WriteFile|OpenFile)\s*\(/g,
+  )) {
+    const args = extractGoCallArgs(snippet.text);
+    const permArg = args[args.length - 1]?.trim() ?? '';
+
+    let permValue: number | undefined;
+    if (permArg.startsWith('0o') || permArg.startsWith('0O')) {
+      permValue = Number.parseInt(permArg.slice(2), 8);
+    } else if (/^0[0-7]+$/u.test(permArg)) {
+      permValue = Number.parseInt(permArg, 8);
+    } else if (/^0x[0-9a-fA-F]+$/u.test(permArg)) {
+      permValue = Number.parseInt(permArg, 16);
+    }
+
+    if (permValue === undefined || permValue <= 0o600) {
+      continue;
+    }
+
+    facts.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: snippet.startOffset,
+        endOffset: snippet.endOffset,
+        text: snippet.text,
+        props: { permission: permArg, permissionValue: permValue },
+      }),
+    );
+  }
+
+  return facts;
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function collectUnsafeDeferCloseFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = GO_GENERAL_SECURITY_FACT_KINDS.unsafeDeferClose;
+  const facts: ObservedFact[] = [];
+
+  const deferPattern = /\bdefer\s+(\w+)\.Close\s*\(\s*\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = deferPattern.exec(text)) !== null) {
+    const startIdx = match.index;
+    const endIdx = startIdx + match[0].length;
+    const varName = match[1];
+
+    const preceding = text.slice(0, startIdx);
+    const beforeWindow = Math.max(0, preceding.length - 400);
+    const windowText = preceding.slice(beforeWindow);
+    const createPattern = new RegExp(
+      `(?:${escapeRegex(varName)}\\s*(?:,?\\s*_)?\\s*(?::?=|=\\s*))\\s*` +
+        `(?:os\\.(?:Create|OpenFile)|ioutil\\.TempFile)\\s*\\(`,
+      'u',
+    );
+    if (!createPattern.test(windowText)) {
+      continue;
+    }
+
+    const restOfFile = text.slice(endIdx);
+    const hasSync = new RegExp(
+      `\\b${escapeRegex(varName)}\\.Sync\\s*\\(\\s*\\)`,
+      'u',
+    ).test(restOfFile);
+
+    if (hasSync) {
+      continue;
+    }
+
+    facts.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: startIdx,
+        endOffset: endIdx,
+        text: match[0],
+      }),
+    );
+  }
+
+  return facts;
+}
+
+function collectTaintedValueSinkFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = GO_GENERAL_SECURITY_FACT_KINDS.taintedValueSink;
+  const facts: ObservedFact[] = [];
+
+  const hasSqlSink = /\bdb\.(?:Exec|ExecContext|Query|QueryContext)\s*\(/u.test(text);
+  const hasCmdSink = /exec\.Command\s*\(/u.test(text);
+
+  if (!hasSqlSink && !hasCmdSink) {
+    return facts;
+  }
+
+  const sinkPattern =
+    /\bdb\.(?:Exec|ExecContext|Query|QueryContext)\s*\(|\bexec\.Command\s*\(/g;
+
+  for (const snippet of findCallSnippets(text, sinkPattern)) {
+    if (!/\bfmt\.Sprintf\s*\(/u.test(snippet.text)) {
+      continue;
+    }
+
+    const args = extractGoCallArgs(snippet.text);
+    const userInputNames = /input|data|body|payload|userInput|param|value/i;
+
+    const hasInputInArgs = args.some((arg) => userInputNames.test(arg));
+    if (!hasInputInArgs) {
+      continue;
+    }
+
+    facts.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: snippet.startOffset,
+        endOffset: snippet.endOffset,
+        text: snippet.text,
+        props: { sink: snippet.calleeText },
+      }),
+    );
+  }
+
+  return facts;
+}
+
+const REGEXP_COMPILE_PATTERN =
+  /\bregexp\.(?:MustCompile|Compile)\s*\(/g;
+
+const HOSTNAME_LIKE_CHAR_CLASS =
+  /\[[A-Za-z0-9_.\s-]+\]/;
+
+const UNANCHORED_HOSTNAME_PATTERN =
+  /^["'`]?[A-Za-z0-9_.-]+$/;
+
+const UNESCAPED_DOT_HOSTNAME_PATTERN =
+  /[^\\]\.[A-Za-z]{2,}(?:\.[A-Za-z]{2,})?(?:\/|$|")/;
+
+function collectIncompleteHostnameRegexFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = GO_GENERAL_SECURITY_FACT_KINDS.incompleteHostnameRegex;
+
+  return collectSnippetFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: REGEXP_COMPILE_PATTERN,
+    state: emptySnippetState,
+    predicate: (snippet) => {
+      const regexArg = extractFirstStringArg(snippet.text);
+      if (regexArg === undefined) {
+        return false;
+      }
+
+      const hasHostnameCharClass = HOSTNAME_LIKE_CHAR_CLASS.test(regexArg);
+      const lacksStartAnchor = !/^\^/u.test(regexArg);
+      const lacksEndAnchor = !/\$$/u.test(regexArg);
+      const hasUnescapedDot = UNESCAPED_DOT_HOSTNAME_PATTERN.test(regexArg);
+      const isBarePattern = UNANCHORED_HOSTNAME_PATTERN.test(regexArg);
+
+      if (hasHostnameCharClass && (lacksStartAnchor || lacksEndAnchor)) {
+        return true;
+      }
+
+      if (hasUnescapedDot && (lacksStartAnchor || lacksEndAnchor)) {
+        return true;
+      }
+
+      if (isBarePattern && !/^\^/.test(regexArg) && !/\$$/.test(regexArg)) {
+        return true;
+      }
+
+      return false;
+    },
+  });
+}
+
+function extractFirstStringArg(callText: string): string | undefined {
+  const openParen = callText.indexOf('(');
+  if (openParen < 0) {
+    return undefined;
+  }
+
+  const closeParen = callText.lastIndexOf(')');
+  if (closeParen <= openParen) {
+    return undefined;
+  }
+
+  const argsText = callText.slice(openParen + 1, closeParen).trim();
+  if (argsText.length === 0) {
+    return undefined;
+  }
+
+  const outerQuote = argsText[0];
+  if (outerQuote !== '"' && outerQuote !== "'" && outerQuote !== '`') {
+    return undefined;
+  }
+
+  const endQuote = argsText.lastIndexOf(outerQuote);
+  if (endQuote <= 0) {
+    return argsText;
+  }
+
+  return argsText.slice(1, endQuote);
 }
 
 interface GoImportBlockRange {

@@ -1,7 +1,9 @@
 import {
+  collectGoPerformanceFacts,
   collectJavaPerformanceFacts,
   collectPhpPerformanceFacts,
   collectRustPerformanceFacts,
+  GO_PERFORMANCE_FACT_KINDS,
   PHP_PERFORMANCE_FACT_KINDS,
   RUST_PERFORMANCE_FACT_KINDS,
 } from './performance';
@@ -211,6 +213,332 @@ describe('rust performance collectors', () => {
       facts.some((fact) =>
         fact.kind.includes(RUST_PERFORMANCE_FACT_KINDS.singleCharStringLiteralPattern),
       ),
+    ).toBe(false);
+  });
+});
+
+describe('go performance collectors (batch-05 CRT-P)', () => {
+  it('flags consecutive append calls on same variable (CRT-P0001)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: [
+        'xs = append(xs, 1)',
+        'xs = append(xs, 2)',
+        'xs = append(xs, 3)',
+        'ys = append(ys, 1)',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      GO_PERFORMANCE_FACT_KINDS.combineAppendCalls,
+    );
+  });
+
+  it('does not flag single append calls (CRT-P0001)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'xs = append(xs, 1, 2, 3)',
+    });
+
+    expect(
+      facts.some((f) => f.kind === GO_PERFORMANCE_FACT_KINDS.combineAppendCalls),
+    ).toBe(false);
+  });
+
+  it('flags large array function parameters (CRT-P0003)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'func f(x [1024]int) {}',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      GO_PERFORMANCE_FACT_KINDS.avoidLargeParamCopy,
+    );
+  });
+
+  it('does not flag small array parameters (CRT-P0003)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'func f(x [64]int) {}',
+    });
+
+    expect(
+      facts.some((f) => f.kind === GO_PERFORMANCE_FACT_KINDS.avoidLargeParamCopy),
+    ).toBe(false);
+  });
+
+  it('does not flag pointer or slice parameters (CRT-P0003)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: ['func f(x *[1024]int) {}', 'func g(x []int) {}'].join('\n'),
+    });
+
+    expect(
+      facts.some((f) => f.kind === GO_PERFORMANCE_FACT_KINDS.avoidLargeParamCopy),
+    ).toBe(false);
+  });
+
+  it('flags strings.Index with explicit string() conversion (CRT-P0004)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'strings.Index(string(x), "needle")',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      GO_PERFORMANCE_FACT_KINDS.avoidStringIndexAlloc,
+    );
+  });
+
+  it('does not flag strings.Index without conversion (CRT-P0004)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'strings.Index(s, "needle")',
+    });
+
+    expect(
+      facts.some((f) => f.kind === GO_PERFORMANCE_FACT_KINDS.avoidStringIndexAlloc),
+    ).toBe(false);
+  });
+
+  it('flags range over large fixed-size array (CRT-P0005)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: [
+        'var xs [2048]byte',
+        'for _, x := range xs {',
+        '  _ = x',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      GO_PERFORMANCE_FACT_KINDS.avoidLargeRangeCopy,
+    );
+  });
+
+  it('does not flag range over pointer to array (CRT-P0005)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: [
+        'var xs [2048]byte',
+        'for _, x := range &xs {',
+        '  _ = x',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.some((f) => f.kind === GO_PERFORMANCE_FACT_KINDS.avoidLargeRangeCopy),
+    ).toBe(false);
+  });
+
+  it('flags range over slice of large arrays (CRT-P0006)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: [
+        'xs := make([][1024]byte, 10)',
+        'for _, x := range xs {',
+        '  _ = x',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      GO_PERFORMANCE_FACT_KINDS.avoidLargeLoopCopy,
+    );
+  });
+
+  it('does not flag index-based range over large slice (CRT-P0006)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: [
+        'xs := make([][1024]byte, 10)',
+        'for i := range xs {',
+        '  x := &xs[i]',
+        '  _ = x',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.some((f) => f.kind === GO_PERFORMANCE_FACT_KINDS.avoidLargeLoopCopy),
+    ).toBe(false);
+  });
+});
+
+describe('go performance collectors (batch-11 GO-P)', () => {
+  it('flags function-call || simple-var for reorder (GO-P3001)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'if isValid(x) || y {',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      GO_PERFORMANCE_FACT_KINDS.reorderOperands,
+    );
+  });
+
+  it('does not flag both-side function calls (GO-P3001)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'if f(x) || g(y) {',
+    });
+
+    expect(
+      facts.some((f) => f.kind === GO_PERFORMANCE_FACT_KINDS.reorderOperands),
+    ).toBe(false);
+  });
+
+  it('does not flag both-side identifiers (GO-P3001)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'if x || y {',
+    });
+
+    expect(
+      facts.some((f) => f.kind === GO_PERFORMANCE_FACT_KINDS.reorderOperands),
+    ).toBe(false);
+  });
+
+  it('flags three-clause for with zero-assignment body (GO-P4001)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: [
+        'for i := 0; i < len(items); i++ {',
+        '  items[i] = 0',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      GO_PERFORMANCE_FACT_KINDS.nonIdiomaticSliceZeroing,
+    );
+  });
+
+  it('does not flag idiomatic range-based zeroing (GO-P4001)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: [
+        'for i := range items {',
+        '  items[i] = 0',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.some((f) => f.kind === GO_PERFORMANCE_FACT_KINDS.nonIdiomaticSliceZeroing),
+    ).toBe(false);
+  });
+
+  it('flags []rune(str)[0] pattern (GO-P4006)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'r := []rune(s)[0]',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      GO_PERFORMANCE_FACT_KINDS.utf8DecodeRune,
+    );
+  });
+
+  it('does not flag utf8.DecodeRuneInString usage (GO-P4006)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'r, size := utf8.DecodeRuneInString(s)',
+    });
+
+    expect(
+      facts.some((f) => f.kind === GO_PERFORMANCE_FACT_KINDS.utf8DecodeRune),
+    ).toBe(false);
+  });
+
+  it('flags .Write([]byte(fmt.Sprintf(...))) pattern (GO-P4007)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'w.Write([]byte(fmt.Sprintf("A: %d", a)))',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      GO_PERFORMANCE_FACT_KINDS.fmtFprint,
+    );
+  });
+
+  it('flags .Write(fmt.Sprint(...)) pattern (GO-P4007)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'w.Write(fmt.Sprint(x))',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      GO_PERFORMANCE_FACT_KINDS.fmtFprint,
+    );
+  });
+
+  it('does not flag bare fmt.Sprintf without Write (GO-P4007)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'result := fmt.Sprintf("hello %s", name)',
+    });
+
+    expect(
+      facts.some((f) => f.kind === GO_PERFORMANCE_FACT_KINDS.fmtFprint),
+    ).toBe(false);
+  });
+
+  it('flags .Write([]byte(...)) pattern (GO-P4008)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'w.Write([]byte("hello world"))',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      GO_PERFORMANCE_FACT_KINDS.writerWriteString,
+    );
+  });
+
+  it('flags io.WriteString(...) pattern (GO-P4008)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'io.WriteString(w, "hello")',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      GO_PERFORMANCE_FACT_KINDS.writerWriteString,
+    );
+  });
+
+  it('does not flag bare .Write() without []byte (GO-P4008)', () => {
+    const facts = collectGoPerformanceFacts({
+      path: 'service.go',
+      detector: 'go-detector',
+      text: 'w.Write(data)',
+    });
+
+    expect(
+      facts.some((f) => f.kind === GO_PERFORMANCE_FACT_KINDS.writerWriteString),
     ).toBe(false);
   });
 });

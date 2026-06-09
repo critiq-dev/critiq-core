@@ -647,6 +647,32 @@ export function collectGoTemplateUnescapedRequestFacts<TState>(
   });
 }
 
+export function collectGoSquirrelUnsafeQuotingFacts<TState>(
+  ctx: GoSecurityCollectorContext<TState>,
+): ObservedFact[] {
+  if (isGoSecuritySuppressedPath(ctx.path)) {
+    return [];
+  }
+
+  const hasSquirrelImport = /["'`]github\.com\/Masterminds\/squirrel["'`]/u.test(ctx.text);
+
+  if (!hasSquirrelImport) {
+    return [];
+  }
+
+  return collectSnippetFacts<TState>({
+    text: ctx.text,
+    detector: ctx.detector,
+    kind: 'go.security.squirrel-unsafe-quoting',
+    pattern: /\b(?:squirrel|sq)\.Expr\s*\(/g,
+    state: ctx.state,
+    appliesTo: 'block',
+    predicate: (_snippet, _state) => {
+      return /\bfmt\.Sprintf\s*\(/u.test(_snippet.text);
+    },
+  });
+}
+
 function extractTopLevelCallArgs(callText: string): string[] {
   const open = callText.indexOf('(');
   if (open < 0) {

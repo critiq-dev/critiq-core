@@ -412,4 +412,297 @@ describe('go-general-security collectors', () => {
 
     expect(facts).toHaveLength(0);
   });
+
+  it('flags io.Copy with decompression reader (decompression bomb)', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import (',
+        '  "compress/gzip"',
+        '  "io"',
+        '  "os"',
+        ')',
+        '',
+        'func decompress() {',
+        '  f, _ := os.Open("data.gz")',
+        '  zr, _ := gzip.NewReader(f)',
+        '  io.Copy(os.Stdout, zr)',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.decompressionBomb),
+    ).toHaveLength(1);
+  });
+
+  it('does not flag io.Copy with limited reader', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import (',
+        '  "compress/gzip"',
+        '  "io"',
+        '  "os"',
+        ')',
+        '',
+        'func safeDecompress() {',
+        '  f, _ := os.Open("data.gz")',
+        '  zr, _ := gzip.NewReader(f)',
+        '  io.CopyN(os.Stdout, zr, 1024)',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.decompressionBomb),
+    ).toHaveLength(0);
+  });
+
+  it('flags http.FileServer with http.Dir root path', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import "net/http"',
+        '',
+        'func serve() {',
+        '  http.FileServer(http.Dir("/"))',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.httpDirPathTraversal),
+    ).toHaveLength(1);
+  });
+
+  it('does not flag http.FileServer with relative Dir', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import "net/http"',
+        '',
+        'func serve() {',
+        '  http.FileServer(http.Dir("./static"))',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.httpDirPathTraversal),
+    ).toHaveLength(0);
+  });
+
+  it('flags os.WriteFile with permission > 0600', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import "os"',
+        '',
+        'func write() {',
+        '  os.WriteFile("/tmp/f", []byte("x"), 0744)',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.weakFilePermission),
+    ).toHaveLength(1);
+  });
+
+  it('does not flag os.WriteFile with permission 0600', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import "os"',
+        '',
+        'func write() {',
+        '  os.WriteFile("/tmp/f", []byte("x"), 0600)',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.weakFilePermission),
+    ).toHaveLength(0);
+  });
+
+  it('flags defer f.Close() without Sync in os-imported files', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import "os"',
+        '',
+        'func write() {',
+        '  f, _ := os.Create("/tmp/f")',
+        '  defer f.Close()',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.unsafeDeferClose),
+    ).toHaveLength(1);
+  });
+
+  it('does not flag defer f.Close() with f.Sync()', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import "os"',
+        '',
+        'func write() {',
+        '  f, _ := os.Create("/tmp/f")',
+        '  defer f.Close()',
+        '  f.Sync()',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.unsafeDeferClose),
+    ).toHaveLength(0);
+  });
+
+  it('flags db.ExecContext with fmt.Sprintf using user input (tainted sink)', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import "fmt"',
+        '',
+        'func query(db *sql.DB, input string) {',
+        '  db.ExecContext(ctx, fmt.Sprintf("SELECT * FROM users WHERE id = %s", input))',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.taintedValueSink),
+    ).toHaveLength(1);
+  });
+
+  it('does not flag parameterized db query', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import "fmt"',
+        '',
+        'func query(db *sql.DB) {',
+        '  db.ExecContext(ctx, "SELECT * FROM users WHERE id = ?", id)',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.taintedValueSink),
+    ).toHaveLength(0);
+  });
+
+  it('flags incomplete hostname regex with unanchored pattern', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import "regexp"',
+        '',
+        'func validate() {',
+        '  re := regexp.MustCompile("[a-zA-Z0-9.-]+")',
+        '  _ = re',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.incompleteHostnameRegex,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('flags regexp.Compile with bare hostname pattern', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import "regexp"',
+        '',
+        'func validate() {',
+        '  re, _ := regexp.Compile("google.com")',
+        '  _ = re',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.incompleteHostnameRegex,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('does not flag properly anchored hostname regex', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import "regexp"',
+        '',
+        'func validate() {',
+        '  re := regexp.MustCompile("^[a-zA-Z0-9.-]+\\\\.[a-zA-Z]{2,}$")',
+        '  _ = re',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.incompleteHostnameRegex,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag non-hostname regex patterns', () => {
+    const facts = collectGoGeneralSecurityFacts({
+      detector,
+      text: [
+        'package main',
+        '',
+        'import "regexp"',
+        '',
+        'func validate() {',
+        '  re := regexp.MustCompile("\\\\d{4}-\\\\d{2}-\\\\d{2}")',
+        '  _ = re',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (f) => f.kind === GO_GENERAL_SECURITY_FACT_KINDS.incompleteHostnameRegex,
+      ),
+    ).toHaveLength(0);
+  });
 });

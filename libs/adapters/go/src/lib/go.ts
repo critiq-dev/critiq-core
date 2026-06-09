@@ -1,6 +1,8 @@
 import {
   collectCommandExecutionFacts,
+  collectGoBugRiskFacts,
   collectGoCorrectnessFacts,
+  collectGoDocFacts,
   collectGoEchoSensitiveBindingFacts,
   collectGoEchoUnsafeUploadFacts,
   collectGoFiberSensitiveBindingFacts,
@@ -12,6 +14,7 @@ import {
   collectGoNetHttpMissingTimeoutFacts,
   collectGoOpenRedirectFacts,
   collectGoSensitiveDataEgressFacts,
+  collectGoSquirrelUnsafeQuotingFacts,
   collectGoSsrfFacts,
   collectGoTarPathTraversalFacts,
   collectGoTemplateUnescapedRequestFacts,
@@ -166,6 +169,13 @@ const goAdapterDefinition: PolyglotAdapterDefinition<GoScanState> = {
       state,
       matchesTainted: matchesGoTainted,
     }),
+    ...collectGoSquirrelUnsafeQuotingFacts({
+      text,
+      path,
+      detector,
+      state,
+      matchesTainted: matchesGoTainted,
+    }),
     ...collectGoGeneralSecurityFacts({ text, path, detector }),
     ...collectSharedExternalFileUploadFacts({
       text,
@@ -195,6 +205,8 @@ const goAdapterDefinition: PolyglotAdapterDefinition<GoScanState> = {
     ...collectGoQualityMaintainabilityFacts({ text, path, detector }),
     ...collectGoPerformanceFacts({ text, path, detector }),
     ...collectGoCorrectnessFacts({ text, path, detector }),
+    ...collectGoBugRiskFacts({ text, path, detector }),
+    ...collectGoDocFacts({ text, path, detector }),
   ],
 };
 

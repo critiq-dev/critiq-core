@@ -7,6 +7,7 @@ import {
   collectGoGinWildcardCorsWithCredentialsFacts,
   collectGoNetHttpMissingTimeoutFacts,
   collectGoOpenRedirectFacts,
+  collectGoSquirrelUnsafeQuotingFacts,
   collectGoSsrfFacts,
   collectGoTarPathTraversalFacts,
   collectGoTemplateUnescapedRequestFacts,
@@ -198,5 +199,63 @@ describe('go-security collectors', () => {
     expect(facts.map((f) => f.kind)).toEqual([
       'go.security.template-unescaped-request-value',
     ]);
+  });
+
+  it('flags squirrel.Expr with fmt.Sprintf interpolation', () => {
+    const state: TrackedIdentifierState = {
+      taintedIdentifiers: new Set(),
+      sqlInterpolatedIdentifiers: new Set(),
+    };
+    const facts = collectGoSquirrelUnsafeQuotingFacts({
+      text: [
+        'package main',
+        '',
+        'import (',
+        '  "fmt"',
+        '  sq "github.com/Masterminds/squirrel"',
+        ')',
+        '',
+        'func query(userInput string) {',
+        '  q, _, _ := sq.Select("id").From("users").Where(sq.Expr(fmt.Sprintf("id = %s", userInput)))',
+        '  _ = q',
+        '}',
+      ].join('\n'),
+      path: 'x.go',
+      detector: 'go-detector',
+      state,
+      matchesTainted: (expr: string) => /\buserInput\b/u.test(expr),
+    });
+
+    expect(facts.map((f) => f.kind)).toEqual([
+      'go.security.squirrel-unsafe-quoting',
+    ]);
+  });
+
+  it('does not flag squirrel.Eq map syntax', () => {
+    const state: TrackedIdentifierState = {
+      taintedIdentifiers: new Set(),
+      sqlInterpolatedIdentifiers: new Set(),
+    };
+    const facts = collectGoSquirrelUnsafeQuotingFacts({
+      text: [
+        'package main',
+        '',
+        'import (',
+        '  "fmt"',
+        '  sq "github.com/Masterminds/squirrel"',
+        ')',
+        '',
+        'func query(userInput string) {',
+        '  q, _, _ := sq.Select("id").From("users").Where(sq.Eq{"id": userInput})',
+        '  _ = q',
+        '}',
+      ].join('\n'),
+      path: 'x.go',
+      detector: 'go-detector',
+      state,
+      matchesTainted: (expr: string) => /\buserInput\b/u.test(expr),
+    });
+
+    expect(facts).toHaveLength(0);
   });
 });
