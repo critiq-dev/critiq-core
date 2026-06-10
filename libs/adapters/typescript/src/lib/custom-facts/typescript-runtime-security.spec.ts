@@ -153,4 +153,61 @@ describe('collectTypescriptRuntimeSecurityFacts', () => {
 
     expect(kinds).toEqual([]);
   });
+
+  describe('runtime.process-exit-control-flow', () => {
+    it('flags process.exit in finally block', () => {
+      const kinds = kindsFor(
+        [
+          'function bad() {',
+          '  try {',
+          '    return 1;',
+          '  } finally {',
+          '    process.exit(1);',
+          '  }',
+          '}',
+        ].join('\n'),
+      );
+
+      expect(kinds).toContain('runtime.process-exit-control-flow');
+    });
+
+    it('flags process.exit followed by reachable code', () => {
+      const kinds = kindsFor(
+        [
+          'function bad() {',
+          '  process.exit(0);',
+          '  const x = 1;',
+          '}',
+        ].join('\n'),
+      );
+
+      expect(kinds).toContain('runtime.process-exit-control-flow');
+    });
+
+    it('does not flag process.exit after throw', () => {
+      const kinds = kindsFor(
+        [
+          'function ok() {',
+          '  throw new Error("fail");',
+          '  process.exit(1);',
+          '}',
+        ].join('\n'),
+      );
+
+      expect(kinds).not.toContain('runtime.process-exit-control-flow');
+    });
+
+    it('does not flag process.exit after return', () => {
+      const kinds = kindsFor(
+        [
+          'function ok() {',
+          '  return;',
+          '  process.exit(0);',
+          '}',
+        ].join('\n'),
+      );
+
+      expect(kinds).not.toContain('runtime.process-exit-control-flow');
+    });
+  });
 });

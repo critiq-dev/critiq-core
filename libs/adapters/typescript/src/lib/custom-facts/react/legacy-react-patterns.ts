@@ -181,7 +181,7 @@ export function collectLegacyReactPatternFacts(
   return dedupeFactsByRange(facts);
 }
 
-function getLifecycleMemberName(
+export function getLifecycleMemberName(
   node: TSESTree.MethodDefinition | TSESTree.PropertyDefinition,
 ): string | undefined {
   if (

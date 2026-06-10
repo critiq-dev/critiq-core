@@ -2,7 +2,13 @@ import type { ObservedFact } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
 import { getNodeText, walkAst, walkAstWithAncestors } from '../ast';
-import { createObservedFact, type TypeScriptFactDetector } from './shared';
+import {
+  createObservedFact,
+  isBooleanLiteral,
+  isIdentifierNamed,
+  type TypeScriptFactDetector,
+  type TypeScriptFactDetectorContext,
+} from './shared';
 
 function isAssignmentExpression(
   node: TSESTree.Node | null | undefined,
@@ -376,6 +382,154 @@ function regexpConstructorPatternIsInvalid(
   }
 }
 
+function isParseIntCall(callee: TSESTree.Expression): boolean {
+  return callee.type === 'Identifier' && callee.name === 'parseInt';
+}
+
+function isNumberParseIntCall(callee: TSESTree.Expression): boolean {
+  if (callee.type !== 'MemberExpression' || callee.computed) {
+    return false;
+  }
+
+  return (
+    callee.object.type === 'Identifier' &&
+    callee.object.name === 'Number' &&
+    callee.property.type === 'Identifier' &&
+    callee.property.name === 'parseInt'
+  );
+}
+
+const KNOWN_NON_ERROR_FIRST_METHODS = new Set([
+  'map',
+  'filter',
+  'forEach',
+  'reduce',
+  'reduceRight',
+  'sort',
+  'some',
+  'every',
+  'find',
+  'findIndex',
+  'findLast',
+  'findLastIndex',
+  'flatMap',
+]);
+
+function isKnownNonErrorFirstExpression(callee: TSESTree.Expression): boolean {
+  if (
+    callee.type === 'MemberExpression' &&
+    !callee.computed &&
+    callee.property.type === 'Identifier' &&
+    KNOWN_NON_ERROR_FIRST_METHODS.has(callee.property.name)
+  ) {
+    return true;
+  }
+
+  if (
+    callee.type === 'MemberExpression' &&
+    !callee.computed &&
+    callee.property.type === 'Identifier' &&
+    callee.property.name === 'then'
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function getFuncExprParams(
+  arg: TSESTree.Expression | TSESTree.SpreadElement,
+): TSESTree.Parameter[] | undefined {
+  if (arg.type === 'FunctionExpression' || arg.type === 'ArrowFunctionExpression') {
+    if (arg.params.length > 0 && arg.params[0]?.type === 'Identifier') {
+      return arg.params;
+    }
+  }
+
+  return undefined;
+}
+
+function callbackBodyReferencesParam(
+  body: TSESTree.Node,
+  paramName: string,
+): boolean {
+  let found = false;
+
+  walkAst(body, (n) => {
+    if (n.type === 'Identifier' && n.name === paramName) {
+      found = true;
+    }
+  });
+
+  return found;
+}
+
+function hasErrorFirstCallback(node: TSESTree.CallExpression): boolean {
+  for (const arg of node.arguments) {
+    if (arg.type === 'SpreadElement') {
+      continue;
+    }
+
+    const params = getFuncExprParams(arg);
+    if (!params) {
+      continue;
+    }
+
+    const firstParam = params[0];
+    if (!firstParam || firstParam.type !== 'Identifier') {
+      continue;
+    }
+
+    const name = firstParam.name;
+    if (name !== 'err' && name !== 'error') {
+      continue;
+    }
+
+    const fn = arg as TSESTree.FunctionExpression | TSESTree.ArrowFunctionExpression;
+
+    if (!callbackBodyReferencesParam(fn.body, name)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasNonErrorFirstCallback(node: TSESTree.CallExpression): boolean {
+  if (isKnownNonErrorFirstExpression(node.callee)) {
+    return false;
+  }
+
+  for (const arg of node.arguments) {
+    if (arg.type === 'SpreadElement') {
+      continue;
+    }
+
+    const params = getFuncExprParams(arg);
+    if (!params) {
+      continue;
+    }
+
+    if (params.length < 2) {
+      continue;
+    }
+
+    const firstParam = params[0];
+    if (!firstParam || firstParam.type !== 'Identifier') {
+      continue;
+    }
+
+    const name = firstParam.name;
+    if (name === 'err' || name === 'error') {
+      return false;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
 const GLOBAL_NON_CALLABLE_OBJECTS = new Set([
   'Math',
   'JSON',
@@ -709,6 +863,584 @@ function isInsideNestedCatchWithSameParamName(
   });
 
   return captured;
+}
+
+function collectRequireOutsideImportFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+  const { program, sourceText, nodeIds, path } = context;
+
+  if (/\.(?:js|jsx|cjs)$/u.test(path)) {
+    return facts;
+  }
+
+  walkAstWithAncestors(program, (node, ancestors) => {
+    if (
+      node.type === 'CallExpression' &&
+      node.callee.type === 'Identifier' &&
+      node.callee.name === 'require'
+    ) {
+      const parent = ancestors[ancestors.length - 1];
+      if (parent?.type !== 'TSImportEqualsDeclaration') {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.require-outside-import',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {},
+          }),
+        );
+      }
+      return;
+    }
+
+    if (
+      node.type === 'CallExpression' &&
+      node.callee.type === 'MemberExpression' &&
+      !node.callee.computed &&
+      node.callee.object.type === 'Identifier' &&
+      node.callee.object.name === 'require'
+    ) {
+      const parent = ancestors[ancestors.length - 1];
+      if (parent?.type !== 'TSImportEqualsDeclaration') {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.require-outside-import',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {},
+          }),
+        );
+      }
+    }
+  });
+
+  return facts;
+}
+
+function collectPreferIncludesOverIndexOfFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+  const { program, sourceText, nodeIds } = context;
+
+  walkAstWithAncestors(program, (node, ancestors) => {
+    if (node.type !== 'BinaryExpression') {
+      return;
+    }
+
+    const { operator, left, right } = node;
+
+    if (
+      (operator === '!==' || operator === '!=') &&
+      right.type === 'UnaryExpression' &&
+      right.operator === '-' &&
+      right.argument.type === 'Literal' &&
+      right.argument.value === 1
+    ) {
+      if (left.type === 'CallExpression' && left.callee.type === 'MemberExpression' && !left.callee.computed) {
+        const methodName = getNodeText(left.callee.property, sourceText);
+        if (methodName === 'indexOf') {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'file',
+              kind: 'language.prefer-includes-over-indexof',
+              node,
+              nodeIds,
+              text: getNodeText(node, sourceText),
+              props: {},
+            }),
+          );
+        }
+      }
+      return;
+    }
+
+    if (
+      (operator === '===' || operator === '==') &&
+      right.type === 'UnaryExpression' &&
+      right.operator === '-' &&
+      right.argument.type === 'Literal' &&
+      right.argument.value === 1
+    ) {
+      if (left.type === 'CallExpression' && left.callee.type === 'MemberExpression' && !left.callee.computed) {
+        const methodName = getNodeText(left.callee.property, sourceText);
+        if (methodName === 'indexOf') {
+          const parent = ancestors[ancestors.length - 1];
+          if (parent?.type === 'UnaryExpression' && parent.operator === '!') {
+            facts.push(
+              createObservedFact({
+                appliesTo: 'file',
+                kind: 'language.prefer-includes-over-indexof',
+                node,
+                nodeIds,
+                text: getNodeText(node, sourceText),
+                props: {},
+              }),
+            );
+          }
+        }
+      }
+      return;
+    }
+
+    if (
+      (operator === '>=' || operator === '>') &&
+      right.type === 'Literal' &&
+      right.value === 0
+    ) {
+      if (left.type === 'CallExpression' && left.callee.type === 'MemberExpression' && !left.callee.computed) {
+        const methodName = getNodeText(left.callee.property, sourceText);
+        if (methodName === 'indexOf') {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'file',
+              kind: 'language.prefer-includes-over-indexof',
+              node,
+              nodeIds,
+              text: getNodeText(node, sourceText),
+              props: {},
+            }),
+          );
+        }
+      }
+    }
+  });
+
+  return facts;
+}
+
+function collectPreferNullishCoalescingFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+  const { program, sourceText, nodeIds } = context;
+
+  walkAst(program, (node) => {
+    if (node.type !== 'LogicalExpression' || node.operator !== '||') {
+      return;
+    }
+
+    if (node.left.type !== 'Identifier' && node.left.type !== 'MemberExpression') {
+      return;
+    }
+
+    if (
+      node.right.type === 'Literal' &&
+      (node.right.value === false || node.right.value === true)
+    ) {
+      return;
+    }
+
+    facts.push(
+      createObservedFact({
+        appliesTo: 'file',
+        kind: 'language.prefer-nullish-coalescing',
+        node,
+        nodeIds,
+        text: getNodeText(node, sourceText),
+        props: {},
+      }),
+    );
+  });
+
+  walkAst(program, (node) => {
+    if (
+      node.type !== 'ConditionalExpression' ||
+      node.test.type !== 'BinaryExpression'
+    ) {
+      return;
+    }
+
+    const { test } = node;
+    if (
+      test.operator === '!==' &&
+      test.left.type === 'Identifier' &&
+      test.right.type === 'Identifier' &&
+      test.right.name === 'undefined'
+    ) {
+      const consequent = node.consequent;
+      if (consequent.type === 'Identifier' && consequent.name === test.left.name) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.prefer-nullish-coalescing',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {},
+          }),
+        );
+      }
+    }
+  });
+
+  return facts;
+}
+
+function isDirectivePrologue(
+  node: TSESTree.ExpressionStatement,
+  ancestors: readonly TSESTree.Node[],
+): boolean {
+  if (node.expression.type !== 'Literal' || typeof node.expression.value !== 'string') {
+    return false;
+  }
+
+  const parent = ancestors[ancestors.length - 1];
+  if (!parent) {
+    return false;
+  }
+
+  if (parent.type === 'Program') {
+    return parent.body.length > 0 && parent.body[0] === node;
+  }
+
+  if (parent.type === 'BlockStatement') {
+    const grandparent = ancestors.length > 1 ? ancestors[ancestors.length - 2] : undefined;
+    if (
+      grandparent?.type === 'FunctionDeclaration' ||
+      grandparent?.type === 'FunctionExpression' ||
+      grandparent?.type === 'ArrowFunctionExpression'
+    ) {
+      return parent.body.length > 0 && parent.body[0] === node;
+    }
+  }
+
+  return false;
+}
+
+function expressionNodeHasNoSideEffect(node: TSESTree.Node): boolean {
+  if (node.type === 'PrivateIdentifier') {
+    return true;
+  }
+
+  switch (node.type) {
+    case 'Identifier':
+    case 'Literal':
+      return true;
+
+    case 'TemplateLiteral':
+      return (node as TSESTree.TemplateLiteral).expressions.every((e) => expressionNodeHasNoSideEffect(e));
+
+    case 'BinaryExpression':
+    case 'LogicalExpression': {
+      if (node.type === 'LogicalExpression' && expressionNodeHasSideEffect(node.right)) {
+        return false;
+      }
+      return expressionNodeHasNoSideEffect(node.left) && expressionNodeHasNoSideEffect(node.right);
+    }
+
+    case 'UnaryExpression':
+      if (node.operator === 'delete' || node.operator === 'void') {
+        return false;
+      }
+      return expressionNodeHasNoSideEffect(node.argument);
+
+    case 'ConditionalExpression':
+      return (
+        expressionNodeHasNoSideEffect(node.test) &&
+        expressionNodeHasNoSideEffect(node.consequent) &&
+        expressionNodeHasNoSideEffect(node.alternate)
+      );
+
+    case 'SequenceExpression':
+      return node.expressions.every((e) => expressionNodeHasNoSideEffect(e));
+
+    case 'ArrayExpression':
+      return node.elements.every((element) => {
+        if (element === null || element.type === 'SpreadElement') {
+          return false;
+        }
+        return expressionNodeHasNoSideEffect(element);
+      });
+
+    case 'ObjectExpression':
+      return node.properties.every((prop) => {
+        if (prop.type === 'SpreadElement') {
+          return false;
+        }
+        if (prop.type === 'Property' && prop.computed && prop.key) {
+          return expressionNodeHasNoSideEffect(prop.key) && expressionNodeHasNoSideEffect(prop.value);
+        }
+        if (prop.type === 'Property') {
+          return expressionNodeHasNoSideEffect(prop.value);
+        }
+        return false;
+      });
+
+    default:
+      return false;
+  }
+}
+
+function expressionNodeHasSideEffect(node: TSESTree.Node): boolean {
+  return !expressionNodeHasNoSideEffect(node);
+}
+
+function expressionHasNoSideEffect(expression: TSESTree.Expression): boolean {
+  return expressionNodeHasNoSideEffect(expression);
+}
+
+function expressionHasSideEffect(expression: TSESTree.Expression): boolean {
+  return expressionNodeHasSideEffect(expression);
+}
+
+function collectUnusedExpressionFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+  const { program, sourceText, nodeIds } = context;
+
+  walkAstWithAncestors(program, (node, ancestors) => {
+    if (node.type !== 'ExpressionStatement') {
+      return;
+    }
+
+    if (isDirectivePrologue(node, ancestors)) {
+      return;
+    }
+
+    if (expressionHasNoSideEffect(node.expression)) {
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: 'language.unused-expression',
+          node,
+          nodeIds,
+          text: getNodeText(node, sourceText),
+          props: {
+            reason: 'expression-has-no-side-effect',
+          },
+        }),
+      );
+    }
+  });
+
+  return facts;
+}
+
+function collectConfusingLabelInSwitchFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+  const { program, sourceText, nodeIds } = context;
+
+  walkAstWithAncestors(program, (node, ancestors) => {
+    if (node.type !== 'LabeledStatement') {
+      return;
+    }
+
+    for (let i = ancestors.length - 1; i >= 0; i--) {
+      const ancestor = ancestors[i];
+      if (ancestor.type === 'SwitchCase') {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.confusing-label-in-switch',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {
+              labelName: node.label.name,
+            },
+          }),
+        );
+        return;
+      }
+      if (
+        ancestor.type === 'FunctionDeclaration' ||
+        ancestor.type === 'FunctionExpression' ||
+        ancestor.type === 'ArrowFunctionExpression'
+      ) {
+        return;
+      }
+    }
+  });
+
+  return facts;
+}
+
+function collectFlawedStringComparisonFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+  const { program, sourceText, nodeIds } = context;
+
+  walkAst(program, (node) => {
+    if (node.type !== 'BinaryExpression') {
+      return;
+    }
+
+    const ops = new Set(['===', '!==', '==', '!=', '<', '>', '<=', '>=']);
+    if (!ops.has(node.operator)) {
+      return;
+    }
+
+    // Check for comparing two string literals (identical strings)
+    if (
+      node.left.type === 'Literal' &&
+      node.right.type === 'Literal' &&
+      typeof node.left.value === 'string' &&
+      typeof node.right.value === 'string'
+    ) {
+      // Comparing same string literal to itself
+      if (node.left.value === node.right.value) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.flawed-string-comparison',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {
+              comparisonType: 'identical-string-literals',
+              leftValue: node.left.value,
+              rightValue: node.right.value,
+            },
+          }),
+        );
+        return;
+      }
+
+      // For ==/!= string comparison with different values — less severe but still worth flagging
+      if (node.operator === '==' || node.operator === '!=') {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.flawed-string-comparison',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {
+              comparisonType: 'loose-string-comparison',
+            },
+          }),
+        );
+        return;
+      }
+    }
+
+    // Check for locale-sensitive operators (<, >, <=, >=) on string types
+    // Detect when both sides are string literals (locale-sensitive comparison)
+    if (['<', '>', '<=', '>='].includes(node.operator)) {
+      const leftIsString = 
+        node.left.type === 'Literal' && typeof node.left.value === 'string';
+      const rightIsString = 
+        node.right.type === 'Literal' && typeof node.right.value === 'string';
+
+      if (leftIsString && rightIsString) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.flawed-string-comparison',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {
+              comparisonType: 'locale-sensitive-string-comparison',
+              operator: node.operator,
+            },
+          }),
+        );
+      }
+    }
+  });
+
+  return facts;
+}
+
+function collectComplexBooleanReturnFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+  const { program, sourceText, nodeIds } = context;
+
+  walkAst(program, (node) => {
+    // Pattern 1: if (cond) { return true; } else { return false; }
+    if (node.type === 'IfStatement') {
+      const { consequent, alternate } = node;
+      if (!alternate) {
+        return;
+      }
+
+      const conRet = getReturnBooleanValue(consequent);
+      const altRet = getReturnBooleanValue(alternate);
+
+      if (conRet !== undefined && altRet !== undefined && conRet !== altRet) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: 'language.complex-boolean-return',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {
+              pattern: 'if-else-return-boolean',
+            },
+          }),
+        );
+      }
+    }
+
+    // Pattern 2: return condition ? true : false;
+    if (node.type === 'ReturnStatement' && node.argument) {
+      const arg = node.argument;
+      if (
+        arg.type === 'ConditionalExpression' &&
+        isBooleanLiteral(arg.consequent, true) &&
+        isBooleanLiteral(arg.alternate, false)
+      ) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: 'language.complex-boolean-return',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {
+              pattern: 'ternary-return-boolean',
+            },
+          }),
+        );
+      }
+    }
+  });
+
+  return facts;
+}
+
+function getReturnBooleanValue(
+  statement: TSESTree.Statement,
+): boolean | undefined {
+  // If it's a block: { return true/false; }
+  if (statement.type === 'BlockStatement') {
+    const lastStmt = statement.body[statement.body.length - 1];
+    if (lastStmt?.type === 'ReturnStatement' && lastStmt.argument) {
+      return getBooleanLiteralValue(lastStmt.argument);
+    }
+    return undefined;
+  }
+
+  // If it's directly a return statement
+  if (statement.type === 'ReturnStatement' && statement.argument) {
+    return getBooleanLiteralValue(statement.argument);
+  }
+
+  return undefined;
+}
+
+function getBooleanLiteralValue(
+  expression: TSESTree.Expression,
+): boolean | undefined {
+  if (expression.type === 'Literal' && typeof expression.value === 'boolean') {
+    return expression.value;
+  }
+  return undefined;
 }
 
 export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetector =
@@ -1101,6 +1833,151 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
         }
       }
 
+      if (
+        node.type === 'NewExpression' &&
+        node.callee.type === 'Identifier' &&
+        node.callee.name === 'Symbol'
+      ) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.new-symbol-instance',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {},
+          }),
+        );
+      }
+
+      if (node.type === 'VariableDeclaration' && node.kind === 'var') {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.var-declaration',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {},
+          }),
+        );
+      }
+
+      if (
+        node.type === 'CallExpression' &&
+        (isParseIntCall(node.callee) || isNumberParseIntCall(node.callee))
+      ) {
+        const firstArg = node.arguments[0];
+        if (firstArg && firstArg.type === 'Literal' && typeof firstArg.value === 'number') {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'file',
+              kind: 'language.parse-int-on-number-literal',
+              node,
+              nodeIds,
+              text: getNodeText(node, sourceText),
+              props: {},
+            }),
+          );
+        }
+      }
+
+      if (
+        node.type === 'AssignmentExpression' &&
+        node.operator === '=' &&
+        node.left.type === 'Identifier' &&
+        node.left.name === 'exports'
+      ) {
+        const hasESM = program.body.some(
+          (s) =>
+            s.type === 'ImportDeclaration' ||
+            (s.type === 'ExportNamedDeclaration' && !s.source) ||
+            s.type === 'ExportDefaultDeclaration' ||
+            s.type === 'ExportAllDeclaration',
+        );
+
+        if (!hasESM) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'file',
+              kind: 'language.assignment-to-exports',
+              node,
+              nodeIds,
+              text: getNodeText(node, sourceText),
+              props: {},
+            }),
+          );
+        }
+      }
+
+      if (
+        node.type === 'NewExpression' &&
+        node.callee.type === 'Identifier' &&
+        node.callee.name === 'require'
+      ) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: 'language.new-expression-with-require',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {
+              calleeStyle: 'direct',
+            },
+          }),
+        );
+      }
+
+      if (
+        node.type === 'NewExpression' &&
+        node.callee.type === 'CallExpression' &&
+        node.callee.callee.type === 'Identifier' &&
+        node.callee.callee.name === 'require'
+      ) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: 'language.new-expression-with-require',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {
+              calleeStyle: 'call-result',
+            },
+          }),
+        );
+      }
+
+      if (
+        node.type === 'CallExpression' &&
+        hasErrorFirstCallback(node)
+      ) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.callback-missing-error-handling',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {},
+          }),
+        );
+      }
+
+      if (node.type === 'CallExpression' && hasNonErrorFirstCallback(node)) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.callback-not-error-first',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {},
+          }),
+        );
+      }
+
       if (node.type === 'ArrayExpression' && node.elements.some((element) => element === null)) {
         facts.push(
           createObservedFact({
@@ -1283,5 +2160,65 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
       });
     });
 
+    facts.push(...collectRequireOutsideImportFacts(context));
+    facts.push(...collectPreferIncludesOverIndexOfFacts(context));
+    facts.push(...collectPreferNullishCoalescingFacts(context));
+    facts.push(...collectUnusedExpressionFacts(context));
+    facts.push(...collectFlawedStringComparisonFacts(context));
+    facts.push(...collectConfusingLabelInSwitchFacts(context));
+    facts.push(...collectComplexBooleanReturnFacts(context));
+    facts.push(...collectNonExistentAssignmentOperatorFacts(context));
+
     return facts;
   };
+
+function collectNonExistentAssignmentOperatorFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+  const { program, sourceText, nodeIds } = context;
+
+  walkAst(program, (node) => {
+    if (node.type !== 'AssignmentExpression' || node.operator !== '=') {
+      return;
+    }
+
+    const right = node.right;
+    if (
+      right.type !== 'UnaryExpression' ||
+      !['+', '-', '!', '~'].includes(right.operator)
+    ) {
+      return;
+    }
+
+    const text = getNodeText(node, sourceText);
+    if (!text) return;
+    const unaryOperatorChars = /([+\-!~])/g;
+    let match;
+
+    while ((match = unaryOperatorChars.exec(text)) !== null) {
+      if (match.index === 0) {
+        continue;
+      }
+
+      const charBefore = text[match.index - 1];
+      if (charBefore === '=' && match[1] === right.operator) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.non-existent-assignment-operator',
+            node,
+            nodeIds,
+            text,
+            props: {
+              operator: match[1],
+            },
+          }),
+        );
+        break;
+      }
+    }
+  });
+
+  return facts;
+}

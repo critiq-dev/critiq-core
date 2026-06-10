@@ -9,6 +9,7 @@ import { collectIndexKeyFacts } from './index-key';
 import { collectLegacyReactPatternFacts } from './legacy-react-patterns';
 import { collectMissingAccessibleNameFacts } from './accessible-name';
 import { collectReactMaintenancePatternFacts } from './react-maintenance-patterns';
+import { collectRulesOfHooksFacts } from './rules-of-hooks';
 import { collectUncontrolledControlledInputFacts } from './uncontrolled-controlled-input';
 
 /** Collects React UI and accessibility facts for JS and TS sources. */
@@ -25,6 +26,7 @@ export function detectReactAccessibilityFacts(
     ...collectDeprecatedReactApiFacts(context),
     ...collectAccessibilityParityFacts(context),
     ...collectIframeMissingSandboxFacts(context),
+    ...collectRulesOfHooksFacts(context),
   ];
 }
 

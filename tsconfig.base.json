@@ -66,6 +66,9 @@
       "@critiq/adapter-shared": [
         "libs/adapters/shared/src/index.ts"
       ],
+      "@critiq/adapter-sql": [
+        "libs/adapters/sql/src/index.ts"
+      ],
       "@critiq/adapter-typescript": [
         "libs/adapters/typescript/src/index.ts"
       ],

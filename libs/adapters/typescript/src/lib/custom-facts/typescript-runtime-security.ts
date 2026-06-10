@@ -23,6 +23,7 @@ const FACT_KINDS = {
   throwLiteral: 'security.throw-literal',
   alertConfirmPrompt: 'security.alert-confirm-prompt',
   processExit: 'runtime.process-exit',
+  processExitControlFlow: 'runtime.process-exit-control-flow',
   unsafeDirnamePathConcat: 'security.unsafe-dirname-path-concat',
 } as const;
 
@@ -566,6 +567,132 @@ function collectProcessExitFacts(
   return facts;
 }
 
+function collectProcessExitControlFlowFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+
+  walkAstWithAncestors(context.program, (node, ancestors) => {
+    if (node.type !== 'CallExpression') {
+      return;
+    }
+
+    const calleeText = getCalleeText(node.callee, context.sourceText);
+
+    if (!isProcessExitCall(calleeText)) {
+      return;
+    }
+
+    let parent: TSESTree.Node | undefined;
+
+    for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+      const ancestor = ancestors[index];
+      if (
+        ancestor.type === 'TryStatement' ||
+        ancestor.type === 'FunctionDeclaration' ||
+        ancestor.type === 'FunctionExpression' ||
+        ancestor.type === 'ArrowFunctionExpression' ||
+        ancestor.type === 'Program'
+      ) {
+        parent = ancestor;
+        break;
+      }
+    }
+
+    if (!parent) {
+      return;
+    }
+
+    if (parent.type === 'TryStatement' && parent.finalizer) {
+      let insideFinally = false;
+
+      walkAst(parent.finalizer, (inner) => {
+        if (inner === node) {
+          insideFinally = true;
+        }
+      });
+
+      if (insideFinally) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: FACT_KINDS.processExitControlFlow,
+            node,
+            nodeIds: context.nodeIds,
+            text: excerptFor(node, context.sourceText),
+            props: {
+              context: 'finally',
+              callee: calleeText,
+            },
+          }),
+        );
+
+        return;
+      }
+    }
+
+    if (parent.type === 'TryStatement' || parent.type === 'FunctionDeclaration' ||
+        parent.type === 'FunctionExpression' || parent.type === 'ArrowFunctionExpression') {
+
+      const body = parent.type === 'TryStatement'
+        ? parent.block
+        : (parent as TSESTree.FunctionLike).body;
+
+      if (!body || body.type !== 'BlockStatement') {
+        return;
+      }
+
+      const bodyStatements = body.body;
+      let nodeIndex = -1;
+
+      for (let index = 0; index < bodyStatements.length; index += 1) {
+        const stmt = bodyStatements[index];
+        let found = false;
+        walkAst(stmt, (inner) => {
+          if (inner === node) {
+            found = true;
+          }
+        });
+        if (found) {
+          nodeIndex = index;
+          break;
+        }
+      }
+
+      if (nodeIndex >= 0 && nodeIndex < bodyStatements.length - 1) {
+        const nextStatement = bodyStatements[nodeIndex + 1];
+
+        let hasReachableCode = true;
+
+        if (
+          nextStatement.type === 'ReturnStatement' ||
+          nextStatement.type === 'ThrowStatement'
+        ) {
+          hasReachableCode = false;
+        }
+
+        if (hasReachableCode) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'block',
+              kind: FACT_KINDS.processExitControlFlow,
+              node,
+              nodeIds: context.nodeIds,
+              text: excerptFor(node, context.sourceText),
+              props: {
+                context: 'reachable-code-after-exit',
+                callee: calleeText,
+              },
+            }),
+          );
+        }
+      }
+    }
+  });
+
+  return facts;
+}
+
 function collectUnsafeDirnamePathConcatFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
@@ -628,5 +755,6 @@ export const collectTypescriptRuntimeSecurityFacts: TypeScriptFactDetector = (
   ...collectThrowLiteralFacts(context),
   ...collectAlertConfirmPromptFacts(context),
   ...collectProcessExitFacts(context),
+  ...collectProcessExitControlFlowFacts(context),
   ...collectUnsafeDirnamePathConcatFacts(context),
 ];

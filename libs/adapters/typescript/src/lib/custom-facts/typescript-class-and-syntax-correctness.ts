@@ -2,7 +2,11 @@ import type { ObservedFact } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
 import { getNodeText, walkAst, walkAstWithAncestors } from '../ast';
-import { createObservedFact, type TypeScriptFactDetector } from './shared';
+import {
+  createObservedFact,
+  type TypeScriptFactDetector,
+  type TypeScriptFactDetectorContext,
+} from './shared';
 
 const RESTRICTED_OBJECT_PROPERTIES = new Set([
   '__proto__',
@@ -273,6 +277,121 @@ function isFunctionOrMethodAncestor(ancestors: readonly TSESTree.Node[]): boolea
   return false;
 }
 
+function hasClassAncestor(ancestors: readonly TSESTree.Node[]): boolean {
+  for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+    const ancestor = ancestors[index];
+    if (ancestor.type === 'ClassDeclaration' || ancestor.type === 'ClassExpression') {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isInsideObjectLiteralMethod(ancestors: readonly TSESTree.Node[]): boolean {
+  for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+    const ancestor = ancestors[index];
+    if (
+      ancestor.type === 'FunctionDeclaration' ||
+      ancestor.type === 'FunctionExpression' ||
+      ancestor.type === 'ArrowFunctionExpression'
+    ) {
+      const parent = index > 0 ? ancestors[index - 1] : undefined;
+      if (parent?.type === 'Property' && (parent as TSESTree.Property).method) {
+        return true;
+      }
+      return false;
+    }
+  }
+  return false;
+}
+
+function collectPrivateMemberShouldBeReadonlyFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+  const { program, sourceText, nodeIds } = context;
+
+  walkAst(program, (node) => {
+    if (node.type !== 'ClassDeclaration' && node.type !== 'ClassExpression') {
+      return;
+    }
+
+    const privateFieldNames = new Set<string>();
+
+    for (const member of node.body.body) {
+      if (
+        member.type === 'PropertyDefinition' &&
+        member.accessibility === 'private' &&
+        member.key.type === 'Identifier' &&
+        !member.readonly
+      ) {
+        privateFieldNames.add(member.key.name);
+      }
+    }
+
+    if (privateFieldNames.size === 0) {
+      return;
+    }
+
+    const mutatedNames = new Set<string>();
+
+    walkAstWithAncestors(node.body, (inner, ancestors) => {
+      if (
+        inner.type !== 'AssignmentExpression' ||
+        inner.left.type !== 'MemberExpression' ||
+        inner.left.object.type !== 'ThisExpression' ||
+        inner.left.computed ||
+        inner.left.property.type !== 'Identifier' ||
+        !privateFieldNames.has(inner.left.property.name)
+      ) {
+        return;
+      }
+
+      const fieldName = inner.left.property.name;
+
+      for (let index = ancestors.length - 1; index >= 0; index -= 1) {
+        const ancestor = ancestors[index];
+        if (ancestor.type === 'PropertyDefinition') {
+          return;
+        }
+        if (ancestor.type === 'MethodDefinition') {
+          if (ancestor.kind !== 'constructor') {
+            mutatedNames.add(fieldName);
+          }
+          return;
+        }
+      }
+
+      mutatedNames.add(fieldName);
+    });
+
+    for (const member of node.body.body) {
+      if (
+        member.type === 'PropertyDefinition' &&
+        member.accessibility === 'private' &&
+        member.key.type === 'Identifier' &&
+        !member.readonly &&
+        !mutatedNames.has(member.key.name)
+      ) {
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'typescript.private-member-should-be-readonly',
+            node: member,
+            nodeIds,
+            text: getNodeText(member, sourceText),
+            props: {
+              member: member.key.name,
+            },
+          }),
+        );
+      }
+    }
+  });
+
+  return facts;
+}
+
 export const collectTypescriptClassAndSyntaxCorrectnessFacts: TypeScriptFactDetector = (
   context,
 ): ObservedFact[] => {
@@ -521,6 +640,31 @@ export const collectTypescriptClassAndSyntaxCorrectnessFacts: TypeScriptFactDete
     }
   });
 
+  walkAstWithAncestors(program, (node, ancestors) => {
+    if (node.type === 'ThisExpression') {
+      if (hasClassAncestor(ancestors)) {
+        return;
+      }
+
+      if (isInsideObjectLiteralMethod(ancestors)) {
+        return;
+      }
+
+      facts.push(
+        createObservedFact({
+          appliesTo: 'file',
+          kind: 'language.this-outside-class',
+          node,
+          nodeIds,
+          text: getNodeText(node, sourceText),
+          props: {
+            reason: 'this-outside-class',
+          },
+        }),
+      );
+    }
+  });
+
   const lines = sourceText.split('\n');
   for (let index = 0; index < lines.length - 1; index += 1) {
     const current = lines[index]?.trim() ?? '';
@@ -545,6 +689,8 @@ export const collectTypescriptClassAndSyntaxCorrectnessFacts: TypeScriptFactDete
       );
     }
   }
+
+  facts.push(...collectPrivateMemberShouldBeReadonlyFacts(context));
 
   return facts;
 };

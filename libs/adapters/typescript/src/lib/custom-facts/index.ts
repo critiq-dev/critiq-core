@@ -1,5 +1,6 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 
+import { collectAngularJsFacts } from './angularjs';
 import {
   collectAdditionalPublicSecurityFacts,
 } from './additional-public-security';
@@ -9,6 +10,7 @@ import { collectTypescriptAsyncCorrectnessFacts } from './typescript-async-corre
 import { collectTypescriptCoreLanguageCorrectnessFacts } from './typescript-core-language-correctness';
 import { collectTypescriptClassAndSyntaxCorrectnessFacts } from './typescript-class-and-syntax-correctness';
 import { collectTypescriptCorrectnessLanguageExtendedFacts } from './typescript-correctness-language-extended';
+import { collectTypescriptLanguageCorrectnessExtendedFacts } from './typescript-language-correctness-extended';
 import { collectTypescriptScopeCorrectnessFacts } from './typescript-scope-correctness';
 import {
   collectInsecureCookieJwtSessionFacts,
@@ -34,17 +36,26 @@ import { collectTypescriptRuntimeSecurityFacts } from './typescript-runtime-secu
 import type { TypeScriptFactDetectorContext } from './shared';
 import { collectUserControlledRegexpFacts } from './user-controlled-regexp';
 import { collectWeakCryptoFacts } from './weak-crypto';
+import { collectVueDeprecationFacts } from './vue-deprecation-facts';
+import { collectVueFacts } from './vue';
+import { collectVueNuxtLifecycleFacts } from './vue-nuxt-lifecycle-facts';
+import { collectVueNuxtCorrectnessFacts } from './vue-nuxt-correctness-facts';
+import { collectNextImportRulesFacts } from './next-import-rules';
+import { collectDuplicateExportFacts } from './typescript-export-correctness';
+import { collectTypescriptUselessAssertionFacts } from './typescript-testing-useless-assertions';
 
 export function collectAdditionalTypeScriptFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
   const facts = [
+    ...collectAngularJsFacts(context),
     ...collectAdditionalPublicSecurityFacts(context),
     ...collectClientApplicationSecurityFacts(context),
     ...collectElectronShellOpenExternalUnvalidatedFacts(context),
     ...collectTypescriptAsyncCorrectnessFacts(context),
     ...collectTypescriptCoreLanguageCorrectnessFacts(context),
     ...collectTypescriptCorrectnessLanguageExtendedFacts(context),
+    ...collectTypescriptLanguageCorrectnessExtendedFacts(context),
     ...collectTypescriptScopeCorrectnessFacts(context),
     ...collectTypescriptClassAndSyntaxCorrectnessFacts(context),
     ...collectInsecureCookieJwtSessionFacts(context),
@@ -68,6 +79,13 @@ export function collectAdditionalTypeScriptFacts(
     ...collectNestJsSecurityFacts(context),
     ...collectWeakCryptoFacts(context),
     ...collectUserControlledRegexpFacts(context),
+    ...collectVueFacts(context),
+    ...collectVueDeprecationFacts(context),
+    ...collectVueNuxtLifecycleFacts(context),
+    ...collectVueNuxtCorrectnessFacts(context),
+    ...collectNextImportRulesFacts(context),
+    ...collectDuplicateExportFacts(context),
+    ...collectTypescriptUselessAssertionFacts(context),
   ];
   const uniqueFacts = new Map<string, ObservedFact>();
 

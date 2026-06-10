@@ -121,6 +121,7 @@ describe('collectTypescriptClassAndSyntaxCorrectnessFacts', () => {
         'language.empty-destructuring-pattern',
         'language.invalid-variable-usage',
         'language.switch-case-fallthrough',
+        'language.this-outside-class',
       ].sort(),
     );
   });
@@ -153,5 +154,49 @@ describe('collectTypescriptScopeCorrectnessFacts', () => {
         'language.used-before-definition',
       ].sort(),
     );
+  });
+
+  it('flags extraneous imports (JS-0257)', () => {
+    const facts = analyzeScope(
+      [
+        "import { unused } from './dep';",
+        "import { used } from './dep2';",
+        '',
+        'const x = used;',
+      ].join('\n'),
+    );
+    expect(facts.filter((f) => f.kind === 'language.extraneous-import')).toHaveLength(1);
+  });
+
+  it('does not flag used imports', () => {
+    const facts = analyzeScope(
+      [
+        "import { used } from './dep';",
+        '',
+        'const x = used;',
+      ].join('\n'),
+    );
+    expect(facts.filter((f) => f.kind === 'language.extraneous-import')).toHaveLength(0);
+  });
+
+  it('does not flag side-effect imports', () => {
+    const facts = analyzeScope(
+      [
+        "import './polyfill';",
+        "import { used } from './dep';",
+        '',
+        'const x = used;',
+      ].join('\n'),
+    );
+    expect(facts.filter((f) => f.kind === 'language.extraneous-import')).toHaveLength(0);
+  });
+
+  it('does not flag type-only imports', () => {
+    const facts = analyzeScope(
+      [
+        "import type { Foo } from './types';",
+      ].join('\n'),
+    );
+    expect(facts.filter((f) => f.kind === 'language.extraneous-import')).toHaveLength(0);
   });
 });

@@ -44,12 +44,29 @@ function supportsJsx(path: string): boolean {
   return ['.jsx', '.tsx'].includes(extname(path).toLowerCase());
 }
 
+function sanitizeShebangs(raw: string): string {
+  const lines = raw.split('\n');
+  return lines
+    .map((line, index) => {
+      const shebangColumn = line.indexOf('#!');
+      if (shebangColumn === -1) {
+        return line;
+      }
+      if (index === 0 && shebangColumn === 0) {
+        return line;
+      }
+      return `${' '.repeat(shebangColumn)}// shebang-removed${line.slice(shebangColumn + 2)}`;
+    })
+    .join('\n');
+}
+
 export function analyzeTypeScriptFile(
   path: string,
   text: string,
 ): TypeScriptAnalysisResult {
   try {
-    const program = parse(text, {
+    const sanitized = sanitizeShebangs(text);
+    const program = parse(sanitized, {
       comment: true,
       errorOnUnknownASTType: false,
       jsx: supportsJsx(path),

@@ -245,4 +245,289 @@ describe('collectTypescriptCoreLanguageCorrectnessFacts', () => {
     );
     expect(facts.filter((f) => f.kind === 'language.sparse-array-literal')).toHaveLength(1);
   });
+
+  it('flags new Symbol() instantiation (JS-0233)', () => {
+    const facts = analyze('const s = new Symbol("foo");\n');
+    expect(facts.filter((f) => f.kind === 'language.new-symbol-instance')).toHaveLength(1);
+  });
+
+  it('does not flag Symbol() call as function', () => {
+    const facts = analyze('const s = Symbol("foo");\n');
+    expect(facts.filter((f) => f.kind === 'language.new-symbol-instance')).toHaveLength(0);
+  });
+
+  it('flags var declarations (JS-0239)', () => {
+    const facts = analyze('var x = 1;\n');
+    expect(facts.filter((f) => f.kind === 'language.var-declaration')).toHaveLength(1);
+  });
+
+  it('does not flag let/const declarations', () => {
+    const facts = analyze('let x = 1;\nconst y = 2;\n');
+    expect(facts.filter((f) => f.kind === 'language.var-declaration')).toHaveLength(0);
+  });
+
+  it('flags parseInt on number literal (JS-0253)', () => {
+    const facts = analyze('parseInt(42, 10);\n');
+    expect(facts.filter((f) => f.kind === 'language.parse-int-on-number-literal')).toHaveLength(1);
+  });
+
+  it('flags Number.parseInt on number literal', () => {
+    const facts = analyze('Number.parseInt(42);\n');
+    expect(facts.filter((f) => f.kind === 'language.parse-int-on-number-literal')).toHaveLength(1);
+  });
+
+  it('does not flag parseInt on string literal', () => {
+    const facts = analyze('parseInt("42", 10);\n');
+    expect(facts.filter((f) => f.kind === 'language.parse-int-on-number-literal')).toHaveLength(0);
+  });
+
+  it('flags assignment to exports in CJS context (JS-0256)', () => {
+    const facts = analyze('exports = { foo: 1 };\n');
+    expect(facts.filter((f) => f.kind === 'language.assignment-to-exports')).toHaveLength(1);
+  });
+
+  it('does not flag exports.foo = bar', () => {
+    const facts = analyze('exports.foo = 1;\n');
+    expect(facts.filter((f) => f.kind === 'language.assignment-to-exports')).toHaveLength(0);
+  });
+
+  it('does not flag assignment to exports in ESM context', () => {
+    const facts = analyze("import { foo } from 'bar';\nexports = { foo };\n");
+    expect(facts.filter((f) => f.kind === 'language.assignment-to-exports')).toHaveLength(0);
+  });
+
+  it('flags callback missing error handling (JS-0254)', () => {
+    const facts = analyze(
+      [
+        'import * as fs from "fs";',
+        'fs.readFile("/path", (err, data) => {',
+        '  console.log(data);',
+        '});',
+      ].join('\n'),
+    );
+    expect(facts.filter((f) => f.kind === 'language.callback-missing-error-handling')).toHaveLength(1);
+  });
+
+  it('does not flag callback that uses error param', () => {
+    const facts = analyze(
+      [
+        'import * as fs from "fs";',
+        'fs.readFile("/path", (err, data) => {',
+        '  if (err) throw err;',
+        '  console.log(data);',
+        '});',
+      ].join('\n'),
+    );
+    expect(facts.filter((f) => f.kind === 'language.callback-missing-error-handling')).toHaveLength(0);
+  });
+
+  it('flags non-error-first callback (JS-0255) outside array methods', () => {
+    const facts = analyze(
+      [
+        'import * as fs from "fs";',
+        'fs.readFile("/path", (data, cb) => {',
+        '  void cb;',
+        '});',
+      ].join('\n'),
+    );
+
+    expect(facts.filter((f) => f.kind === 'language.callback-not-error-first')).toHaveLength(1);
+  });
+
+  it('does not flag array method callbacks as non-error-first', () => {
+    const facts = analyze(
+      '[1, 2, 3].map((item) => item * 2);\n',
+    );
+    expect(facts.filter((f) => f.kind === 'language.callback-not-error-first')).toHaveLength(0);
+  });
+
+  it('does not flag .then callback as non-error-first', () => {
+    const facts = analyze(
+      'Promise.resolve(1).then((result) => result);\n',
+    );
+    expect(facts.filter((f) => f.kind === 'language.callback-not-error-first')).toHaveLength(0);
+  });
+
+  it('flags new require() expression (JS-0261)', () => {
+    const facts = analyze(
+      'const fs = new (require(\'fs\'))();\n',
+    );
+    expect(facts.filter((f) => f.kind === 'language.new-expression-with-require')).toHaveLength(1);
+  });
+
+  it('flags bare new require() as direct constructor call', () => {
+    const facts = analyze(
+      'new require(\'fs\');\n',
+    );
+    expect(facts.filter((f) => f.kind === 'language.new-expression-with-require')).toHaveLength(1);
+  });
+
+  it('does not flag new require().Member access (valid constructor)', () => {
+    const facts = analyze(
+      'const r = new (require(\'express\').Router)();\n',
+    );
+    expect(facts.filter((f) => f.kind === 'language.new-expression-with-require')).toHaveLength(0);
+  });
+
+  it('does not flag bare require() call', () => {
+    const facts = analyze(
+      'const fs = require(\'fs\');\n',
+    );
+    expect(facts.filter((f) => f.kind === 'language.new-expression-with-require')).toHaveLength(0);
+  });
+
+  it('does not flag normal new expression', () => {
+    const facts = analyze(
+      'const map = new Map();\n',
+    );
+    expect(facts.filter((f) => f.kind === 'language.new-expression-with-require')).toHaveLength(0);
+  });
+
+  it('does not flag new require.resolve()', () => {
+    const facts = analyze(
+      'const resolved = new require.resolve(\'fs\');\n',
+    );
+    expect(facts.filter((f) => f.kind === 'language.new-expression-with-require')).toHaveLength(0);
+  });
+
+  describe('language.require-outside-import (JS-0359)', () => {
+    it('flags require() call outside import', () => {
+      const facts = analyze("const fs = require('fs');\n");
+      expect(facts.filter((f) => f.kind === 'language.require-outside-import')).toHaveLength(1);
+    });
+
+    it('flags require.resolve() as require usage', () => {
+      const facts = analyze(
+        "const resolved = require.resolve('fs');\n",
+      );
+      expect(facts.filter((f) => f.kind === 'language.require-outside-import')).toHaveLength(1);
+    });
+
+    it('does not flag require() inside import x = require()', () => {
+      const facts = analyze(
+        "import fs = require('fs');\n",
+      );
+      expect(facts.filter((f) => f.kind === 'language.require-outside-import')).toHaveLength(0);
+    });
+
+    it('does not flag normal import', () => {
+      const facts = analyze(
+        "import * as fs from 'fs';\n",
+      );
+      expect(facts.filter((f) => f.kind === 'language.require-outside-import')).toHaveLength(0);
+    });
+  });
+
+  describe('language.prefer-includes-over-indexof (JS-0363)', () => {
+    it('flags arr.indexOf(x) !== -1', () => {
+      const facts = analyze(
+        'const found = arr.indexOf(x) !== -1;\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.prefer-includes-over-indexof')).toHaveLength(1);
+    });
+
+    it('flags arr.indexOf(x) >= 0', () => {
+      const facts = analyze(
+        'const found = arr.indexOf(x) >= 0;\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.prefer-includes-over-indexof')).toHaveLength(1);
+    });
+
+    it('flags !(arr.indexOf(x) === -1)', () => {
+      const facts = analyze(
+        'const found = !(arr.indexOf(x) === -1);\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.prefer-includes-over-indexof')).toHaveLength(
+        1,
+      );
+    });
+
+    it('does not flag legitimate indexOf usage', () => {
+      const facts = analyze(
+        'const idx = arr.indexOf(x);\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.prefer-includes-over-indexof')).toHaveLength(0);
+    });
+  });
+
+  describe('language.unused-expression (JS-B003)', () => {
+    it('flags pure logical expression as statement', () => {
+      const facts = analyze(
+        'export function test() { a && b; }\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.unused-expression')).toHaveLength(1);
+    });
+
+    it('flags literal as statement', () => {
+      const facts = analyze(
+        'export function test() { 42; }\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.unused-expression')).toHaveLength(1);
+    });
+
+    it('flags identifier reference as statement', () => {
+      const facts = analyze(
+        'export function test() { const x = 1; x; }\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.unused-expression')).toHaveLength(1);
+    });
+
+    it('does not flag function call expression', () => {
+      const facts = analyze(
+        'export function test() { foo(); }\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.unused-expression')).toHaveLength(0);
+    });
+
+    it('does not flag assignment expression', () => {
+      const facts = analyze(
+        'export function test() { let x; x = 5; }\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.unused-expression')).toHaveLength(0);
+    });
+
+    it('does not flag directive prologue', () => {
+      const facts = analyze(
+        "'use strict';\nexport const x = 1;\n",
+      );
+      expect(facts.filter((f) => f.kind === 'language.unused-expression')).toHaveLength(0);
+    });
+
+    it('does not flag logical expression with side-effectful right side', () => {
+      const facts = analyze(
+        'export function test() { a && b(); }\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.unused-expression')).toHaveLength(0);
+    });
+
+    it('does not flag new expression', () => {
+      const facts = analyze(
+        'export function test() { new Foo(); }\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.unused-expression')).toHaveLength(0);
+    });
+  });
+
+  describe('language.prefer-nullish-coalescing (JS-0365)', () => {
+    it('flags a || defaultValue pattern', () => {
+      const facts = analyze(
+        'export const result = value || defaultValue;\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.prefer-nullish-coalescing')).toHaveLength(1);
+    });
+
+    it('does not flag a || false where false is a valid value', () => {
+      const facts = analyze(
+        'export const result = flag || true;\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.prefer-nullish-coalescing')).toHaveLength(0);
+    });
+
+    it('flags a !== undefined ? a : b ternary', () => {
+      const facts = analyze(
+        'export const result = x !== undefined ? x : fallback;\n',
+      );
+      expect(facts.filter((f) => f.kind === 'language.prefer-nullish-coalescing')).toHaveLength(1);
+    });
+  });
 });

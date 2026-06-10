@@ -5,6 +5,7 @@ import { getCalleeText, getNodeText, walkAst } from '../ast';
 import {
   createObservedFact,
   type TypeScriptFactDetector,
+  type TypeScriptFactDetectorContext,
 } from './shared';
 
 const SNAPSHOT_INTENT_COMMENT = /^\s*\/\/\s*snapshot:/;
@@ -138,6 +139,88 @@ function snapshotCallLacksIntent(
   return !SNAPSHOT_INTENT_COMMENT.test(prev);
 }
 
+const TESTING_LIBRARY_IMPORTS = [
+  '@testing-library/react',
+  '@testing-library/dom',
+  '@testing-library/vue',
+  '@testing-library/svelte',
+  '@testing-library/angular',
+];
+
+const LEGACY_WAITER_NAMES = new Set([
+  'wait',
+  'waitForElement',
+  'waitForDomChange',
+]);
+
+function collectTestingLibraryImportSources(
+  program: TSESTree.Program,
+): Set<string> {
+  const sources = new Set<string>();
+
+  walkAst(program, (node) => {
+    if (node.type !== 'ImportDeclaration') return;
+    if (!TESTING_LIBRARY_IMPORTS.includes(node.source.value)) return;
+
+    for (const spec of node.specifiers) {
+      if (
+        spec.type === 'ImportSpecifier' &&
+        spec.imported.type === 'Identifier'
+      ) {
+        sources.add(spec.imported.name);
+      }
+      if (spec.type === 'ImportDefaultSpecifier') {
+        sources.add(spec.local.name);
+      }
+      if (spec.type === 'ImportNamespaceSpecifier') {
+        sources.add(spec.local.name);
+      }
+    }
+  });
+
+  return sources;
+}
+
+function collectLegacyWaiterFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+  const { path: filePath, sourceText, program, nodeIds } = context;
+
+  if (!pathLooksLikeNarrowUnitTest(filePath)) return facts;
+
+  const testingLibImports = collectTestingLibraryImportSources(program);
+  if (testingLibImports.size === 0) return facts;
+
+  walkAst(program, (node) => {
+    if (node.type !== 'CallExpression') return;
+
+    const calleeText = getCalleeText(node.callee, sourceText) ?? '';
+
+    if (calleeText === 'waitFor') return;
+
+    const isLegacy = LEGACY_WAITER_NAMES.has(calleeText);
+
+    if (!isLegacy) return;
+
+    if (node.callee.type === 'Identifier') {
+      if (!testingLibImports.has(node.callee.name)) return;
+    }
+
+    facts.push(
+      createObservedFact({
+        appliesTo: 'block',
+        kind: 'testing.legacy-waiter',
+        node,
+        nodeIds,
+        text: getNodeText(node, sourceText),
+      }),
+    );
+  });
+
+  return facts;
+}
+
 export const collectTypescriptTestingHygieneFacts: TypeScriptFactDetector = (
   context,
 ): ObservedFact[] => {
@@ -249,6 +332,8 @@ export const collectTypescriptTestingHygieneFacts: TypeScriptFactDetector = (
       }
     }
   });
+
+  facts.push(...collectLegacyWaiterFacts(context));
 
   return facts;
 };

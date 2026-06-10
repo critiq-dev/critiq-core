@@ -2,7 +2,11 @@ import type { ObservedFact } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
 import { getNodeText, walkAst, walkAstWithAncestors } from '../ast';
-import { createObservedFact, type TypeScriptFactDetector } from './shared';
+import {
+  createObservedFact,
+  type TypeScriptFactDetector,
+  type TypeScriptFactDetectorContext,
+} from './shared';
 
 const ALLOWED_SIDE_EFFECT_IMPORT_PATH =
   /(?:^|\/)(?:setup|polyfills?|instrumentation|register|bootstrap|test-setup|jest\.setup|vitest\.setup)(?:\/|\.|$)/i;
@@ -113,6 +117,166 @@ function detectMixedAbstraction(body: string): boolean {
   );
   return [hasTransport, hasPersistence, hasValidation, hasDomain].filter(Boolean)
     .length >= 3;
+}
+
+function collectBannedTypeFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+  const { program, sourceText, nodeIds } = context;
+
+  walkAst(program, (node) => {
+    if (
+      node.type === 'TSTypeAnnotation' &&
+      node.typeAnnotation.type === 'TSAnyKeyword'
+    ) {
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: 'quality.banned-type',
+          node,
+          nodeIds,
+          text: getNodeText(node, sourceText),
+          props: {
+            bannedType: 'any',
+            context: 'type-annotation',
+          },
+        }),
+      );
+    }
+
+    if (
+      node.type === 'TSArrayType' &&
+      node.elementType.type === 'TSAnyKeyword'
+    ) {
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: 'quality.banned-type',
+          node,
+          nodeIds,
+          text: getNodeText(node, sourceText),
+          props: {
+            bannedType: 'any',
+            context: 'array-type',
+          },
+        }),
+      );
+    }
+
+    if (
+      node.type === 'TSAsExpression' &&
+      node.typeAnnotation.type === 'TSAnyKeyword'
+    ) {
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: 'quality.banned-type',
+          node,
+          nodeIds,
+          text: getNodeText(node, sourceText),
+          props: {
+            bannedType: 'any',
+            context: 'as-cast',
+          },
+        }),
+      );
+    }
+
+    if (
+      node.type === 'TSTypeAliasDeclaration' &&
+      node.typeAnnotation.type === 'TSAnyKeyword'
+    ) {
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: 'quality.banned-type',
+          node,
+          nodeIds,
+          text: getNodeText(node, sourceText),
+          props: {
+            bannedType: 'any',
+            context: 'type-alias',
+          },
+        }),
+      );
+    }
+
+
+  });
+
+  return facts;
+}
+
+const MUTATION_METHODS = new Set([
+  'push', 'pop', 'splice', 'sort', 'reverse',
+  'shift', 'unshift', 'fill', 'copyWithin',
+  'set', 'delete', 'add', 'clear',
+]);
+
+function isMutationCall(
+  node: TSESTree.CallExpression,
+): boolean {
+  if (
+    node.callee.type === 'MemberExpression' &&
+    !node.callee.computed &&
+    node.callee.property.type === 'Identifier'
+  ) {
+    return MUTATION_METHODS.has(node.callee.property.name);
+  }
+
+  return false;
+}
+
+function collectGetterSideEffectFacts(
+  context: TypeScriptFactDetectorContext,
+): ObservedFact[] {
+  const facts: ObservedFact[] = [];
+  const { program, sourceText, nodeIds } = context;
+
+  walkAstWithAncestors(program, (node, ancestors) => {
+    if (node.type !== 'MethodDefinition') return;
+    if (node.kind !== 'get') return;
+    if (!node.value.body) return;
+    if (node.value.body.type !== 'BlockStatement') return;
+
+    const body = node.value.body;
+    let hasSideEffect = false;
+
+    for (const stmt of body.body) {
+      if (stmt.type === 'ReturnStatement') continue;
+
+      if (stmt.type === 'ExpressionStatement') {
+        const expr = stmt.expression;
+
+        if (expr.type === 'AssignmentExpression') {
+          hasSideEffect = true;
+        }
+
+        if (expr.type === 'UpdateExpression') {
+          hasSideEffect = true;
+        }
+
+        if (expr.type === 'CallExpression' && isMutationCall(expr)) {
+          hasSideEffect = true;
+        }
+      }
+    }
+
+    if (hasSideEffect) {
+      facts.push(
+        createObservedFact({
+          appliesTo: 'block',
+          kind: 'quality.side-effect-in-getter',
+          node,
+          nodeIds,
+          text: getNodeText(node, sourceText),
+        }),
+      );
+    }
+  });
+
+  return facts;
 }
 
 export const collectTypescriptQualityMaintainabilityFacts: TypeScriptFactDetector =
@@ -330,6 +494,10 @@ export const collectTypescriptQualityMaintainabilityFacts: TypeScriptFactDetecto
         }),
       );
     }
+
+    facts.push(...collectBannedTypeFacts(context));
+
+    facts.push(...collectGetterSideEffectFacts(context));
 
     return facts;
   };
