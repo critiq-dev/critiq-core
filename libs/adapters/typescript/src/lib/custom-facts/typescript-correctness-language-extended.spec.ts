@@ -87,7 +87,7 @@ describe('collectTypescriptCorrectnessLanguageExtendedFacts', () => {
     ).toHaveLength(1);
   });
 
-  it('flags array callbacks without return and bare sort calls', () => {
+  it('flags array callbacks without return and bare sort calls on numeric arrays', () => {
     const facts = kinds(
       [
         'export function arrayHelpers(items: number[]) {',
@@ -105,6 +105,58 @@ describe('collectTypescriptCorrectnessLanguageExtendedFacts', () => {
         'language.array-sort-without-compare',
       ].sort(),
     );
+  });
+
+  it('does not flag sort on string literal arrays', () => {
+    const facts = kinds(
+      '["c", "a", "b"].sort();',
+    );
+
+    expect(facts).toEqual([]);
+  });
+
+  it('does not flag sort on string-typed arrays', () => {
+    const facts = kinds(
+      [
+        'export function sortStrings(items: string[]) {',
+        '  items.sort();',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(facts).toEqual([]);
+  });
+
+  it('does not flag sort on Array<string> typed arrays', () => {
+    const facts = kinds(
+      [
+        'export function sortStrings(items: Array<string>) {',
+        '  items.sort();',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(facts).toEqual([]);
+  });
+
+  it('flags sort on untyped arrays', () => {
+    const facts = kinds(
+      [
+        'export function sortUnknown(items) {',
+        '  items.sort();',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(facts).toEqual(['language.array-sort-without-compare']);
+  });
+
+  it('flags sort on empty array literals (unknown type)', () => {
+    const facts = kinds(
+      '[].sort();',
+    );
+
+    expect(facts).toEqual(['language.array-sort-without-compare']);
   });
 
   it('flags non-Error promise rejection and async throws', () => {

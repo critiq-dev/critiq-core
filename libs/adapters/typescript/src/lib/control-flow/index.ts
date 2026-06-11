@@ -4561,6 +4561,28 @@ function isRejectPropagationCall(
   return typeof callee === 'string' && /(^|\.)(reject)$/.test(callee);
 }
 
+function isCallbackPropagationCall(
+  callExpression: TSESTree.CallExpression,
+  errorIdentifier: string | undefined,
+  sourceText: string,
+): boolean {
+  if (!errorIdentifier) {
+    return false;
+  }
+
+  const callee = expressionText(callExpression.callee, sourceText);
+
+  if (typeof callee !== 'string' || !/^(callback|cb|next|done)$/.test(callee)) {
+    return false;
+  }
+
+  return callExpression.arguments.some(
+    (argument) =>
+      argument.type !== 'SpreadElement' &&
+      subtreeReferencesIdentifier(argument, errorIdentifier),
+  );
+}
+
 function maybeEmitCatchFacts(
   context: FunctionBuildContext,
   node: TSESTree.CatchClause,
@@ -4571,11 +4593,28 @@ function maybeEmitCatchFacts(
   let hasReject = false;
   let hasThrow = false;
   let hasThrowWithContext = false;
+  let hasCallbackPropagation = false;
+  let hasReturnFallback = false;
   let emittedMissingContext = false;
 
   visitSubtree(
     node.body,
     (candidate) => {
+      if (candidate.type === 'ReturnStatement') {
+        if (
+          !candidate.argument ||
+          (candidate.argument.type === 'Literal' &&
+            (candidate.argument.value === null ||
+              candidate.argument.value === false)) ||
+          (candidate.argument.type === 'Identifier' &&
+            candidate.argument.name === 'undefined')
+        ) {
+          hasReturnFallback = true;
+        }
+
+        return;
+      }
+
       if (candidate.type === 'ThrowStatement') {
         hasThrow = true;
 
@@ -4596,6 +4635,16 @@ function maybeEmitCatchFacts(
 
       if (isRejectPropagationCall(candidate, context.root.sourceText)) {
         hasReject = true;
+      }
+
+      if (
+        isCallbackPropagationCall(
+          candidate,
+          errorIdentifier,
+          context.root.sourceText,
+        )
+      ) {
+        hasCallbackPropagation = true;
       }
 
       if (!isRecognizedErrorSinkCall(candidate, context.root.sourceText)) {
@@ -4620,7 +4669,13 @@ function maybeEmitCatchFacts(
     },
   );
 
-  if (!hasRecognizedSink && !hasReject && !hasThrow) {
+  if (
+    !hasRecognizedSink &&
+    !hasReject &&
+    !hasThrow &&
+    !hasCallbackPropagation &&
+    !hasReturnFallback
+  ) {
     // Don't flag catch blocks where the error parameter name starts with `_`,
     // indicating the developer intentionally ignored the error (common in callbacks).
     if (!errorIdentifier || !errorIdentifier.startsWith('_')) {

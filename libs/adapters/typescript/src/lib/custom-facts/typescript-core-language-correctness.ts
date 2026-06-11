@@ -17,6 +17,40 @@ function isAssignmentExpression(
 }
 
 /**
+ * Returns true when `node` is a `module.exports` reference or assignment,
+ * making `exports = <node>` safe (the standard CommonJS replace pattern).
+ *
+ * Safe patterns:
+ *   - `exports = module.exports` (re-syncing after mutation)
+ *   - `exports = module.exports = X` (chained assignment)
+ */
+function isSafeExportsAssignmentRight(node: TSESTree.Node): boolean {
+  // exports = module.exports (re-syncing after mutation)
+  if (
+    node.type === 'MemberExpression' &&
+    node.object.type === 'Identifier' &&
+    node.object.name === 'module' &&
+    node.property.type === 'Identifier' &&
+    node.property.name === 'exports'
+  ) {
+    return true;
+  }
+  // exports = module.exports = X (chained assignment)
+  if (
+    node.type === 'AssignmentExpression' &&
+    node.operator === '=' &&
+    node.left.type === 'MemberExpression' &&
+    node.left.object.type === 'Identifier' &&
+    node.left.object.name === 'module' &&
+    node.left.property.type === 'Identifier' &&
+    node.left.property.name === 'exports'
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Detects `if (x = y)`-style conditions where the test node is an assignment.
  *
  * Note: `@typescript-eslint/typescript-estree` elides grouping parentheses, so
@@ -1468,6 +1502,83 @@ function getBooleanLiteralValue(
   return undefined;
 }
 
+function getScopeBodyStatements(scope: TSESTree.Node): TSESTree.Statement[] | undefined {
+  if (scope.type === 'Program') {
+    return (scope as TSESTree.Program).body;
+  }
+  if (scope.type === 'FunctionDeclaration' || scope.type === 'FunctionExpression') {
+    const fn = scope as TSESTree.FunctionDeclaration | TSESTree.FunctionExpression;
+    return fn.body.body;
+  }
+  if (scope.type === 'ArrowFunctionExpression') {
+    const arrow = scope as TSESTree.ArrowFunctionExpression;
+    if (arrow.body.type === 'BlockStatement') {
+      return arrow.body.body;
+    }
+  }
+  return undefined;
+}
+
+function blockContainsVarDecl(node: TSESTree.Node, name: string): boolean {
+  if (node.type === 'VariableDeclaration') {
+    return node.declarations.some(
+      (d) => d.id.type === 'Identifier' && d.id.name === name,
+    );
+  }
+
+  const children = getBlockChildren(node);
+  if (children) {
+    return children.some((child) => blockContainsVarDecl(child, name));
+  }
+
+  return false;
+}
+
+function getBlockChildren(node: TSESTree.Node): TSESTree.Node[] | undefined {
+  switch (node.type) {
+    case 'BlockStatement':
+      return node.body as TSESTree.Node[];
+    case 'IfStatement':
+      return node.alternate
+        ? [node.consequent as TSESTree.Node, node.alternate as TSESTree.Node]
+        : [node.consequent as TSESTree.Node];
+    case 'ForStatement':
+    case 'ForInStatement':
+    case 'ForOfStatement':
+    case 'WhileStatement':
+    case 'DoWhileStatement':
+      return [(node as { body: TSESTree.Statement }).body];
+    case 'SwitchStatement':
+      return (node as TSESTree.SwitchStatement).cases.flatMap((c) => c.consequent as TSESTree.Node[]);
+    case 'TryStatement': {
+      const parts: TSESTree.Node[] = [
+        ...(node as TSESTree.TryStatement).block.body,
+      ];
+      const handler = (node as TSESTree.TryStatement).handler;
+      if (handler?.body?.body) {
+        parts.push(...handler.body.body);
+      }
+      const finalizer = (node as TSESTree.TryStatement).finalizer;
+      if (finalizer?.body) {
+        parts.push(...finalizer.body);
+      }
+      return parts;
+    }
+    case 'LabeledStatement':
+      return [(node as TSESTree.LabeledStatement).body];
+    case 'WithStatement':
+      return [(node as { body: TSESTree.Statement }).body];
+    default:
+      return undefined;
+  }
+}
+
+function isNameShadowedByLocalVar(scope: TSESTree.Node, name: string): boolean {
+  const statements = getScopeBodyStatements(scope);
+  if (!statements) return false;
+  return statements.some((stmt) => blockContainsVarDecl(stmt, name));
+}
+
 export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetector =
   (context): ObservedFact[] => {
     const { program, sourceText, nodeIds } = context;
@@ -1493,7 +1604,7 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
       }
     });
 
-    walkAst(program, (node) => {
+    walkAstWithAncestors(program, (node, ancestors) => {
       if (node.type === 'ImportDeclaration') {
         const source = node.source.value;
         const count = (importSourceCounts.get(source) ?? 0) + 1;
@@ -1711,18 +1822,31 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
         }
 
         if (node.left.type === 'Identifier' && functionDeclarationNames.has(node.left.name)) {
-          facts.push(
-            createObservedFact({
-              appliesTo: 'file',
-              kind: 'language.reassign-function-declaration',
-              node,
-              nodeIds,
-              text: getNodeText(node, sourceText),
-              props: {
-                binding: node.left.name,
-              },
-            }),
+          const bindingName = node.left.name;
+
+          const isShadowed = ancestors.some(
+            (ancestor) =>
+              (ancestor.type === 'FunctionDeclaration' ||
+                ancestor.type === 'FunctionExpression' ||
+                ancestor.type === 'ArrowFunctionExpression' ||
+                ancestor.type === 'Program') &&
+              isNameShadowedByLocalVar(ancestor, bindingName),
           );
+
+          if (!isShadowed) {
+            facts.push(
+              createObservedFact({
+                appliesTo: 'file',
+                kind: 'language.reassign-function-declaration',
+                node,
+                nodeIds,
+                text: getNodeText(node, sourceText),
+                props: {
+                  binding: bindingName,
+                },
+              }),
+            );
+          }
         }
       }
 
@@ -1932,7 +2056,8 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
         node.type === 'AssignmentExpression' &&
         node.operator === '=' &&
         node.left.type === 'Identifier' &&
-        node.left.name === 'exports'
+        node.left.name === 'exports' &&
+        !isSafeExportsAssignmentRight(node.right)
       ) {
         const hasESM = program.body.some(
           (s) =>

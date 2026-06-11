@@ -296,6 +296,21 @@ describe('collectTypescriptCoreLanguageCorrectnessFacts', () => {
     expect(facts.filter((f) => f.kind === 'language.assignment-to-exports')).toHaveLength(0);
   });
 
+  it('does not flag exports = module.exports (re-syncing after mutation)', () => {
+    const facts = analyze('exports = module.exports;\n');
+    expect(facts.filter((f) => f.kind === 'language.assignment-to-exports')).toHaveLength(0);
+  });
+
+  it('does not flag exports = module.exports = X (chained assignment)', () => {
+    const facts = analyze('exports = module.exports = createApplication;\n');
+    expect(facts.filter((f) => f.kind === 'language.assignment-to-exports')).toHaveLength(0);
+  });
+
+  it('does not flag var app = exports = module.exports = {} (chained var decl)', () => {
+    const facts = analyze('var app = exports = module.exports = {};\n');
+    expect(facts.filter((f) => f.kind === 'language.assignment-to-exports')).toHaveLength(0);
+  });
+
   it('flags callback missing error handling (JS-0254)', () => {
     const facts = analyze(
       [

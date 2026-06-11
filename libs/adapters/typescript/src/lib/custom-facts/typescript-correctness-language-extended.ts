@@ -227,6 +227,143 @@ function looksLikeArrayExpression(
   return false;
 }
 
+/**
+ * Structural type for TypeScript type annotation nodes used in sort-target
+ * inference.  Mirrors the subset of TSESTree.TypeNode properties we actually
+ * inspect (type discrimination, array element type, generic type arguments).
+ */
+type SortTargetTypeNode = {
+  type: string;
+  elementType?: SortTargetTypeNode;
+  typeName?: { type: string; name: string };
+  typeArguments?: { params: SortTargetTypeNode[] };
+};
+
+/**
+ * Best-effort map from identifier names to their declared TypeScript type
+ * annotations. Scope is not resolved, so later declarations can shadow
+ * earlier ones. Used only for the sort-without-compare heuristic.
+ */
+function collectTypeAnnotationMap(
+  program: TSESTree.Node,
+): Map<string, SortTargetTypeNode> {
+  const types = new Map<string, SortTargetTypeNode>();
+
+  walkAst(program, (node) => {
+    // Variable declarations: const items: string[] = ...
+    if (node.type === 'VariableDeclarator') {
+      const id = node.id;
+      if (id.type === 'Identifier' && id.typeAnnotation) {
+        types.set(id.name, id.typeAnnotation.typeAnnotation as unknown as SortTargetTypeNode);
+      }
+      return;
+    }
+
+    // Function parameters: function foo(items: string[]) {}
+    if (isFunctionLike(node)) {
+      for (const param of node.params) {
+        if (param.type === 'Identifier' && param.typeAnnotation) {
+          types.set(param.name, param.typeAnnotation.typeAnnotation as unknown as SortTargetTypeNode);
+        }
+      }
+      return;
+    }
+
+    // Constructor parameter properties: constructor(private items: string[]) {}
+    if (
+      node.type === 'TSParameterProperty' &&
+      node.parameter.type === 'Identifier' &&
+      node.parameter.typeAnnotation
+    ) {
+      types.set(
+        node.parameter.name,
+        node.parameter.typeAnnotation.typeAnnotation as unknown as SortTargetTypeNode,
+      );
+      return;
+    }
+
+    // Class property definitions: class Foo { items: string[]; }
+    if (
+      node.type === 'PropertyDefinition' &&
+      node.key.type === 'Identifier' &&
+      node.typeAnnotation
+    ) {
+      types.set(node.key.name, node.typeAnnotation.typeAnnotation as unknown as SortTargetTypeNode);
+      return;
+    }
+  });
+
+  return types;
+}
+
+function isStringArrayType(typeNode: SortTargetTypeNode | undefined): boolean {
+  if (!typeNode) {
+    return false;
+  }
+
+  // string[]
+  if (typeNode.type === 'TSArrayType' && typeNode.elementType) {
+    return typeNode.elementType.type === 'TSStringKeyword';
+  }
+
+  // Array<string> or ReadonlyArray<string>
+  if (typeNode.type === 'TSTypeReference') {
+    const typeName = typeNode.typeName;
+    if (typeName?.type === 'Identifier') {
+      if (
+        typeName.name === 'Array' ||
+        typeName.name === 'ReadonlyArray'
+      ) {
+        const params = typeNode.typeArguments?.params;
+        return (
+          params !== undefined &&
+          params.length === 1 &&
+          params[0] !== undefined &&
+          params[0].type === 'TSStringKeyword'
+        );
+      }
+    }
+  }
+
+  return false;
+}
+
+function isArrayOfStringLiterals(expression: TSESTree.Expression): boolean {
+  if (expression.type !== 'ArrayExpression') {
+    return false;
+  }
+
+  if (expression.elements.length === 0) {
+    return false;
+  }
+
+  return expression.elements.every(
+    (el) =>
+      el !== null &&
+      el.type !== 'SpreadElement' &&
+      el.type === 'Literal' &&
+      typeof el.value === 'string',
+  );
+}
+
+function isDefinitivelyStringArray(
+  target: TSESTree.Expression,
+  typeMap: Map<string, SortTargetTypeNode>,
+): boolean {
+  if (isArrayOfStringLiterals(target)) {
+    return true;
+  }
+
+  if (
+    target.type === 'Identifier' &&
+    isStringArrayType(typeMap.get(target.name))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function collectDuplicateIfElseChainFacts(
   head: TSESTree.IfStatement,
   nodeIds: WeakMap<object, string>,
@@ -431,6 +568,7 @@ export const collectTypescriptCorrectnessLanguageExtendedFacts: TypeScriptFactDe
   (context): ObservedFact[] => {
     const { program, sourceText, nodeIds } = context;
     const facts: ObservedFact[] = [];
+    const typeMap = collectTypeAnnotationMap(program);
 
     walkAst(program, (node) => {
       if (node.type === 'TryStatement' && node.finalizer) {
@@ -553,16 +691,18 @@ export const collectTypescriptCorrectnessLanguageExtendedFacts: TypeScriptFactDe
         node.callee.property.name === 'sort' &&
         node.arguments.length === 0
       ) {
-        facts.push(
-          createObservedFact({
-            appliesTo: 'file',
-            kind: 'language.array-sort-without-compare',
-            node,
-            nodeIds,
-            text: getNodeText(node, sourceText),
-            props: {},
-          }),
-        );
+        if (!isDefinitivelyStringArray(node.callee.object, typeMap)) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'file',
+              kind: 'language.array-sort-without-compare',
+              node,
+              nodeIds,
+              text: getNodeText(node, sourceText),
+              props: {},
+            }),
+          );
+        }
       }
 
       if (node.type === 'ForInStatement' && looksLikeArrayExpression(node.right)) {

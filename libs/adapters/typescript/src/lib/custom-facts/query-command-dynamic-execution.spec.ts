@@ -92,4 +92,71 @@ describe('collectQueryCommandDynamicExecutionFacts', () => {
 
     expect(facts).toEqual([]);
   });
+
+  it('ignores regex literal .exec() — RegExp.prototype.exec is pattern matching, not command execution', () => {
+    const facts = collectQueryCommandDynamicExecutionFacts(
+      createContext([
+        'function parse(req) {',
+        '  return /build=([^&]+)/.exec(req.query.search);',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === 'security.command-execution-with-request-input',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('ignores .exec() on a variable when child_process is not imported', () => {
+    const facts = collectQueryCommandDynamicExecutionFacts(
+      createContext([
+        'const separator = /separator/;',
+        'function split(req) {',
+        '  return separator.exec(req.query.text);',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === 'security.command-execution-with-request-input',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('still flags bare exec() with request input (imported from child_process)', () => {
+    const facts = collectQueryCommandDynamicExecutionFacts(
+      createContext([
+        "import { exec } from 'node:child_process';",
+        'function run(req) {',
+        '  exec(req.query.cmd);',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === 'security.command-execution-with-request-input',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('still flags child_process.exec() member expression with request input', () => {
+    const facts = collectQueryCommandDynamicExecutionFacts(
+      createContext([
+        "const cp = require('child_process');",
+        'function run(req) {',
+        '  cp.exec(req.query.cmd);',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === 'security.command-execution-with-request-input',
+      ),
+    ).toHaveLength(1);
+  });
 });

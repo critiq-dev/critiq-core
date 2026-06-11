@@ -199,4 +199,96 @@ describe('collectTypescriptScopeCorrectnessFacts', () => {
     );
     expect(facts.filter((f) => f.kind === 'language.extraneous-import')).toHaveLength(0);
   });
+
+  it('does not flag var undefined; pre-ES5 anti-mutation guard', () => {
+    const facts = analyzeScope(
+      [
+        'function guard() {',
+        '  var undefined;',
+        '}',
+      ].join('\n'),
+    );
+    expect(facts.filter((f) => f.kind === 'language.unused-variable')).toHaveLength(0);
+  });
+
+  it('does not flag var undefined = undefined; pre-ES5 anti-mutation guard', () => {
+    const facts = analyzeScope(
+      [
+        'function guard() {',
+        '  var undefined = undefined;',
+        '}',
+      ].join('\n'),
+    );
+    expect(facts.filter((f) => f.kind === 'language.unused-variable')).toHaveLength(0);
+  });
+
+  it('does not flag var undefined = void 0; (explicit initialization)', () => {
+    const facts = analyzeScope(
+      [
+        'function guard() {',
+        '  var undefined = void 0;',
+        '}',
+      ].join('\n'),
+    );
+    // void 0 is NOT Identifier("undefined"), so it should still flag this.
+    // This is an unusual pattern compared to the classic var undefined;
+    expect(facts.filter((f) => f.kind === 'language.unused-variable')).toHaveLength(1);
+  });
+
+  it('does not flag CJS require variable used via member expression', () => {
+    const facts = analyzeScope(
+      [
+        "const file = require('../common/file');",
+        'file.copy(source, dest);',
+      ].join('\n'),
+    );
+    expect(facts.filter((f) => f.kind === 'language.unused-variable')).toHaveLength(0);
+  });
+
+  it('does not flag CJS require variable used as callable', () => {
+    const facts = analyzeScope(
+      [
+        "const fn = require('../common/fn');",
+        'fn();',
+      ].join('\n'),
+    );
+    expect(facts.filter((f) => f.kind === 'language.unused-variable')).toHaveLength(0);
+  });
+
+  it('does not flag CJS require variable used inside nested function', () => {
+    const facts = analyzeScope(
+      [
+        "const file = require('../common/file');",
+        'function build() {',
+        '  file.copy(source, dest);',
+        '}',
+      ].join('\n'),
+    );
+    expect(facts.filter((f) => f.kind === 'language.unused-variable')).toHaveLength(0);
+  });
+
+  it('does not flag CJS require variable used inside arrow function', () => {
+    const facts = analyzeScope(
+      [
+        "const file = require('../common/file');",
+        'const handler = () => { file.copy(source, dest); };',
+      ].join('\n'),
+    );
+    const unusedBindings = facts
+      .filter((f) => f.kind === 'language.unused-variable')
+      .map((f) => (f as { props?: { binding?: string } }).props?.binding);
+    // `file` is used inside the arrow — should NOT be flagged.
+    expect(unusedBindings).not.toContain('file');
+    // `handler` is assigned the arrow but never called — legitimately flagged.
+    expect(unusedBindings).toContain('handler');
+  });
+
+  it('flags CJS require variable when truly unused', () => {
+    const facts = analyzeScope(
+      [
+        "const file = require('../common/file');",
+      ].join('\n'),
+    );
+    expect(facts.filter((f) => f.kind === 'language.unused-variable')).toHaveLength(1);
+  });
 });

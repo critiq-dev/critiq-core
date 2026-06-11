@@ -380,6 +380,17 @@ export function collectObservableTimingFacts(
       return;
     }
 
+    // Exclude SCREAMING_SNAKE_CASE constants (e.g. HASH_UNDEFINED,
+    // WRAP_BIND_FLAG) whose names happen to contain sensitive substrings.
+    // These are bitmask / flag / enum constants, not actual secrets.
+    const secretNode = secretSide === leftText ? node.left : node.right;
+    if (
+      secretNode.type === 'Identifier' &&
+      /^[A-Z][A-Z0-9]*(?:_[A-Z][A-Z0-9]*)+$/.test(secretNode.name)
+    ) {
+      return;
+    }
+
     facts.push(
       createObservedFact({
         appliesTo: 'block',

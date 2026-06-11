@@ -176,9 +176,76 @@ export const { analyze: analyzeRubyFile, sourceAdapter: rubySourceAdapter } =
     definition: rubyAdapterDefinition,
   });
 
+function stripRubyPercentLiterals(text: string): string {
+  const pairDelimiters: Record<string, string> = { '(': ')', '{': '}', '[': ']', '<': '>' };
+  const result = text.split('');
+  const percentTypes = new Set(['q', 'Q', 'x', 'r', 'i', 'I', 'w', 'W']);
+
+  for (let cursor = 0; cursor < text.length; cursor++) {
+    if (text[cursor] !== '%') {
+      continue;
+    }
+
+    if (cursor > 0 && /\w/.test(text[cursor - 1])) {
+      continue;
+    }
+
+    const type = text[cursor + 1];
+    if (!type || !percentTypes.has(type)) {
+      continue;
+    }
+
+    const delimiter = text[cursor + 2];
+    if (!delimiter || /\s/.test(delimiter) || /\w/.test(delimiter)) {
+      continue;
+    }
+
+    const start = cursor;
+    const pairClose = pairDelimiters[delimiter];
+    let depth = 1;
+    let pos = start + 3;
+
+    while (pos < text.length) {
+      const ch = text[pos];
+      if (ch === '\\') {
+        pos += 2;
+        continue;
+      }
+      if (pairClose) {
+        if (ch === pairClose) {
+          depth -= 1;
+          if (depth === 0) {
+            pos += 1;
+            break;
+          }
+        } else if (ch === delimiter) {
+          depth += 1;
+        }
+      } else {
+        if (ch === delimiter) {
+          depth -= 1;
+          if (depth === 0) {
+            pos += 1;
+            break;
+          }
+        }
+      }
+      pos += 1;
+    }
+
+    for (let i = start; i < pos && i < result.length; i++) {
+      result[i] = ' ';
+    }
+    cursor = pos;
+  }
+
+  return result.join('');
+}
+
 function validateRubySource(path: string, text: string): Diagnostic | undefined {
+  const percentStripped = stripRubyPercentLiterals(text);
   const unmatched = findFirstUnmatchedDelimiter(
-    text,
+    percentStripped,
     [
       ['(', ')'],
       ['[', ']'],

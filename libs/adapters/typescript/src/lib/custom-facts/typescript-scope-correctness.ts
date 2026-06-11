@@ -24,13 +24,19 @@ const GLOBAL_IDENTIFIERS = new Set([
   'Date',
   'RegExp',
   'Error',
+  'TypeError',
+  'RangeError',
   'Map',
   'Set',
+  'WeakMap',
+  'WeakSet',
   'Promise',
   'JSON',
   'Math',
   'console',
   'globalThis',
+  'global',
+  'self',
   'window',
   'document',
   'module',
@@ -40,12 +46,33 @@ const GLOBAL_IDENTIFIERS = new Set([
   '__dirname',
   '__filename',
   'Buffer',
+  'ArrayBuffer',
+  'SharedArrayBuffer',
+  'DataView',
+  'Int8Array',
+  'Uint8Array',
+  'Uint8ClampedArray',
+  'Int16Array',
+  'Uint16Array',
+  'Int32Array',
+  'Uint32Array',
+  'Float32Array',
+  'Float64Array',
+  'BigInt64Array',
+  'BigUint64Array',
+  'Atomics',
+  'WebAssembly',
+  'encodeURI',
+  'encodeURIComponent',
+  'decodeURI',
+  'decodeURIComponent',
   'setTimeout',
   'setInterval',
   'clearTimeout',
   'clearInterval',
   'setImmediate',
   'queueMicrotask',
+  'unescape',
 ]);
 
 const RESTRICTED_GLOBALS = new Set([
@@ -53,7 +80,6 @@ const RESTRICTED_GLOBALS = new Set([
   'name',
   'status',
   'parent',
-  'self',
   'top',
   'frames',
   'opener',
@@ -64,10 +90,12 @@ const RESTRICTED_GLOBALS = new Set([
 
 type Binding = {
   name: string;
-  kind: 'var' | 'let' | 'const' | 'param' | 'import';
+  kind: 'var' | 'let' | 'const' | 'param' | 'import' | 'function';
   declaredLine: number;
   referenced: boolean;
   node: TSESTree.Node;
+  /** True when the binding is a `var undefined;` (or `var undefined = undefined;`) pre-ES5 anti-mutation guard. */
+  isUndefinedGuard?: boolean;
 };
 
 function isTypeOrPropertyName(
@@ -163,12 +191,20 @@ function collectDeclarations(
             ? statement.kind
             : 'let';
 
+        // Pre-ES5 anti-mutation guard: `var undefined;` or `var undefined = undefined;`
+        const isUndefinedGuard =
+          kind === 'var' &&
+          declarator.id.name === 'undefined' &&
+          (!declarator.init ||
+            (declarator.init.type === 'Identifier' && declarator.init.name === 'undefined'));
+
         bindings.set(declarator.id.name, {
           name: declarator.id.name,
           kind,
           declaredLine: declarator.id.loc?.start.line ?? 0,
           referenced: false,
           node: declarator.id,
+          isUndefinedGuard,
         });
       }
     }
@@ -177,7 +213,7 @@ function collectDeclarations(
     if (fnDecl?.id) {
       bindings.set(fnDecl.id.name, {
         name: fnDecl.id.name,
-        kind: 'const',
+        kind: 'function',
         declaredLine: fnDecl.id.loc?.start.line ?? 0,
         referenced: true,
         node: fnDecl.id,
@@ -204,12 +240,19 @@ function collectNestedVarDeclarations(
         }
 
         if (!bindings.has(declarator.id.name)) {
+          // Pre-ES5 anti-mutation guard: `var undefined;` or `var undefined = undefined;`
+          const isUndefinedGuard =
+            declarator.id.name === 'undefined' &&
+            (!declarator.init ||
+              (declarator.init.type === 'Identifier' && declarator.init.name === 'undefined'));
+
           bindings.set(declarator.id.name, {
             name: declarator.id.name,
             kind: 'var',
             declaredLine: declarator.id.loc?.start.line ?? 0,
             referenced: false,
             node: declarator.id,
+            isUndefinedGuard,
           });
         }
       }
@@ -228,6 +271,27 @@ function collectNestedVarDeclarations(
             if (node.type === 'SwitchCase') {
               const sc = node as TSESTree.SwitchCase;
               queue.push(...sc.consequent);
+            }
+          }
+        }
+      } else if (value && typeof value === 'object' && 'type' in value &&
+                 typeof (value as { type: unknown }).type === 'string') {
+        const node = value as TSESTree.Node;
+        // Catch var declarations in non-array positions (e.g. for-loop init)
+        if (node.type === 'VariableDeclaration' && (node as TSESTree.VariableDeclaration).kind === 'var') {
+          const vd = node as TSESTree.VariableDeclaration;
+          for (const declarator of vd.declarations) {
+            if (declarator.id.type !== 'Identifier') {
+              continue;
+            }
+            if (!bindings.has(declarator.id.name)) {
+              bindings.set(declarator.id.name, {
+                name: declarator.id.name,
+                kind: 'var',
+                declaredLine: declarator.id.loc?.start.line ?? 0,
+                referenced: false,
+                node: declarator.id,
+              });
             }
           }
         }
@@ -321,6 +385,7 @@ function analyzeReferencesInStatement(
         binding.referenced = true;
 
         if (
+          binding.kind !== 'function' &&
           (binding.kind === 'let' || binding.kind === 'const') &&
           referenceLine < binding.declaredLine
         ) {
@@ -449,6 +514,11 @@ function analyzeScopeBlock(
 
   for (const binding of bindings.values()) {
     if (!binding.referenced && binding.kind !== 'import' && !parentBindings.has(binding.name)) {
+      // `var undefined;` is a well-known pre-ES5 anti-mutation guard — skip it.
+      if (binding.isUndefinedGuard) {
+        continue;
+      }
+
       facts.push(
         createObservedFact({
           appliesTo: 'file',

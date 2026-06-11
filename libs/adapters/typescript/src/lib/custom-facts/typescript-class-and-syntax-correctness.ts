@@ -18,6 +18,40 @@ const RESTRICTED_OBJECT_PROPERTIES = new Set([
   'prototype',
 ]);
 
+const BUILTIN_CONSTRUCTORS = new Set([
+  'Array',
+  'ArrayBuffer',
+  'BigInt64Array',
+  'BigUint64Array',
+  'Boolean',
+  'DataView',
+  'Date',
+  'Error',
+  'Float32Array',
+  'Float64Array',
+  'Function',
+  'Int16Array',
+  'Int32Array',
+  'Int8Array',
+  'Map',
+  'Number',
+  'Object',
+  'Promise',
+  'Proxy',
+  'Reflect',
+  'RegExp',
+  'Set',
+  'SharedArrayBuffer',
+  'String',
+  'Symbol',
+  'Uint16Array',
+  'Uint32Array',
+  'Uint8Array',
+  'Uint8ClampedArray',
+  'WeakMap',
+  'WeakSet',
+]);
+
 const RESTRICTED_MEMBER_PROPERTIES = new Set(['callee', 'caller', 'arguments']);
 
 function memberPropertyName(property: TSESTree.Expression | TSESTree.PrivateIdentifier): string | undefined {
@@ -569,18 +603,37 @@ export const collectTypescriptClassAndSyntaxCorrectnessFacts: TypeScriptFactDete
     if (node.type === 'MemberExpression' && !node.computed) {
       const property = memberPropertyName(node.property);
       if (property && RESTRICTED_OBJECT_PROPERTIES.has(property)) {
-        facts.push(
-          createObservedFact({
-            appliesTo: 'file',
-            kind: 'language.restricted-object-property',
-            node,
-            nodeIds,
-            text: getNodeText(node, sourceText),
-            props: {
-              property,
-            },
-          }),
-        );
+        const parent = ancestors[ancestors.length - 1];
+
+        // Only flag writes (left side of AssignmentExpression) to built-in
+        // prototypes. Reading or accessing own-library prototypes is fine.
+        const isWrite =
+          parent !== undefined &&
+          parent.type === 'AssignmentExpression' &&
+          'left' in parent &&
+          (parent as TSESTree.AssignmentExpression).left === node;
+
+        const objectName =
+          node.object.type === 'Identifier' ? node.object.name : undefined;
+
+        const isBuiltinObject =
+          objectName !== undefined && BUILTIN_CONSTRUCTORS.has(objectName);
+
+        if (isWrite && isBuiltinObject) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'file',
+              kind: 'language.restricted-object-property',
+              node,
+              nodeIds,
+              text: getNodeText(node, sourceText),
+              props: {
+                property,
+                object: objectName,
+              },
+            }),
+          );
+        }
       }
 
       if (

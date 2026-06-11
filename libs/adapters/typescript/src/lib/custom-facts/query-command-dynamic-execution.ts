@@ -290,6 +290,59 @@ function hasShellEnabled(
   });
 }
 
+function isRegExpLiteral(node: TSESTree.Node): boolean {
+  if (node.type !== 'Literal') {
+    return false;
+  }
+
+  const maybe = node as TSESTree.Literal & {
+    regex?: { pattern: string; flags: string };
+  };
+
+  return maybe.regex !== undefined;
+}
+
+function hasChildProcessImportOrRequire(
+  context: TypeScriptFactDetectorContext,
+): boolean {
+  let found = false;
+
+  walkAst(context.program, (node) => {
+    if (found) {
+      return;
+    }
+
+    if (
+      node.type === 'ImportDeclaration' &&
+      typeof node.source.value === 'string' &&
+      /child_process/u.test(node.source.value)
+    ) {
+      found = true;
+      return;
+    }
+
+    if (
+      node.type === 'CallExpression' &&
+      node.callee.type === 'Identifier' &&
+      node.callee.name === 'require' &&
+      node.arguments.length > 0 &&
+      node.arguments[0].type !== 'SpreadElement'
+    ) {
+      const arg = node.arguments[0] as TSESTree.Expression;
+
+      if (
+        arg.type === 'Literal' &&
+        typeof arg.value === 'string' &&
+        /child_process/u.test(arg.value)
+      ) {
+        found = true;
+      }
+    }
+  });
+
+  return found;
+}
+
 function isTimerStringExecution(
   node: TSESTree.CallExpression,
   context: TypeScriptFactDetectorContext,
@@ -391,6 +444,7 @@ function collectCommandExecutionFacts(
   taintedNames: ReadonlySet<string>,
 ): ObservedFact[] {
   const facts: ObservedFact[] = [];
+  const hasChildProcessBinding = hasChildProcessImportOrRequire(context);
 
   walkAst(context.program, (node) => {
     if (node.type !== 'CallExpression') {
@@ -410,6 +464,19 @@ function collectCommandExecutionFacts(
       commandArgument.type === 'SpreadElement'
     ) {
       return;
+    }
+
+    if (
+      calleeLeaf === 'exec' &&
+      node.callee.type === 'MemberExpression'
+    ) {
+      if (isRegExpLiteral(node.callee.object)) {
+        return;
+      }
+
+      if (!hasChildProcessBinding) {
+        return;
+      }
     }
 
     const shellEnabled = hasShellEnabled(node.arguments);
@@ -475,6 +542,20 @@ function collectDynamicExecutionFacts(
       }
 
       if (directDynamicExecutionNames.has(calleeText)) {
+        // Skip calls where the first argument is a hardcoded string literal
+        // (e.g. Function('return this') — the standard cross-platform
+        // global object accessor). Only flag when the argument could be
+        // user-controlled.
+        const firstArg = node.arguments[0];
+        if (
+          firstArg &&
+          firstArg.type !== 'SpreadElement' &&
+          firstArg.type === 'Literal' &&
+          typeof firstArg.value === 'string'
+        ) {
+          return;
+        }
+
         facts.push(
           createObservedFact({
             appliesTo: 'block',
@@ -528,6 +609,18 @@ function collectDynamicExecutionFacts(
       !calleeText ||
       !constructorText ||
       !dynamicConstructorNames.has(calleeText)
+    ) {
+      return;
+    }
+
+    // Skip `new Function('literal')` where the first argument is a
+    // hardcoded string (same reasoning as the CallExpression case above).
+    const firstArg = node.arguments[0];
+    if (
+      firstArg &&
+      firstArg.type !== 'SpreadElement' &&
+      firstArg.type === 'Literal' &&
+      typeof firstArg.value === 'string'
     ) {
       return;
     }

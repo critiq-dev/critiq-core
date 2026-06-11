@@ -100,7 +100,7 @@ export const FACT_KINDS = {
 export const requestSourcePattern = trustBoundaryRequestSourcePattern;
 
 export const sensitiveComparePattern =
-  /(?:password|passphrase|hash|secret|token|api[_-]?key|auth[_-]?token)/i;
+  /(?:\b(?:password|passphrase|hash|secret|token)\b|api[_-]?key|auth[_-]?token)/i;
 
 export const sessionCallNames = authSessionCallNames;
 export const responseSinkNames = new Set(['res.end', 'res.send', 'res.write']);
