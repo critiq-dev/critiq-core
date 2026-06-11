@@ -2,8 +2,10 @@ import {
   collectHardcodedCredentialFacts,
   collectJavaInsecureCookieFacts,
   collectJavaOpenRedirectFacts,
+  collectJavaQualityMaintainabilityFacts,
   collectJavaResponseWriterXssFacts,
   collectJavaSensitiveDataEgressFacts,
+  collectJavaTestingHygieneFacts,
   collectSensitiveLoggingFacts,
   collectAndroidScreenshotExposureFacts,
   collectAndroidWorldReadableModeFacts,
@@ -179,5 +181,129 @@ describe('shared domain collectors', () => {
       'security.spring-debug-exposure',
       'security.spring-debug-exposure',
     ]);
+  });
+
+  describe('java quality facts', () => {
+    it('flags C-style array declaration', () => {
+      const facts = collectJavaQualityMaintainabilityFacts({
+        detector: 'test-detector',
+        path: 'Main.java',
+        text: 'int arr[] = new int[5];',
+      });
+
+      expect(facts.filter((f) => f.kind === 'java.quality.c-style-array-declaration')).toHaveLength(1);
+    });
+
+    it('does not flag Java-style array declaration', () => {
+      const facts = collectJavaQualityMaintainabilityFacts({
+        detector: 'test-detector',
+        path: 'Main.java',
+        text: 'int[] arr = new int[5];',
+      });
+
+      expect(facts.filter((f) => f.kind === 'java.quality.c-style-array-declaration')).toHaveLength(0);
+    });
+
+    it('flags type name with lowercase start', () => {
+      const facts = collectJavaQualityMaintainabilityFacts({
+        detector: 'test-detector',
+        path: 'Main.java',
+        text: 'class myClass {}',
+      });
+
+      expect(facts.filter((f) => f.kind === 'java.quality.type-name-uppercase')).toHaveLength(1);
+    });
+
+    it('does not flag type name with uppercase start', () => {
+      const facts = collectJavaQualityMaintainabilityFacts({
+        detector: 'test-detector',
+        path: 'Main.java',
+        text: 'class MyClass {}',
+      });
+
+      expect(facts.filter((f) => f.kind === 'java.quality.type-name-uppercase')).toHaveLength(0);
+    });
+
+    it('flags multiple variables on same line', () => {
+      const facts = collectJavaQualityMaintainabilityFacts({
+        detector: 'test-detector',
+        path: 'Main.java',
+        text: 'int a, b = 5;',
+      });
+
+      expect(facts.filter((f) => f.kind === 'java.quality.multiple-variables-same-line')).toHaveLength(1);
+    });
+
+    it('does not flag for-loop initializer', () => {
+      const facts = collectJavaQualityMaintainabilityFacts({
+        detector: 'test-detector',
+        path: 'Main.java',
+        text: 'for (int i = 0, j = 0; i < n; i++) {}',
+      });
+
+      expect(facts.filter((f) => f.kind === 'java.quality.multiple-variables-same-line')).toHaveLength(0);
+    });
+
+    it('returns empty for clean code', () => {
+      const facts = collectJavaQualityMaintainabilityFacts({
+        detector: 'test-detector',
+        path: 'Main.java',
+        text: ['int[] arr = new int[5];', 'class MyClass {}', 'int a;', 'int b = 5;'].join('\n'),
+      });
+
+      expect(facts.filter((f) => f.kind.startsWith('java.quality.'))).toHaveLength(0);
+    });
+  });
+
+  describe('java testing hygiene facts', () => {
+    it('flags wrong assertion order: assertEquals(variable, literal)', () => {
+      const facts = collectJavaTestingHygieneFacts({
+        detector: 'test-detector',
+        path: 'src/test/java/BadTest.java',
+        text: 'assertEquals(val, 10);',
+      });
+
+      expect(facts.filter((f) => f.kind === 'java.testing.wrong-assertion-argument-order')).toHaveLength(1);
+    });
+
+    it('does not flag correct assertion order: assertEquals(literal, variable)', () => {
+      const facts = collectJavaTestingHygieneFacts({
+        detector: 'test-detector',
+        path: 'src/test/java/GoodTest.java',
+        text: 'assertEquals(10, val);',
+      });
+
+      expect(facts.filter((f) => f.kind === 'java.testing.wrong-assertion-argument-order')).toHaveLength(0);
+    });
+
+    it('flags assertThat(literal)', () => {
+      const facts = collectJavaTestingHygieneFacts({
+        detector: 'test-detector',
+        path: 'src/test/java/BadTest.java',
+        text: 'assertThat(10).isEqualTo(val);',
+      });
+
+      expect(facts.filter((f) => f.kind === 'java.testing.wrong-assertion-argument-order')).toHaveLength(1);
+    });
+
+    it('does not flag assertThat(variable)', () => {
+      const facts = collectJavaTestingHygieneFacts({
+        detector: 'test-detector',
+        path: 'src/test/java/GoodTest.java',
+        text: 'assertThat(val).isEqualTo(10);',
+      });
+
+      expect(facts.filter((f) => f.kind === 'java.testing.wrong-assertion-argument-order')).toHaveLength(0);
+    });
+
+    it('returns empty for non-test paths', () => {
+      const facts = collectJavaTestingHygieneFacts({
+        detector: 'test-detector',
+        path: 'src/main/java/App.java',
+        text: 'assertEquals(val, 10);',
+      });
+
+      expect(facts.filter((f) => f.kind === 'java.testing.wrong-assertion-argument-order')).toHaveLength(0);
+    });
   });
 });

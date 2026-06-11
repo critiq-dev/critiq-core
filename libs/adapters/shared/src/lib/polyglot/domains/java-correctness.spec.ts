@@ -1933,4 +1933,2492 @@ describe('java-correctness collectors', () => {
       ),
     ).toHaveLength(0);
   });
+
+  // ── Batch 06 (JAVA-E) tests ─────────────────────────────
+
+  it('flags volatile array declaration', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  volatile int[] counters;',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.volatileArrayElements,
+    );
+  });
+
+  it('does not flag volatile scalar declaration', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  volatile int x;',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.volatileArrayElements,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags volatile increment as non-atomic', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  volatile int counter;',
+        '  void inc() { counter++; }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.volatileIncrementNonAtomic,
+    );
+  });
+
+  it('does not flag AtomicInteger as volatile increment', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  AtomicInteger ai = new AtomicInteger();',
+        '  void inc() { ai.incrementAndGet(); }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.volatileIncrementNonAtomic,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags unsafe getResource relative path', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void load() {',
+        '    getClass().getResource("config.xml");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.unsafeGetresource,
+    );
+  });
+
+  it('does not flag getResource with absolute path', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void load() {',
+        '    getClass().getResource("/config.xml");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.unsafeGetresource,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags duplicate binary argument', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void check(int x) {',
+        '    if (x == 0 || x == 0) {}',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.duplicateBinaryArgument,
+    );
+  });
+
+  it('does not flag distinct binary arguments', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void check(int x, int y) {',
+        '    if (x == 0 || y == 0) {}',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.duplicateBinaryArgument,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags catching IllegalMonitorStateException', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void run() {',
+        '    try {',
+        '      doWork();',
+        '    } catch (IllegalMonitorStateException e) {',
+        '      log(e);',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.illegalMonitorStateCaught,
+    );
+  });
+
+  it('does not flag catching IOException', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void run() {',
+        '    try {',
+        '      doWork();',
+        '    } catch (IOException e) {',
+        '      log(e);',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.illegalMonitorStateCaught,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags clone() without super.clone()', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo implements Cloneable {',
+        '  public Object clone() {',
+        '    return new Demo();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.cloneWithoutSuper,
+    );
+  });
+
+  it('does not flag clone() with super.clone()', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo implements Cloneable {',
+        '  public Object clone() throws CloneNotSupportedException {',
+        '    return super.clone();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.cloneWithoutSuper,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags x.equals(null)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  boolean check(String x) {',
+        '    return x.equals(null);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.equalsNull,
+    );
+  });
+
+  it('does not flag x.equals("hello")', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  boolean check(String x) {',
+        '    return x.equals("hello");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.equalsNull,
+      ),
+    ).toHaveLength(0);
+  });
+
+  // ── Batch 07 (JAVA-E) tests ─────────────────────────────
+
+  it('flags non-final field in @Immutable class', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        '@Immutable',
+        'class Demo {',
+        '  private String name;',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.nonFinalImmutableFields,
+    );
+  });
+
+  it('does not flag final field in @Immutable class', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        '@Immutable',
+        'class Demo {',
+        '  private final String name;',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === JAVA_CORRECTNESS_FACT_KINDS.nonFinalImmutableFields,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags unsafe runFinalizersOnExit call', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void run() {',
+        '    System.runFinalizersOnExit(true);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.runfinalizersOnExit,
+    );
+  });
+
+  it('does not flag normal Runtime call', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void run() {',
+        '    Runtime.getRuntime().exec("ls");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === JAVA_CORRECTNESS_FACT_KINDS.runfinalizersOnExit,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags wait() call on Condition variable', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void run() {',
+        '    Condition c = lock.newCondition();',
+        '    c.wait();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.waitOnCondition,
+    );
+  });
+
+  it('does not flag Object.wait() on synchronized object', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void run() {',
+        '    synchronized(obj) {',
+        '      obj.wait();',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.waitOnCondition,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags swapped Math.max/Math.min arguments', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void run() {',
+        '    double x = Math.max(x, Math.min(x, y));',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.mathMaxMinSwapped,
+    );
+  });
+
+  it('does not flag correct Math.max/Math.min usage', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void run() {',
+        '    double r = Math.max(x, Math.min(y, z));',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === JAVA_CORRECTNESS_FACT_KINDS.mathMaxMinSwapped,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags explicit finalize() invocation', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void clean() {',
+        '    obj.finalize();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.explicitFinalizerInvocation,
+    );
+  });
+
+  it('does not flag super.finalize() inside finalize method', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  protected void finalize() throws Throwable {',
+        '    super.finalize();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind ===
+          JAVA_CORRECTNESS_FACT_KINDS.explicitFinalizerInvocation,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags equals method defined in enum', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'enum Color {',
+        '  RED, GREEN, BLUE;',
+        '  public boolean equals(Object o) {',
+        '    return super.equals(o);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.enumEqualsMethod,
+    );
+  });
+
+  it('does not flag enum without equals method', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'enum Color {',
+        '  RED, GREEN, BLUE',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === JAVA_CORRECTNESS_FACT_KINDS.enumEqualsMethod,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags overloaded equals with non-Object parameter', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  public boolean equals(String s) {',
+        '    return false;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.overloadedEquals,
+    );
+  });
+
+  it('does not flag correctly overridden equals(Object)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  public boolean equals(Object obj) {',
+        '    return false;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === JAVA_CORRECTNESS_FACT_KINDS.overloadedEquals,
+      ),
+    ).toHaveLength(0);
+  });
+
+  // ── Batch 08 (JAVA-E) tests ─────────────────────────────
+
+  it('flags equals inherits parent without Object override', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Parent {',
+        '  public boolean equals(Object o) { return true; }',
+        '}',
+        'class Child extends Parent {',
+        '  public boolean equals(Child c) { return true; }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.equalsInheritsParent,
+    );
+  });
+
+  it('does not flag equals when Object override present', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Parent {',
+        '  public boolean equals(Object o) { return true; }',
+        '}',
+        'class Child extends Parent {',
+        '  public boolean equals(Child c) { return true; }',
+        '  @Override',
+        '  public boolean equals(Object o) { return true; }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.equalsInheritsParent,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags equals(Object) without null check and with dereference', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  String name;',
+        '  public boolean equals(Object o) {',
+        '    String other = (String) o;',
+        '    return this.name.equals(o.toString());',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.equalsNullCheck,
+    );
+  });
+
+  it('does not flag equals with null guard', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  String name;',
+        '  public boolean equals(Object o) {',
+        '    if (o == null) return false;',
+        '    return this.name.equals(o.toString());',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.equalsNullCheck,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags compareTo returning Integer.MIN_VALUE', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo implements Comparable<Demo> {',
+        '  public int compareTo(Demo other) {',
+        '    return Integer.MIN_VALUE;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.comparetoMinValue,
+    );
+  });
+
+  it('does not flag compareTo returning -1', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo implements Comparable<Demo> {',
+        '  public int compareTo(Demo other) {',
+        '    return -1;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.comparetoMinValue,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags servlet mutable field access in doGet', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class MyServlet extends HttpServlet {',
+        '  private String name;',
+        '  protected void doGet(HttpServletRequest req, HttpServletResponse resp) {',
+        '    resp.getWriter().write(name);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.servletMutableFields,
+    );
+  });
+
+  it('does not flag servlet with synchronized access', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class MyServlet extends HttpServlet {',
+        '  private String name;',
+        '  protected void doGet(HttpServletRequest req, HttpServletResponse resp) {',
+        '    synchronized (this) {',
+        '      resp.getWriter().write(name);',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.servletMutableFields,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags direct .run() call on thread variable', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void go() {',
+        '    Thread t = new Thread(r);',
+        '    t.run();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.runnableRunDirect,
+    );
+  });
+
+  it('does not flag thread.start()', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void go() {',
+        '    Thread t = new Thread(r);',
+        '    t.start();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.runnableRunDirect,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags wait() inside nested synchronized blocks', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  Object a = new Object();',
+        '  Object b = new Object();',
+        '  void go() throws InterruptedException {',
+        '    synchronized (a) {',
+        '      synchronized (b) {',
+        '        b.wait();',
+        '      }',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.twoLockWait,
+    );
+  });
+
+  it('does not flag wait() inside single synchronized block', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  Object a = new Object();',
+        '  void go() throws InterruptedException {',
+        '    synchronized (a) {',
+        '      a.wait();',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.twoLockWait,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags synchronized on boxed primitive variable', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  Integer count = 0;',
+        '  void go() {',
+        '    synchronized (count) {',
+        '      count++;',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.syncBoxedPrimitive,
+    );
+  });
+
+  it('does not flag synchronized on Object lock', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  Object lock = new Object();',
+        '  void go() {',
+        '    synchronized (lock) {',
+        '      work();',
+        '    }',
+        '  }',
+        '  void work() {}',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.syncBoxedPrimitive,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags class name collision with fully-qualified super type', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Foo extends com.other.Foo {',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.classNameCollision,
+    );
+  });
+
+  it('does not flag class with different super type name', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Foo extends com.other.Bar {',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.classNameCollision,
+      ),
+    ).toHaveLength(0);
+  });
+
+  // --- Batch 10 (JAVA-E) — bug risk / framework facts ---
+
+  describe('collectResultSetIndexZeroFacts', () => {
+    it('flags rs.getString(0)', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void get() {',
+          '    String s = rs.getString(0);',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(facts.map((f) => f.kind)).toContain(
+        JAVA_CORRECTNESS_FACT_KINDS.resultSetIndexZero,
+      );
+    });
+
+    it('flags resultSet.updateInt(0, 42)', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void update() {',
+          '    resultSet.updateInt(0, 42);',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(facts.map((f) => f.kind)).toContain(
+        JAVA_CORRECTNESS_FACT_KINDS.resultSetIndexZero,
+      );
+    });
+
+    it('does not flag rs.getString(1)', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void get() {',
+          '    String s = rs.getString(1);',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(
+        facts.filter(
+          (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.resultSetIndexZero,
+        ),
+      ).toHaveLength(0);
+    });
+
+    it('does not flag getXxx(0L) (long literal)', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void get() {',
+          '    String s = rs.getString(0L);',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(
+        facts.filter(
+          (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.resultSetIndexZero,
+        ),
+      ).toHaveLength(0);
+    });
+  });
+
+  describe('collectPreparedStatementIndexZeroFacts', () => {
+    it('flags pstmt.setString(0, "val")', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void set() throws Exception {',
+          '    pstmt.setString(0, "val");',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(facts.map((f) => f.kind)).toContain(
+        JAVA_CORRECTNESS_FACT_KINDS.preparedStatementIndexZero,
+      );
+    });
+
+    it('flags preparedStatement.setNull(0, Types.VARCHAR)', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void set() throws Exception {',
+          '    preparedStatement.setNull(0, java.sql.Types.VARCHAR);',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(facts.map((f) => f.kind)).toContain(
+        JAVA_CORRECTNESS_FACT_KINDS.preparedStatementIndexZero,
+      );
+    });
+
+    it('does not flag pstmt.setString(1, "val")', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void set() throws Exception {',
+          '    pstmt.setString(1, "val");',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(
+        facts.filter(
+          (f) =>
+            f.kind === JAVA_CORRECTNESS_FACT_KINDS.preparedStatementIndexZero,
+        ),
+      ).toHaveLength(0);
+    });
+
+    it('does not flag statement.setFetchSize(0)', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void set() throws Exception {',
+          '    statement.setFetchSize(0);',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(
+        facts.filter(
+          (f) =>
+            f.kind === JAVA_CORRECTNESS_FACT_KINDS.preparedStatementIndexZero,
+        ),
+      ).toHaveLength(0);
+    });
+  });
+
+  describe('collectImpossibleToArrayDowncastFacts', () => {
+    it('flags (String[]) list.toArray()', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void convert() {',
+          '    String[] arr = (String[]) list.toArray();',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(facts.map((f) => f.kind)).toContain(
+        JAVA_CORRECTNESS_FACT_KINDS.impossibleToArrayDowncast,
+      );
+    });
+
+    it('does not flag list.toArray(new String[0])', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'import java.util.List;',
+          'class Test {',
+          '  void convert() {',
+          '    List<String> list = new ArrayList<>();',
+          '    String[] arr = list.toArray(new String[0]);',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(
+        facts.filter(
+          (f) =>
+            f.kind === JAVA_CORRECTNESS_FACT_KINDS.impossibleToArrayDowncast,
+        ),
+      ).toHaveLength(0);
+    });
+  });
+
+  describe('collectInvalidRegexLiteralFacts', () => {
+    it('flags Pattern.compile("[z-a]") for reversed range', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void run() {',
+          '    Pattern.compile("[z-a]");',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(facts.map((f) => f.kind)).toContain(
+        JAVA_CORRECTNESS_FACT_KINDS.invalidRegexLiteral,
+      );
+    });
+
+    it('flags Pattern.compile("[invalid") for unmatched bracket', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'import java.util.regex.Pattern;',
+          'class Test {',
+          '  void run() {',
+          '    Pattern.compile("[invalid");',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(facts.map((f) => f.kind)).toContain(
+        JAVA_CORRECTNESS_FACT_KINDS.invalidRegexLiteral,
+      );
+    });
+
+    it('flags Pattern.compile("(unclosed") for unmatched paren', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void run() {',
+          '    Pattern.compile("(unclosed");',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(facts.map((f) => f.kind)).toContain(
+        JAVA_CORRECTNESS_FACT_KINDS.invalidRegexLiteral,
+      );
+    });
+
+    it('does not flag Pattern.compile("[a-z]")', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void run() {',
+          '    Pattern.compile("[a-z]");',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(
+        facts.filter(
+          (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.invalidRegexLiteral,
+        ),
+      ).toHaveLength(0);
+    });
+
+    it('does not flag Pattern.compile("\\\\d+")', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void run() {',
+          '    Pattern.compile("\\\\d+");',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(
+        facts.filter(
+          (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.invalidRegexLiteral,
+        ),
+      ).toHaveLength(0);
+    });
+  });
+
+  describe('collectLostIncrementInAssignmentFacts', () => {
+    it('flags x = x++', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void run() {',
+          '    int x = 0;',
+          '    x = x++;',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(facts.map((f) => f.kind)).toContain(
+        JAVA_CORRECTNESS_FACT_KINDS.lostIncrementInAssignment,
+      );
+    });
+
+    it('flags y = y--', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void run() {',
+          '    int y = 0;',
+          '    y = y--;',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(facts.map((f) => f.kind)).toContain(
+        JAVA_CORRECTNESS_FACT_KINDS.lostIncrementInAssignment,
+      );
+    });
+
+    it('does not flag x = y++ (different variable)', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void run() {',
+          '    int x = 0;',
+          '    int y = 0;',
+          '    x = y++;',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(
+        facts.filter(
+          (f) =>
+            f.kind === JAVA_CORRECTNESS_FACT_KINDS.lostIncrementInAssignment,
+        ),
+      ).toHaveLength(0);
+    });
+
+    it('does not flag x = x + 1', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void run() {',
+          '    int x = 0;',
+          '    x = x + 1;',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(
+        facts.filter(
+          (f) =>
+            f.kind === JAVA_CORRECTNESS_FACT_KINDS.lostIncrementInAssignment,
+        ),
+      ).toHaveLength(0);
+    });
+
+    it('does not flag x++ alone', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void run() {',
+          '    int x = 0;',
+          '    x++;',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(
+        facts.filter(
+          (f) =>
+            f.kind === JAVA_CORRECTNESS_FACT_KINDS.lostIncrementInAssignment,
+        ),
+      ).toHaveLength(0);
+    });
+
+    it('does not flag for (int i = 0; i < n; i++)', () => {
+      const facts = collectJavaCorrectnessFacts({
+        detector: 'java-detector',
+        text: [
+          'class Test {',
+          '  void run() {',
+          '    for (int i = 0; i < n; i++) {',
+          '      System.out.println(i);',
+          '    }',
+          '  }',
+          '}',
+        ].join('\n'),
+      });
+      expect(
+        facts.filter(
+          (f) =>
+            f.kind === JAVA_CORRECTNESS_FACT_KINDS.lostIncrementInAssignment,
+        ),
+      ).toHaveLength(0);
+    });
+  });
+});
+
+describe('collectShiftOutOfRangeFacts', () => {
+  it('flags negative shift amount', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    int x = val << -1;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.shiftOutOfRange,
+    );
+  });
+
+  it('flags shift amount >= 64', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    int x = val >> 64;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.shiftOutOfRange,
+    );
+  });
+
+  it('does not flag valid shift << 4', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    int x = val << 4;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.shiftOutOfRange,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag long shift 1L << 48', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    long y = 1L << 48;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.shiftOutOfRange,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('collectOddnessCheckFailsNegativeFacts', () => {
+  it('flags x % 2 == 1', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  boolean isOdd(int n) {',
+        '    return n % 2 == 1;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.oddnessCheckFailsNegative,
+    );
+  });
+
+  it('does not flag x % 2 != 0', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  boolean isOdd(int n) {',
+        '    return n % 2 != 0;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.oddnessCheckFailsNegative,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag x % 2 == 0 (evenness check)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  boolean isEven(int n) {',
+        '    return n % 2 == 0;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.oddnessCheckFailsNegative,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('collectHasNextInvokesNextFacts', () => {
+  it('flags .next() call when hasNext method exists', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class MyIterator implements Iterator<String> {',
+        '  public boolean hasNext() {',
+        '    return iterator.next() != null;',
+        '  }',
+        '  public String next() {',
+        '    return "x";',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.hasNextInvokesNext,
+    );
+  });
+
+  it('does not flag when no hasNext method', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    list.next();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.hasNextInvokesNext,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('collectThreadSleepWithLockFacts', () => {
+  it('flags Thread.sleep when synchronized present', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    synchronized (lock) {',
+        '      Thread.sleep(100);',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.threadSleepWithLock,
+    );
+  });
+
+  it('does not flag Thread.sleep without synchronized', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() throws Exception {',
+        '    Thread.sleep(100);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.threadSleepWithLock,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('collectStringFormatArgMismatchFacts', () => {
+  it('flags String.format with mismatched args', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    String.format("%s %d", name);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.stringFormatArgMismatch,
+    );
+  });
+
+  it('does not flag String.format with matching args', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    String.format("%s %d", name, age);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.stringFormatArgMismatch,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag with escaped percent %%', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    String.format("%%s", name);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.stringFormatArgMismatch,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('collectBadShortCircuitNullCheckFacts', () => {
+  it('flags x != null || x.foo()', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run(Object obj) {',
+        '    if (obj != null || obj.toString().isEmpty()) {',
+        '      System.out.println("bad");',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.badShortCircuitNullCheck,
+    );
+  });
+
+  it('flags x == null || x.foo()', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run(Object obj) {',
+        '    if (obj == null || obj.isEmpty()) {',
+        '      System.out.println("bad");',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.badShortCircuitNullCheck,
+    );
+  });
+
+  it('does not flag x != null && x.foo()', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run(Object obj) {',
+        '    if (obj != null && obj.toString().isEmpty()) {',
+        '      System.out.println("ok");',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.badShortCircuitNullCheck,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag different variable', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run(Object obj, String other) {',
+        '    if (obj == null || other.isEmpty()) {',
+        '      System.out.println("ok");',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.badShortCircuitNullCheck,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('collectWaitNotifyOnThreadFacts', () => {
+  it('flags thread.wait() on thread-named variable', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    Thread worker = new Thread();',
+        '    synchronized (worker) {',
+        '      worker.wait();',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.waitNotifyOnThread,
+    );
+  });
+
+  it('flags Thread.currentThread().notify()', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    Thread.currentThread().notify();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.waitNotifyOnThread,
+    );
+  });
+
+  it('does not flag lock.wait() on non-thread variable', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    Object lock = new Object();',
+        '    synchronized (lock) {',
+        '      lock.wait();',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.waitNotifyOnThread,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('collectSwitchStatementLabelsFacts', () => {
+  it('flags statement labels inside switch blocks', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run(int val) {',
+        '    switch (val) {',
+        '      case 1:',
+        '        break;',
+        '      myLabel:',
+        '        break;',
+        '      default:',
+        '        break;',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.switchStatementLabels,
+    );
+  });
+
+  it('does not flag switch with only case and default labels', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run(int val) {',
+        '    switch (val) {',
+        '      case 1:',
+        '        break;',
+        '      case 2:',
+        '        break;',
+        '      default:',
+        '        break;',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.switchStatementLabels,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('collectWeekYearInDatePatternFacts', () => {
+  it('flags YYYY date pattern without week year usage', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    new SimpleDateFormat("YYYY-MM-dd");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.weekYearInDatePattern,
+    );
+  });
+
+  it('does not flag yyyy date pattern', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    new SimpleDateFormat("yyyy-MM-dd");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.weekYearInDatePattern,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('collectJumpInFinallyFacts', () => {
+  it('flags return inside finally block', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  int run() {',
+        '    try {',
+        '      return 1;',
+        '    } finally {',
+        '      return -1;',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.jumpInFinally,
+    );
+  });
+
+  it('does not flag finally block without return/throw', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  int run() {',
+        '    try {',
+        '      return 1;',
+        '    } finally {',
+        '      cleanup();',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.jumpInFinally,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('collectDefaultPackageSpringScanFacts', () => {
+  it('flags @SpringBootApplication in default package', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'import org.springframework.boot.SpringApplication;',
+        'import org.springframework.boot.autoconfigure.SpringBootApplication;',
+        '@SpringBootApplication',
+        'public class App {',
+        '  public static void main(String[] args) {',
+        '    SpringApplication.run(App.class, args);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.defaultPackageSpringScan,
+    );
+  });
+
+  it('does not flag @SpringBootApplication in named package', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'package com.example;',
+        'import org.springframework.boot.SpringApplication;',
+        'import org.springframework.boot.autoconfigure.SpringBootApplication;',
+        '@SpringBootApplication',
+        'public class App {',
+        '  public static void main(String[] args) {',
+        '    SpringApplication.run(App.class, args);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.defaultPackageSpringScan,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('collectCaseInsensitiveRegexLacksUnicodeFacts', () => {
+  it('flags Pattern.compile with CASE_INSENSITIVE but no UNICODE_CASE', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    Pattern.compile("foo", Pattern.CASE_INSENSITIVE);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.caseInsensitiveRegexLacksUnicode,
+    );
+  });
+
+  it('does not flag when both CASE_INSENSITIVE and UNICODE_CASE are present', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    Pattern.compile("foo", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind ===
+          JAVA_CORRECTNESS_FACT_KINDS.caseInsensitiveRegexLacksUnicode,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('collectAssertSelfComparisonFacts', () => {
+  it('flags assertEquals with same object', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    assertEquals(expected, expected);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.assertSelfComparison,
+    );
+  });
+
+  it('does not flag assertEquals with different objects', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  void run() {',
+        '    assertEquals(expected, actual);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.assertSelfComparison,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('collectOptionalGetWithoutPresentCheckFacts', () => {
+  it('flags Optional.get without isPresent check', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'import java.util.Optional;',
+        'class Test {',
+        '  String run(Optional<String> opt) {',
+        '    return opt.get();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.optionalGetWithoutPresentCheck,
+    );
+  });
+});
+
+describe('collectIterableIteratorReturnsThisFacts', () => {
+  it('flags iterator() returning this in class implementing both Iterable and Iterator', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test implements Iterable<String>, Iterator<String> {',
+        '  public Iterator<String> iterator() {',
+        '    return this;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.iterableIteratorReturnsThis,
+    );
+  });
+
+  it('does not flag iterator() returning new iterator', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test implements Iterable<String> {',
+        '  public Iterator<String> iterator() {',
+        '    return new MyIterator();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind === JAVA_CORRECTNESS_FACT_KINDS.iterableIteratorReturnsThis,
+      ),
+    ).toHaveLength(0);
+  });
+
+  // ── Batch 13 (JAVA-E) tests ─────────────────────────────
+
+  it('flags (int) Math.random() without scaling', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  int rand() {',
+        '    return (int) Math.random();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.randomCoercedToZero,
+    );
+  });
+
+  it('does not flag (int) Math.random() with scaling factor', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  int rand() {',
+        '    return (int) (Math.random() * 100);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.randomCoercedToZero,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags new Random().nextInt(1)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'import java.util.Random;',
+        'class Demo {',
+        '  int rand() {',
+        '    return new Random().nextInt(1);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.randomCoercedToZero,
+    );
+  });
+
+  it('flags non-final fields in enum body', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'enum Color {',
+        '  RED, GREEN, BLUE;',
+        '  private String label;',
+        '  private final String name;',
+        '  String getLabel() { return label; }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.mutableEnumFields,
+    );
+  });
+
+  it('does not flag only-final fields in enum body', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'enum Color {',
+        '  RED, GREEN, BLUE;',
+        '  private final String label;',
+        '  private final String name;',
+        '  String getLabel() { return label; }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.mutableEnumFields,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags @NoAllocation method that creates objects', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  @NoAllocation',
+        '  String bad() {',
+        '    return new String("alloc");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.noAllocationMethodCreatesObject,
+    );
+  });
+
+  it('does not flag @NoAllocation method without allocation', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  @NoAllocation',
+        '  String good() {',
+        '    return "literal";',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind === JAVA_CORRECTNESS_FACT_KINDS.noAllocationMethodCreatesObject,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag method without @NoAllocation that creates objects', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  String normal() {',
+        '    return new String("ok");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind === JAVA_CORRECTNESS_FACT_KINDS.noAllocationMethodCreatesObject,
+      ),
+    ).toHaveLength(0);
+  });
+
+  // --- Batch 14 (JAVA-E) tests ---
+
+  it('flags collection.contains(self) for E1076', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void m() {',
+        '    java.util.List<String> strings = java.util.List.of("a");',
+        '    if (strings.contains(strings)) {}',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.collectionContainsSelf,
+    );
+  });
+
+  it('does not flag collection.contains(other) for E1076', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void m() {',
+        '    java.util.List<String> strings = java.util.List.of("a");',
+        '    java.util.List<String> other = java.util.List.of("b");',
+        '    if (strings.containsAll(other)) {}',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.collectionContainsSelf,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags collection.add(self) for E1077', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void m() {',
+        '    java.util.List<String> strings = new java.util.ArrayList<>();',
+        '    strings.add(strings);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.collectionAddsSelf,
+    );
+  });
+
+  it('does not flag collection.add(other) for E1077', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void m() {',
+        '    java.util.List<String> strings = new java.util.ArrayList<>();',
+        '    java.util.List<String> other = new java.util.ArrayList<>();',
+        '    strings.addAll(other);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.collectionAddsSelf,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags ambiguous modulus-multiplication precedence for E1080', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  int m(int i) {',
+        '    return i % 60 * 1000;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.modulusMultiplicationPrecedence,
+    );
+  });
+
+  it('does not flag explicit (mod * mult) for E1080', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  int m(int i) {',
+        '    return (i % 60) * 1000;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind ===
+          JAVA_CORRECTNESS_FACT_KINDS.modulusMultiplicationPrecedence,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags bitwise OR never equal for E1073', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  boolean m(int flags) {',
+        '    return (flags | 2) == 1;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.bitwiseOrNeverEqual,
+    );
+  });
+
+  it('does not flag bitwise OR that can equal for E1073', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  boolean m(int flags) {',
+        '    return (flags | 4) == 4;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.bitwiseOrNeverEqual,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags getter/setter sync mismatch for E1074', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  private int field;',
+        '  synchronized int getField() { return field; }',
+        '  void setField(int v) { field = v; }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.getterSetterSyncMismatch,
+    );
+  });
+
+  it('does not flag both getter/setter synchronized for E1074', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  private int field;',
+        '  synchronized int getField() { return field; }',
+        '  synchronized void setField(int v) { field = v; }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind === JAVA_CORRECTNESS_FACT_KINDS.getterSetterSyncMismatch,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag neither getter/setter synchronized for E1074', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  private int field;',
+        '  int getField() { return field; }',
+        '  void setField(int v) { field = v; }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind === JAVA_CORRECTNESS_FACT_KINDS.getterSetterSyncMismatch,
+      ),
+    ).toHaveLength(0);
+  });
+
+  // Batch 15 (NEW) — JAVA-E1082, E1095, E1103, E1108
+
+  it('flags deprecated ThreadGroup instance methods (E1108)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void m() {',
+        '    ThreadGroup tg = new ThreadGroup("x");',
+        '    tg.suspend();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.threadGroupDeprecatedMethods,
+    );
+  });
+
+  it('flags deprecated ThreadGroup static methods (E1108)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void m() {',
+        '    ThreadGroup.stop();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.threadGroupDeprecatedMethods,
+    );
+  });
+
+  it('does not flag Thread methods as ThreadGroup (E1108)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void m() {',
+        '    Thread.currentThread().suspend();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind ===
+          JAVA_CORRECTNESS_FACT_KINDS.threadGroupDeprecatedMethods,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags @Provides method returning Closeable type (E1103)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Module {',
+        '  @Provides',
+        '  FileOutputStream provideStream() {',
+        '    return new FileOutputStream("out");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.closeableProvidesInjection,
+    );
+  });
+
+  it('flags @Inject method returning Closeable type (E1103)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Module {',
+        '  @Inject',
+        '  Connection createConnection() {',
+        '    return null;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.closeableProvidesInjection,
+    );
+  });
+
+  it('does not flag @Provides returning non-Closeable (E1103)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Module {',
+        '  @Provides',
+        '  String getName() {',
+        '    return "test";',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind === JAVA_CORRECTNESS_FACT_KINDS.closeableProvidesInjection,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags @Nonnull method returning null (E1095)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  @Nonnull',
+        '  String m() {',
+        '    return null;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.nonNullMethodReturnsNull,
+    );
+  });
+
+  it('does not flag @Nonnull method returning non-null (E1095)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  @Nonnull',
+        '  String m() {',
+        '    return "hello";',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind === JAVA_CORRECTNESS_FACT_KINDS.nonNullMethodReturnsNull,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag unannotated method returning null (E1095)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  String m() {',
+        '    return null;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind === JAVA_CORRECTNESS_FACT_KINDS.nonNullMethodReturnsNull,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags switch on enum missing elements without default (E1082)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'enum Color { RED, BLUE }',
+        'class Test {',
+        '  void m(Color c) {',
+        '    switch(c) {',
+        '      case RED: break;',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.missingEnumSwitchElements,
+    );
+  });
+
+  it('does not flag switch with all enum members covered (E1082)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'enum Color { RED, BLUE }',
+        'class Test {',
+        '  void m(Color c) {',
+        '    switch(c) {',
+        '      case RED: break;',
+        '      case BLUE: break;',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind === JAVA_CORRECTNESS_FACT_KINDS.missingEnumSwitchElements,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag switch with default label (E1082)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'enum Color { RED, BLUE }',
+        'class Test {',
+        '  void m(Color c) {',
+        '    switch(c) {',
+        '      case RED: break;',
+        '      default: break;',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind === JAVA_CORRECTNESS_FACT_KINDS.missingEnumSwitchElements,
+      ),
+    ).toHaveLength(0);
+  });
 });

@@ -4621,12 +4621,16 @@ function maybeEmitCatchFacts(
   );
 
   if (!hasRecognizedSink && !hasReject && !hasThrow) {
-    emitFact(context, {
-      appliesTo: 'block',
-      kind: 'error-handling.swallowed-error',
-      node,
-      props: {},
-    });
+    // Don't flag catch blocks where the error parameter name starts with `_`,
+    // indicating the developer intentionally ignored the error (common in callbacks).
+    if (!errorIdentifier || !errorIdentifier.startsWith('_')) {
+      emitFact(context, {
+        appliesTo: 'block',
+        kind: 'error-handling.swallowed-error',
+        node,
+        props: {},
+      });
+    }
   }
 
   if (

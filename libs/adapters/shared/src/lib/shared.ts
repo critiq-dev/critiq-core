@@ -60,3 +60,4 @@ export * from './polyglot/domains/testing-hygiene';
 export * from './polyglot/domains/quality-maintainability';
 export * from './polyglot/domains/performance';
 export * from './polyglot/domains/go-doc';
+export * from './polyglot/domains/java-doc';

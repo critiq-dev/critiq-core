@@ -414,6 +414,12 @@ export const collectTypescriptClassAndSyntaxCorrectnessFacts: TypeScriptFactDete
           continue;
         }
 
+        // Stacked labels (e.g. `case A: case B:`) have empty consequents and are
+        // intentional, not fallthrough bugs.
+        if (switchCase.consequent.length === 0) {
+          continue;
+        }
+
         if (switchCaseTerminates(switchCase)) {
           continue;
         }
@@ -620,11 +626,25 @@ export const collectTypescriptClassAndSyntaxCorrectnessFacts: TypeScriptFactDete
     }
 
     if (node.type === 'Identifier' && node.name === 'arguments') {
-      const parent = ancestors[ancestors.length - 1];
-      if (parent?.type === 'FunctionDeclaration' || parent?.type === 'FunctionExpression') {
+      if (isFunctionOrMethodAncestor(ancestors)) {
+        // `arguments` inside a function is deprecated (use rest parameters instead) but not broken.
+        facts.push(
+          createObservedFact({
+            appliesTo: 'file',
+            kind: 'language.deprecated-arguments-usage',
+            node,
+            nodeIds,
+            text: getNodeText(node, sourceText),
+            props: {
+              reason: 'arguments-inside-function',
+            },
+          }),
+        );
+
         return;
       }
 
+      // `arguments` outside any function scope is invalid.
       facts.push(
         createObservedFact({
           appliesTo: 'file',

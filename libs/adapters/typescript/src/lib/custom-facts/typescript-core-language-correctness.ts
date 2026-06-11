@@ -589,7 +589,22 @@ function isNestedBlockDeclaration(
 
   if (parent?.type === 'BlockStatement') {
     const blockParent = ancestors.length > 1 ? ancestors[ancestors.length - 2] : undefined;
-    return !isFunctionBodyBlock(parent, blockParent);
+
+    if (isFunctionBodyBlock(parent, blockParent)) {
+      return false;
+    }
+
+    // Function declarations in for-loop bodies are intentional loop-counter patterns
+    if (
+      blockParent &&
+      (blockParent.type === 'ForStatement' ||
+        blockParent.type === 'ForInStatement' ||
+        blockParent.type === 'ForOfStatement')
+    ) {
+      return false;
+    }
+
+    return true;
   }
 
   for (let index = ancestors.length - 2; index >= 0; index -= 1) {
@@ -601,6 +616,16 @@ function isNestedBlockDeclaration(
     }
 
     if (isFunctionBodyBlock(ancestor, ancestorParent)) {
+      return false;
+    }
+
+    // Function declarations in for-loop bodies are intentional loop-counter patterns
+    if (
+      ancestorParent &&
+      (ancestorParent.type === 'ForStatement' ||
+        ancestorParent.type === 'ForInStatement' ||
+        ancestorParent.type === 'ForOfStatement')
+    ) {
       return false;
     }
 
@@ -1452,8 +1477,19 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
     const functionDeclarationNames = new Set<string>();
 
     walkAst(program, (node) => {
+      // Only collect true FunctionDeclaration names (not variable-assigned function expressions).
+      // Also unwrap ExportNamedDeclaration / ExportDefaultDeclaration wrappers so that
+      // `export function foo() {}` and `export default function foo() {}` are tracked.
       if (node.type === 'FunctionDeclaration' && node.id) {
         functionDeclarationNames.add(node.id.name);
+      }
+
+      if (node.type === 'ExportNamedDeclaration' && node.declaration?.type === 'FunctionDeclaration' && node.declaration.id) {
+        functionDeclarationNames.add(node.declaration.id.name);
+      }
+
+      if (node.type === 'ExportDefaultDeclaration' && node.declaration?.type === 'FunctionDeclaration' && node.declaration.id) {
+        functionDeclarationNames.add(node.declaration.id.name);
       }
     });
 
@@ -1716,6 +1752,16 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
         const rightText = getNodeText(node.right, sourceText)?.replace(/\s+/g, ' ').trim();
 
         if (leftText && rightText && leftText === rightText) {
+          // `x !== x` is the canonical NaN check — skip it.
+          if (
+            (node.operator === '!==' || node.operator === '!=') &&
+            node.left.type === 'Identifier' &&
+            node.right.type === 'Identifier' &&
+            node.left.name === node.right.name
+          ) {
+            return;
+          }
+
           facts.push(
             createObservedFact({
               appliesTo: 'file',

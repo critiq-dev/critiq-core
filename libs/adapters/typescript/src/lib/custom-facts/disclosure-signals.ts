@@ -128,7 +128,23 @@ function collectSensitiveSignalsFromTokens(
   }
 
   if (tokens.has('session') || tokens.has('sid')) {
-    signals.add('session');
+    // Exclude benign session counters (views, count, counter, etc.) — these are
+    // public counters, not sensitive session data.
+    const benignCounterTokens = new Set([
+      'views',
+      'count',
+      'counter',
+      'hitcount',
+      'hit_count',
+      'pageviews',
+      'page_views',
+      'visitcount',
+      'visit_count',
+    ]);
+    const hasBenignCounter = [...tokens].some((token) => benignCounterTokens.has(token));
+    if (!hasBenignCounter) {
+      signals.add('session');
+    }
   }
 
   if (tokens.has('cookie') || tokens.has('cookies')) {

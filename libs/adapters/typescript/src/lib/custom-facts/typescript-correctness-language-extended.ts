@@ -85,7 +85,7 @@ function callbackHasReturnInBody(
 
   let hasReturn = false;
 
-  walkAstWithAncestors(fn.body, (node, ancestors) => {
+  walkAstWithAncestors(fn, (node, ancestors) => {
     if (hasReturn || node.type !== 'ReturnStatement') {
       return;
     }

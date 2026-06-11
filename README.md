@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/banner-cli-simple-solid.png" alt="critiq.dev" style="max-height:400px" />
+  <img src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/banner-cli.png" alt="critiq.dev" style="max-height:400px" />
 </p>
 
 <h1 align="center">Critiq OSS Core</h1>
@@ -20,23 +20,19 @@
 </p>
 
 
-Think of Critiq as an extra code reviewer that scans your project for bugs, security issues, performance problems, and risky changes before they turn into production incidents. Instead of only checking style, it focuses on the kinds of problems that usually slip through review and cause real trouble later. You run it locally or in CI, and it gives you deterministic findings you can act on before merging code.
+Think of Critiq as an extra code reviewer that scans your project for bugs, security issues, performance problems, and risky changes before they turn into production incidents. Instead of checking style, it focuses on the kinds of problems that usually slip through review and cause real trouble later. You run it locally or in CI, and it gives you deterministic findings you can act on before merging code.
 
 
 It does this by parsing your code, matching it against a curated catalog of explicit rules, and reporting findings with concrete evidence tied to the code that triggered them. That means the output is based on repeatable checks for things like unsafe SQL, missing authorization, repeated IO in loops, and untested critical logic changes, not vague heuristics or style-only linting.
 
 <p align="center">
   <img
-    src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/cli-architecture-transparent.png"
+    src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/cli-architecture.png"
     alt="Cli Architecture"
   />
 </p>
 
-`@critiq/cli` runs Critiq checks against real code and exposes the public rule-pack commands for validation, testing, normalization, and explanation. By default it uses [`@critiq/rules`](https://www.npmjs.com/package/@critiq/rules) as the open source catalog with recommended rules. You can configure this by adding a `.critiq/config.yaml` configuration file.
-
-<p align="left">
-  <code>critiq-core</code> builds and ships <code>@critiq/cli</code>. The workspace keeps the scanner runtime, adapters, and contracts together in one repository, but only the CLI package is published publicly from this repo.
-</p>
+By default, `@critiq/cli` uses the open source [`@critiq/rules`](https://www.npmjs.com/package/@critiq/rules) catalog with recommended rules. You can customize which rules are used either by passing command-line flags or by creating a `.critiq/config.yaml` configuration file.
 
 ## Start In 60 Seconds
 
@@ -68,20 +64,20 @@ When you want explicit repository policy later, add `.critiq/config.yaml`. You d
 
 We publish the OSS rule catalog as [`@critiq/rules`](https://github.com/critiq-dev/critiq-rules). 
 
-Today it includes `112` rules across `10` categories, with `recommended`, `strict`, `security`, and `experimental` presets.
+Today it includes `1023` rules across `10` languages, with `recommended`, `strict`, `security`, and `experimental` presets. Browse the full catalog at [docs.critiq.dev/rules](https://docs.critiq.dev/rules).
 
-| Category | Rules | What it looks after |
+| Language | Rules | What it looks after |
 | --- | ---: | --- |
-| Security | 70 | Injection, auth and session gaps, unsafe transport, sensitive data exposure, unsafe file and HTML handling |
-| Correctness | 15 | Async bugs, null access, control-flow mistakes, missing fallbacks, race conditions |
-| Performance | 10 | Repeated IO, wasted async sequencing, hot-path loops, large retained objects, render churn |
-| Quality | 10 | Error handling gaps, oversized functions, coupling, duplicated logic, and weak test coverage |
-| Logging | 2 | Console usage and unsafe logging patterns |
-| Config | 1 | Configuration access boundaries |
-| Next | 1 | Server and client boundary leaks |
-| Random | 1 | Unsafe randomness in core logic |
-| React | 1 | Cascaded effect fetch patterns |
-| Runtime | 1 | Debug-only statements left in shipped code |
+| TypeScript | 335 | Security (Express, NestJS, Apollo, Electron, Angular, Vue, Next.js), correctness (async bugs, null access, control-flow), performance, quality, React, testing, logging, config, and runtime |
+| CloudFormation | 157 | AWS CloudFormation and SAM template validation (correctness, maintainability, and security) via wrapped cfn-lint |
+| Java | 106 | Correctness bugs, performance, Spring/Servlet/JPA/Android security, and testing |
+| Rust | 101 | Correctness (transmute safety, async pitfalls, IO handling), quality, performance, security (Actix, Axum, Rocket, SQL), and testing |
+| PHP | 104 | Correctness (missing returns, invalid static calls, type errors), performance, security (Laravel, Symfony, WordPress), and testing |
+| Go | 95 | Correctness (nil checks, goroutine bugs, defer mistakes), performance, security (Gin, Echo, Fiber), and testing |
+| Python | 61 | Correctness, Django/DRF/Flask/FastAPI security, performance, and testing |
+| Ruby | 38 | Bug risk, Rails security (CSRF, XSS, strong params), performance, and testing |
+| Shared | 13 | Cross-language security rules (hardcoded credentials, SQL injection, path traversal, TLS verification) |
+| SQL | 13 | SQL correctness (undefined references) and style (aliases, keyword casing, formatting) |
 
 ### Rule Methodology
 
@@ -117,6 +113,10 @@ We only add rules when they are worth interrupting a developer for.
 - keep local runs and CI runs aligned instead of depending on black-box review behavior
 
 ## Developer Guide
+
+<p align="left">
+  <code>critiq-core</code> builds and ships <code>@critiq/cli</code>. The workspace keeps the scanner runtime, adapters, and contracts together in one repository, but only the CLI package is published publicly from this repo.
+</p>
 
 ### Rule Authoring Loop
 
@@ -190,13 +190,16 @@ If you cloned the separate `critiq-rules` repository, point the same commands at
 
 ## Docs
 
-- New here: [docs/guides/getting-started.md](./docs/guides/getting-started.md)
-- Running the CLI: [docs/reference/cli.md](./docs/reference/cli.md)
-- Writing rules: [docs/guides/write-your-first-rule.md](./docs/guides/write-your-first-rule.md)
+- [critiq.dev](https://critiq.dev) — product site
+- [docs.critiq.dev](https://docs.critiq.dev) — full documentation
+- [Getting started](https://docs.critiq.dev/getting-started)
+- [CLI reference](https://docs.critiq.dev/cli)
+- [Writing rules](https://docs.critiq.dev/guides/writing-rules)
+- [GitHub Actions](https://docs.critiq.dev/ci/github-actions)
 - Repo boundaries: [docs/architecture/ecosystem.md](./docs/architecture/ecosystem.md)
 - Package ownership: [docs/architecture/repo-map.md](./docs/architecture/repo-map.md)
 - Contributing: [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## OSS Core And Pro
 
-Critiq Core is the open source confidence engine. The hosted Critiq product and future Pro layer build on these same public contracts, then add orchestration, collaboration, policy governance, and wider pipeline visibility.
+Critiq Core is the open source confidence engine. The hosted Critiq product and future Pro layer build on these same public contracts, then add orchestration, collaboration, policy governance, and wider pipeline visibility. Learn more at [critiq.dev](https://critiq.dev).

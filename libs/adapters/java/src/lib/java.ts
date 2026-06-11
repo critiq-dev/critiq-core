@@ -1,5 +1,6 @@
 import {
   collectCommandExecutionFacts,
+  collectJavaDocFacts,
   collectHardcodedCredentialFacts,
   collectJavaAuditSecurityFacts,
   collectJavaCorrectnessFacts,
@@ -214,6 +215,7 @@ const javaAdapterDefinition: PolyglotAdapterDefinition<JavaScanState> = {
     ...collectJavaTestingHygieneFacts({ text, path, detector }),
     ...collectJavaQualityMaintainabilityFacts({ text, path, detector }),
     ...collectJavaPerformanceFacts({ text, path, detector }),
+    ...collectJavaDocFacts({ text, path, detector }),
   ],
 };
 

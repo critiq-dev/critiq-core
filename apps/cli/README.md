@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/banner-cli-simple-transparent.png" alt="critiq.dev" style="max-height:400px" />
+  <img src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/banner-cli.png" alt="critiq.dev" style="max-height:400px" />
 </p>
 
 <h1 align="center">Critiq CLI</h1>
@@ -21,12 +21,12 @@ It does this by parsing your code, matching it against a curated catalog of expl
 
 <p align="center">
   <img
-    src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/cli-architecture-transparent.png"
+    src="https://raw.githubusercontent.com/critiq-dev/critiq-core/main/docs/assets/cli-architecture.png"
     alt="Cli Architecture"
   />
 </p>
 
-`@critiq/cli` runs Critiq checks against real code and exposes the public rule-pack commands for validation, testing, normalization, and explanation. By default it uses [`@critiq/rules`](https://www.npmjs.com/package/@critiq/rules) as the open source catalog with recommended rules. You can configure this by adding a `.critiq/config.yaml` configuration file.
+By default, `@critiq/cli` uses the open source [`@critiq/rules`](https://www.npmjs.com/package/@critiq/rules) catalog with recommended rules. You can customize which rules are used either by passing command-line flags or by creating a `.critiq/config.yaml` configuration file.
 
 <br/>
 <p align="left">
@@ -55,7 +55,7 @@ npx @critiq/cli check . --base origin/main --head HEAD
 
 ## GitHub Actions
 
-To run the same checks on **pull requests** in GitHub Actions—with optional **inline PR review comments** and severity-based merge gates—use the official composite action **[critiq-dev/critiq-action](https://github.com/critiq-dev/critiq-action)** ([README](https://github.com/critiq-dev/critiq-action/blob/main/README.md)). The action wraps `critiq check`, honors `.critiq/config.yaml`, and can install published `@critiq/cli` / `@critiq/rules` when they are not already declared on the repository root `package.json`.
+To run the same checks on **pull requests** in GitHub Actions, with optional **inline PR review comments** and severity-based merge gates, use the official composite action **[critiq-dev/critiq-action](https://github.com/critiq-dev/critiq-action)**. See the [GitHub Actions docs](https://docs.critiq.dev/ci/github-actions) for setup and configuration. The action wraps `critiq check`, honors `.critiq/config.yaml`, and can install published `@critiq/cli` / `@critiq/rules` when they are not already declared on the repository root `package.json`.
 
 Example `.github/workflows/critiq.yml`:
 
@@ -84,7 +84,7 @@ jobs:
           fail-on-severity: off
 ```
 
-Use a **major tag** (`@v1`) or pin a **commit SHA** for supply-chain control. More options (inputs, outputs, monorepos, reusable workflow) are in the [action README](https://github.com/critiq-dev/critiq-action/blob/main/README.md).
+Use a **major tag** (`@v1`) or pin a **commit SHA** for supply-chain control. More options (inputs, outputs, monorepos, reusable workflow) are in the [GitHub Actions docs](https://docs.critiq.dev/ci/github-actions).
 
 ## Public Commands
 
@@ -140,20 +140,20 @@ Sample scripts ship under `scripts/hooks/` in this package (for example `pre-com
 
 ## Default OSS Rule Catalog
 
-The default open source catalog in [`@critiq/rules`](https://www.npmjs.com/package/@critiq/rules) currently includes `112` rules across `10` categories.
+Today it includes `1023` rules across `10` languages, with `recommended`, `strict`, `security`, and `experimental` presets. Browse the full catalog at [docs.critiq.dev/rules](https://docs.critiq.dev/rules).
 
-| Category | Rules | What it looks after |
+| Language | Rules | What it looks after |
 | --- | ---: | --- |
-| Security | 70 | Injection, auth and session gaps, unsafe transport, sensitive data exposure, unsafe file and HTML handling |
-| Correctness | 15 | Async bugs, null access, control-flow mistakes, missing fallbacks, race conditions |
-| Performance | 10 | Repeated IO, wasted async sequencing, hot-path loops, large retained objects, render churn |
-| Quality | 10 | Error handling gaps, oversized functions, coupling, duplicated logic, and weak test coverage |
-| Logging | 2 | Console usage and unsafe logging patterns |
-| Config | 1 | Configuration access boundaries |
-| Next | 1 | Server and client boundary leaks |
-| Random | 1 | Unsafe randomness in core logic |
-| React | 1 | Cascaded effect fetch patterns |
-| Runtime | 1 | Debug-only statements left in shipped code |
+| TypeScript | 335 | Security (Express, NestJS, Apollo, Electron, Angular, Vue, Next.js), correctness (async bugs, null access, control-flow), performance, quality, React, testing, logging, config, and runtime |
+| CloudFormation | 157 | AWS CloudFormation and SAM template validation (correctness, maintainability, and security) via wrapped cfn-lint |
+| Java | 106 | Correctness bugs, performance, Spring/Servlet/JPA/Android security, and testing |
+| Rust | 101 | Correctness (transmute safety, async pitfalls, IO handling), quality, performance, security (Actix, Axum, Rocket, SQL), and testing |
+| PHP | 104 | Correctness (missing returns, invalid static calls, type errors), performance, security (Laravel, Symfony, WordPress), and testing |
+| Go | 95 | Correctness (nil checks, goroutine bugs, defer mistakes), performance, security (Gin, Echo, Fiber), and testing |
+| Python | 61 | Correctness, Django/DRF/Flask/FastAPI security, performance, and testing |
+| Ruby | 38 | Bug risk, Rails security (CSRF, XSS, strong params), performance, and testing |
+| Shared | 13 | Cross-language security rules (hardcoded credentials, SQL injection, path traversal, TLS verification) |
+| SQL | 13 | SQL correctness (undefined references) and style (aliases, keyword casing, formatting) |
 
 ## High-Value Rules In The Default Catalog
 
@@ -174,10 +174,12 @@ The default open source catalog in [`@critiq/rules`](https://www.npmjs.com/packa
 
 ## Reference
 
-- [Getting started](https://github.com/critiq-dev/critiq-core/blob/main/docs/guides/getting-started.md)
-- [CLI reference](https://github.com/critiq-dev/critiq-core/blob/main/docs/reference/cli.md)
+- [critiq.dev](https://critiq.dev) — product site
+- [docs.critiq.dev](https://docs.critiq.dev) — full documentation
+- [Getting started](https://docs.critiq.dev/getting-started)
+- [CLI reference](https://docs.critiq.dev/cli)
+- [GitHub Actions](https://docs.critiq.dev/ci/github-actions)
 - [`@critiq/rules` package](https://www.npmjs.com/package/@critiq/rules)
-- [Critiq GitHub Action](https://github.com/critiq-dev/critiq-action/blob/main/README.md) (CI and PR comments)
 
 ## License
 

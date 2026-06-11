@@ -1293,4 +1293,204 @@ describe('rust-correctness collectors', () => {
       ),
     ).toHaveLength(0);
   });
+
+  // ── Batch 04 (actual): RS-E1017 through RS-E1025 ──
+
+  it('flags hashing a unit value Hash::hash(&(), ...) (RS-E1017)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'use std::hash::{Hash, Hasher}; Hash::hash(&(), &mut hasher);',
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      RUST_CORRECTNESS_FACT_KINDS.hashUnitValue,
+    );
+  });
+
+  it('does not flag hashing a non-unit value (RS-E1017)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'use std::hash::{Hash, Hasher}; Hash::hash(&42, &mut hasher);',
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === RUST_CORRECTNESS_FACT_KINDS.hashUnitValue,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags transmute *const T to &T (RS-E1018)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'unsafe { std::mem::transmute::<*const u8, &u8>(ptr) }',
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      RUST_CORRECTNESS_FACT_KINDS.transmutePtrToRef,
+    );
+  });
+
+  it('does not flag transmute between numeric types (RS-E1018)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'unsafe { std::mem::transmute::<u32, i64>(x) }',
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === RUST_CORRECTNESS_FACT_KINDS.transmutePtrToRef,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags transmute &T to *const T (RS-E1019)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'unsafe { std::mem::transmute::<&u8, *const u8>(r) }',
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      RUST_CORRECTNESS_FACT_KINDS.transmuteRefToPtr,
+    );
+  });
+
+  it('does not flag transmute between numeric types (RS-E1019)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'unsafe { std::mem::transmute::<u32, i64>(x) }',
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === RUST_CORRECTNESS_FACT_KINDS.transmuteRefToPtr,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags transmute *const T to *mut T (RS-E1020)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'unsafe { std::mem::transmute::<*const u8, *mut u8>(ptr) }',
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      RUST_CORRECTNESS_FACT_KINDS.transmutePtrToPtr,
+    );
+  });
+
+  it('does not flag transmute between numeric types (RS-E1020)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'unsafe { std::mem::transmute::<u32, i64>(x) }',
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === RUST_CORRECTNESS_FACT_KINDS.transmutePtrToPtr,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags mem::forget on integer (non-Drop) type (RS-E1021)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'std::mem::forget(42i32);',
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      RUST_CORRECTNESS_FACT_KINDS.forgetDropOnNonDropType,
+    );
+  });
+
+  it('flags mem::drop on bool (non-Drop) type (RS-E1021)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'std::mem::drop(true);',
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      RUST_CORRECTNESS_FACT_KINDS.forgetDropOnNonDropType,
+    );
+  });
+
+  it('does not flag mem::forget on reference (RS-E1021)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'std::mem::forget(&x);',
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === RUST_CORRECTNESS_FACT_KINDS.forgetDropOnNonDropType,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags unhandled io::Result from File::open (RS-E1023)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'fn read() { std::fs::File::open("file.txt"); }',
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      RUST_CORRECTNESS_FACT_KINDS.unhandledIoResult,
+    );
+  });
+
+  it('does not flag handled io::Result with ? (RS-E1023)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'fn read() -> std::io::Result<()> { std::fs::File::open("file.txt")?; Ok(()) }',
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === RUST_CORRECTNESS_FACT_KINDS.unhandledIoResult,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag io call bound with let (RS-E1023)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'fn read() { let f = std::fs::File::open("file.txt"); }',
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === RUST_CORRECTNESS_FACT_KINDS.unhandledIoResult,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags transmute from integer to *const T (RS-E1024)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'unsafe { std::mem::transmute::<u32, *const u8>(x) }',
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      RUST_CORRECTNESS_FACT_KINDS.transmuteTToPtrRef,
+    );
+  });
+
+  it('does not flag transmute between integer types (RS-E1024)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'unsafe { std::mem::transmute::<u32, i64>(x) }',
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === RUST_CORRECTNESS_FACT_KINDS.transmuteTToPtrRef,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags transmute from i32 to bool (RS-E1025)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'unsafe { std::mem::transmute::<i32, bool>(0) }',
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      RUST_CORRECTNESS_FACT_KINDS.transmuteIntegerToBool,
+    );
+  });
+
+  it('does not flag transmute between integer types (RS-E1025)', () => {
+    const facts = collectRustCorrectnessFacts({
+      detector: 'rust-detector',
+      text: 'unsafe { std::mem::transmute::<u32, i64>(x) }',
+    });
+    expect(
+      facts.filter(
+        (f) => f.kind === RUST_CORRECTNESS_FACT_KINDS.transmuteIntegerToBool,
+      ),
+    ).toHaveLength(0);
+  });
 });

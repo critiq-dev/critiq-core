@@ -605,6 +605,294 @@ function collectIntegerLongConstructorFacts(
   });
 }
 
+function collectPatternCompileInLoopFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: 'java.performance.pattern-compile-in-loop',
+    appliesTo: 'block',
+    pattern:
+      /\b(?:for|while)\b[\s\S]{0,300}\bPattern\s*\.\s*compile\s*\(/g,
+  });
+}
+
+function collectNonZeroToArrayFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: 'java.performance.non-zero-to-array',
+    appliesTo: 'block',
+    pattern:
+      /toArray\s*\(\s*new\s+\w+\s*\[[^\]]*[1-9][^\]]*\]/g,
+  });
+}
+
+function collectKeySetInsteadOfEntrySetFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return [
+    ...collectMatchedFacts({
+      text,
+      detector,
+      kind: 'java.performance.keyset-instead-of-entryset',
+      appliesTo: 'block',
+      pattern:
+        /for\s*\([^)]*:\s*\w+\.keySet\(\)\)[\s\S]{0,400}?\.get\s*\(/g,
+    }),
+    ...collectMatchedFacts({
+      text,
+      detector,
+      kind: 'java.performance.keyset-instead-of-entryset',
+      appliesTo: 'block',
+      pattern:
+        /while\s*\([^)]*\.keySet\(\)\s*\.\s*iterator\(\)[\s\S]{0,400}?\.get\s*\(/g,
+    }),
+  ];
+}
+
+function collectReplaceAllInsteadOfReplaceFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: 'java.performance.replaceall-instead-of-replace',
+    appliesTo: 'block',
+    pattern:
+      /\.replaceAll\s*\(\s*"[^\\^$.*+?()[\]{}|]*"\s*,/g,
+  });
+}
+
+function collectSingleCharStringIndexOfFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: 'java.performance.single-char-string-indexof',
+    appliesTo: 'block',
+    pattern:
+      /\.(?:indexOf|lastIndexOf|contains)\s*\(\s*"[^"]"\s*\)/g,
+  });
+}
+
+/**
+ * JAVA-P1005: Detects `collection.removeAll(collection)` calls that should
+ * be `collection.clear()`. Compares the receiver expression (before `.removeAll`)
+ * with the argument expression (inside parens) for structural equality.
+ *
+ * Edge: chained calls like `obj.getItems().removeAll(obj.getItems())` are detected.
+ * Edge: wrapped calls like `collection.removeAll(singleton(collection))` do NOT match
+ *       because the arg text differs from receiver text.
+ */
+function collectRemoveallToClearFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = 'java.performance.removeall-to-clear';
+  const findings: ObservedFact[] = [];
+
+  const pattern = /([A-Za-z_][\w.]*(?:\[[^\]]+\])?)\s*\.\s*removeAll\s*\(/g;
+
+  const regexMatches = Array.from(text.matchAll(pattern));
+  for (const match of regexMatches) {
+    const callStart = match.index ?? 0;
+    const receiver = (match[1] ?? '').trim();
+    if (!receiver) continue;
+
+    const closeParen = findMatchingDelimiter(text, callStart + match[0].length - 1, '(', ')');
+    if (closeParen < 0) continue;
+
+    const argText = text.slice(callStart + match[0].length, closeParen).trim();
+
+    const strippedReceiver = receiver.replace(/\s+/g, '');
+    const strippedArg = argText.replace(/\s+/g, '');
+
+    if (strippedReceiver === strippedArg) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: callStart,
+          endOffset: closeParen + 1,
+          text: text.slice(callStart, closeParen + 1),
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+/**
+ * JAVA-P1006: Detects String concatenation using `+=` or `= ... + ...` inside
+ * loop bodies. Two-pass approach:
+ * 1. Find loop bodies (for/while/do-while) using findMatchingDelimiter
+ * 2. Inside each body, detect `var += "..."` and `var = var + "..."` patterns
+ *
+ * Pre-scans for `String ` variable declarations in the method body to reduce
+ * false positives from numeric `+=` in loops.
+ * confidence: 0.75 acknowledges the heuristic nature.
+ */
+function collectStringConcatInLoopFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = 'java.performance.string-concat-in-loop';
+  const findings: ObservedFact[] = [];
+
+  const loopPattern = /\b(for|while|do)\s*\(/g;
+
+  for (const loopMatch of findAllMatches(text, loopPattern)) {
+    const loopKeyword = loopMatch.matchedText.split('(')[0].trim();
+
+    let conditionEnd: number;
+    if (loopKeyword === 'do') {
+      const doBodyStart = text.indexOf('{', loopMatch.endOffset);
+      if (doBodyStart < 0) continue;
+      conditionEnd = doBodyStart;
+    } else {
+      const closeParen = findMatchingDelimiter(text, loopMatch.startOffset, '(', ')');
+      if (closeParen < 0) continue;
+      conditionEnd = closeParen;
+    }
+
+    const bodyOpen = text.indexOf('{', conditionEnd);
+    if (bodyOpen < 0) continue;
+    const bodyClose = findMatchingDelimiter(text, bodyOpen, '{', '}');
+    if (bodyClose < 0) continue;
+
+    const body = text.slice(bodyOpen + 1, bodyClose);
+
+    const stringVars = new Set<string>();
+    const stringDeclPattern = /\bString\s+(\w+)\s*[=;]/g;
+    for (const decl of body.matchAll(stringDeclPattern)) {
+      if (decl[1]) stringVars.add(decl[1]);
+    }
+    const beforeLoop = text.slice(0, bodyOpen);
+    for (const decl of beforeLoop.matchAll(stringDeclPattern)) {
+      if (decl[1]) stringVars.add(decl[1]);
+    }
+
+    const compoundAssignPattern = /(\w[\w.]*)\s*\+=\s*/g;
+    for (const caMatch of findAllMatches(body, compoundAssignPattern)) {
+      const lhsVar = caMatch.matchedText.match(/^(\w[\w.]*)/)?.[1] ?? '';
+      if (!lhsVar || !stringVars.has(lhsVar)) continue;
+      const absOffset = bodyOpen + 1 + caMatch.startOffset;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'function',
+          kind,
+          startOffset: absOffset,
+          endOffset: absOffset + caMatch.matchedText.length,
+          text: text.slice(absOffset, absOffset + caMatch.matchedText.length),
+        }),
+      );
+    }
+
+    const concatPattern = /(\w[\w.]*)\s*=\s*(\w[\w.]*)\s*\+/g;
+    for (const coMatch of findAllMatches(body, concatPattern)) {
+      const lhsVar = coMatch.matchedText.match(/^(\w[\w.]*)/)?.[1] ?? '';
+      const rhsFirst = coMatch.matchedText.split('=')[1]?.trim().split('+')[0]?.trim() ?? '';
+      if (lhsVar === rhsFirst && stringVars.has(lhsVar)) {
+        const absOffset = bodyOpen + 1 + coMatch.startOffset;
+        findings.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'function',
+            kind,
+            startOffset: absOffset,
+            endOffset: absOffset + coMatch.matchedText.length,
+            text: text.slice(absOffset, absOffset + coMatch.matchedText.length),
+          }),
+        );
+      }
+    }
+  }
+
+  return findings;
+}
+
+/**
+ * JAVA-P1007: Detects expensive methods annotated with @WorkerThread / @Expensive
+ * called from within @MainThread / @UIThread / @PerformanceCritical annotated methods.
+ *
+ * Multi-pass approach:
+ * 1. Scan entire file for methods annotated with @WorkerThread or @Expensive
+ * 2. Scan for methods annotated with @MainThread, @UIThread, or @PerformanceCritical
+ * 3. Within those perf-critical method bodies, search for calls to expensive method names
+ *
+ * Stability: experimental — accepts false positives/negatives from name collisions.
+ */
+function collectExpensiveMethodOnUiThreadFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = 'java.performance.expensive-method-on-ui-thread';
+  const findings: ObservedFact[] = [];
+
+  const annotationPattern =
+    /@(?:WorkerThread|Expensive|androidx\.annotation\.WorkerThread|javax\.annotation\.concurrent\.WorkerThread)\s+(?:(?:public|private|protected|static|final|synchronized|abstract)\s+)*(\w+(?:<[^>]+>)?)\s+(\w+)\s*\(/g;
+
+  const expensiveMethods = new Map<string, number>();
+
+  for (const match of text.matchAll(annotationPattern)) {
+    const methodName = match[2];
+    if (methodName) {
+      expensiveMethods.set(methodName, match.index ?? 0);
+    }
+  }
+
+  if (expensiveMethods.size === 0) return findings;
+
+  const perfCriticalPattern =
+    /@(?:MainThread|UIThread|PerformanceCritical|androidx\.annotation\.MainThread|androidx\.annotation\.UIThread)\s+(?:(?:public|private|protected|static|final|synchronized|abstract)\s+)*\w+(?:<[^>]+>)?\s+\w+\s*\(/g;
+
+  for (const pcMatch of text.matchAll(perfCriticalPattern)) {
+    const bodyStart = text.indexOf('{', pcMatch.index ?? 0);
+    if (bodyStart < 0) continue;
+
+    const bodyEnd = findMatchingDelimiter(text, bodyStart, '{', '}');
+    if (bodyEnd < 0) continue;
+
+    const body = text.slice(bodyStart + 1, bodyEnd);
+
+    for (const methodName of expensiveMethods.keys()) {
+      const callPattern = new RegExp(
+        `\\b${methodName.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\s*\\(`,
+        'g',
+      );
+
+      for (const callMatch of body.matchAll(callPattern)) {
+        const absOffset = bodyStart + 1 + (callMatch.index ?? 0);
+        findings.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'function',
+            kind,
+            startOffset: absOffset,
+            endOffset: absOffset + callMatch[0].length,
+            text: text.slice(absOffset, absOffset + callMatch[0].length),
+          }),
+        );
+      }
+    }
+  }
+
+  return findings;
+}
+
 function collectFloatDoubleConstructorFacts(
   text: string,
   detector: string,
@@ -635,6 +923,14 @@ export function collectJavaPerformanceFacts(
     ...collectBooleanConstructorFacts(text, detector),
     ...collectIntegerLongConstructorFacts(text, detector),
     ...collectFloatDoubleConstructorFacts(text, detector),
+    ...collectPatternCompileInLoopFacts(text, detector),
+    ...collectNonZeroToArrayFacts(text, detector),
+    ...collectKeySetInsteadOfEntrySetFacts(text, detector),
+    ...collectReplaceAllInsteadOfReplaceFacts(text, detector),
+    ...collectSingleCharStringIndexOfFacts(text, detector),
+    ...collectRemoveallToClearFacts(text, detector),
+    ...collectStringConcatInLoopFacts(text, detector),
+    ...collectExpensiveMethodOnUiThreadFacts(text, detector),
   ];
 }
 

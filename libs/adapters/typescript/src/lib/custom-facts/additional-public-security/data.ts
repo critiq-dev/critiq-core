@@ -305,6 +305,25 @@ export function collectFileAndExceptionFacts(
   return facts;
 }
 
+function containsBitmaskOperator(node: TSESTree.Node): boolean {
+  let found = false;
+
+  walkAst(node, (inner) => {
+    if (found) {
+      return;
+    }
+
+    if (
+      inner.type === 'BinaryExpression' &&
+      (inner.operator === '|' || inner.operator === '&' || inner.operator === '^')
+    ) {
+      found = true;
+    }
+  });
+
+  return found;
+}
+
 export function collectObservableTimingFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
@@ -335,6 +354,29 @@ export function collectObservableTimingFacts(
     const otherSide = secretSide === leftText ? rightText : leftText;
 
     if (!secretSide || /^(null|undefined)$/u.test(otherSide)) {
+      return;
+    }
+
+    // Exclude comparisons where either operand is a numeric literal
+    if (
+      (node.left.type === 'Literal' && typeof node.left.value === 'number') ||
+      (node.right.type === 'Literal' && typeof node.right.value === 'number')
+    ) {
+      return;
+    }
+
+    // Exclude comparisons where the left operand is a typeof check
+    // (e.g. typeof x === 'string'), which doesn't leak timing.
+    if (
+      node.left.type === 'UnaryExpression' &&
+      node.left.operator === 'typeof'
+    ) {
+      return;
+    }
+
+    // Exclude comparisons involving bitmask composition (|, &, ^),
+    // since these are constant-time operations unrelated to string comparison.
+    if (containsBitmaskOperator(node.left) || containsBitmaskOperator(node.right)) {
       return;
     }
 

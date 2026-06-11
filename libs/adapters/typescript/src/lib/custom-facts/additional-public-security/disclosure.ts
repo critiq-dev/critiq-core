@@ -295,7 +295,7 @@ export function collectDebugModeEnabledFacts(
       ),
     );
 
-    if (!hasDebugPath && !hasDebugMiddleware && handlerSignals.size === 0) {
+    if (!hasDebugPath && !hasDebugMiddleware) {
       return;
     }
 

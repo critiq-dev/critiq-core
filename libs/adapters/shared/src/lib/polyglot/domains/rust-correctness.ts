@@ -37,6 +37,14 @@ export const RUST_CORRECTNESS_FACT_KINDS = {
   transmuteTupleToSliceOrArray: 'rust.correctness.transmute-tuple-to-slice-or-array',
   printInDisplayImpl: 'rust.correctness.print-in-display-impl',
   ignoredFutureValue: 'rust.correctness.ignored-future-value',
+  hashUnitValue: 'rust.correctness.hash-unit-value',
+  transmutePtrToRef: 'rust.correctness.transmute-ptr-to-ref',
+  transmuteRefToPtr: 'rust.correctness.transmute-ref-to-ptr',
+  transmutePtrToPtr: 'rust.correctness.transmute-ptr-to-ptr',
+  forgetDropOnNonDropType: 'rust.correctness.forget-drop-on-non-drop-type',
+  unhandledIoResult: 'rust.correctness.unhandled-io-result',
+  transmuteTToPtrRef: 'rust.correctness.transmute-t-to-ptr-ref',
+  transmuteIntegerToBool: 'rust.correctness.transmute-integer-to-bool',
 } as const;
 
 export interface CollectRustCorrectnessFactsOptions {
@@ -87,6 +95,14 @@ export function collectRustCorrectnessFacts(
     ...collectTransmuteTupleToSliceOrArrayFacts(text, detector),
     ...collectPrintInDisplayImplFacts(text, detector),
     ...collectIgnoredFutureValueFacts(text, detector),
+    ...collectHashUnitValueFacts(text, detector),
+    ...collectTransmutePtrToRefFacts(text, detector),
+    ...collectTransmuteRefToPtrFacts(text, detector),
+    ...collectTransmutePtrToPtrFacts(text, detector),
+    ...collectForgetDropOnNonDropTypeFacts(text, detector),
+    ...collectUnhandledIoResultFacts(text, detector),
+    ...collectTransmuteTToPtrRefFacts(text, detector),
+    ...collectTransmuteIntegerToBoolFacts(text, detector),
   ]);
 }
 
@@ -1172,7 +1188,7 @@ function collectSyntaxErrorFacts(
   const kind = RUST_CORRECTNESS_FACT_KINDS.syntaxError;
   const findings: ObservedFact[] = [];
 
-  const multiCharPattern = /'[^'\\]{2,}'/gu;
+  const multiCharPattern = /'[^'\\\n]{2,}'/gu;
 
   for (const match of findAllMatches(text, multiCharPattern)) {
     if (isInStringLiteral(text, match.startOffset)) {
@@ -1270,6 +1286,215 @@ function findFunctionOpenBrace(source: string, fromOffset: number): number {
   }
 
   return -1;
+}
+
+/**
+ * Flags hashing a unit value `()`. `Hash::hash(&(), ...)` is a no-op
+ * because all unit values hash identically. RS-E1017 (critical)
+ */
+function collectHashUnitValueFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUST_CORRECTNESS_FACT_KINDS.hashUnitValue;
+  const findings: ObservedFact[] = [];
+
+  const patterns = [
+    /\bHash::hash\s*\(\s*&\(\)/gu,
+    /\bstd::hash::Hash::hash\s*\(\s*&\(\)/gu,
+    /\bstd::hash::Hash::hash_slice\s*\(\s*&\(\)/gu,
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of findAllMatches(text, pattern)) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: match.startOffset,
+          endOffset: match.endOffset,
+          text: match.matchedText,
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+/**
+ * Flags transmute from raw pointer to reference (`*const T` -> `&T`).
+ * This is unsound because it creates a reference with no lifetime guarantee.
+ * RS-E1018 (critical)
+ */
+function collectTransmutePtrToRefFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUST_CORRECTNESS_FACT_KINDS.transmutePtrToRef,
+    appliesTo: 'block',
+    pattern: /(?:std::)?(?:mem::)?transmute::<\s*\*(?:const|mut)\s+\w+(?:\s*,\s*)&/gu,
+  });
+}
+
+/**
+ * Flags transmute from reference to raw pointer (`&T` -> `*const T`).
+ * Prefer `as` casts which are safer. RS-E1019 (critical)
+ */
+function collectTransmuteRefToPtrFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUST_CORRECTNESS_FACT_KINDS.transmuteRefToPtr,
+    appliesTo: 'block',
+    pattern: /(?:std::)?(?:mem::)?transmute::<\s*&(?:mut\s+)?\w+\s*,\s*\*(?:const|mut)/gu,
+  });
+}
+
+/**
+ * Flags transmute from one raw pointer to another (`*const T` -> `*mut T`).
+ * Prefer casting through a reference to guarantee alignment/safety.
+ * RS-E1020 (critical)
+ */
+function collectTransmutePtrToPtrFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUST_CORRECTNESS_FACT_KINDS.transmutePtrToPtr,
+    appliesTo: 'block',
+    pattern: /(?:std::)?(?:mem::)?transmute::<\s*\*(?:const|mut)\s+\w+(?:\s*,\s*)\*(?:const|mut)/gu,
+  });
+}
+
+/**
+ * Flags `std::mem::forget` or `std::mem::drop` on a non-reference value
+ * that is NOT a known Drop type. On primitives (i32, bool, etc.) these
+ * calls are no-ops. Best-effort detection. RS-E1021 (high)
+ */
+function collectForgetDropOnNonDropTypeFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUST_CORRECTNESS_FACT_KINDS.forgetDropOnNonDropType;
+  const findings: ObservedFact[] = [];
+
+  const pattern = /\bstd::mem::(?:forget|drop)\s*\(([^)]+)\)/gu;
+
+  for (const match of findAllMatches(text, pattern)) {
+    const arg = match.matchedText;
+    if (/\(\s*&/u.test(arg)) continue;
+
+    const inner = arg.slice(arg.indexOf('(') + 1, arg.lastIndexOf(')'));
+
+    const nonDropPattern =
+      /(?:i(?:8|16|32|64|128|size)|u(?:8|16|32|64|128|size)|f(?:32|64)|bool|char|true|false)\b/u;
+    if (!nonDropPattern.test(inner)) continue;
+
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.startOffset,
+        endOffset: match.endOffset,
+        text: match.matchedText,
+      }),
+    );
+  }
+
+  return findings;
+}
+
+/**
+ * Flags I/O operations where the `Result` return value is discarded.
+ * Focuses on `File::open` and `File::create` which are commonly misused.
+ * RS-E1023 (high)
+ */
+function collectUnhandledIoResultFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUST_CORRECTNESS_FACT_KINDS.unhandledIoResult,
+    appliesTo: 'block',
+    pattern:
+      /\b(?:std::)?fs::File::(?:open|create)\s*\(/gu,
+    predicate: (match) => {
+      const lineStart = text.lastIndexOf('\n', match.startOffset) + 1;
+      const beforeOnLine = text.slice(lineStart, match.startOffset);
+
+      if (/\blet\s+(?:_|\w+)\s*=/u.test(beforeOnLine)) return false;
+      if (/\breturn\s+/u.test(beforeOnLine)) return false;
+
+      const afterMatch = text.slice(
+        match.endOffset,
+        Math.min(text.length, match.endOffset + 40),
+      );
+
+      if (/\?/u.test(afterMatch)) return false;
+      if (/\.(?:unwrap|expect|await)\b/u.test(afterMatch)) return false;
+
+      return true;
+    },
+  });
+}
+
+/**
+ * Flags transmute between a non-pointer type T and `*T` or `&T`.
+ * Example: `transmute::<u32, *const u32>`. RS-E1024 (high)
+ */
+function collectTransmuteTToPtrRefFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const integerTypes = '(?:i|u)(?:8|16|32|64|128|size)';
+  const floatTypes = 'f(?:32|64)';
+  const simpleTypes = `(?:${integerTypes}|${floatTypes}|bool|char)`;
+  const pattern = new RegExp(
+    `(?:std::)?(?:mem::)?transmute::<\\s*${simpleTypes}\\s*,\\s*(?:&|\\*(?:const|mut)\\s+)`,
+    'gu',
+  );
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUST_CORRECTNESS_FACT_KINDS.transmuteTToPtrRef,
+    appliesTo: 'block',
+    pattern,
+  });
+}
+
+/**
+ * Flags transmute between integer type and bool.
+ * Example: `transmute::<i32, bool>`. RS-E1025 (high)
+ */
+function collectTransmuteIntegerToBoolFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const integerTypes = '(?:i|u)(?:8|16|32|64|128|size)';
+  const pattern = new RegExp(
+    `(?:std::)?(?:mem::)?transmute::<\\s*(?:${integerTypes})\\s*,\\s*bool\\s*>`,
+    'gu',
+  );
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUST_CORRECTNESS_FACT_KINDS.transmuteIntegerToBool,
+    appliesTo: 'block',
+    pattern,
+  });
 }
 
 function escapeRegex(value: string): string {

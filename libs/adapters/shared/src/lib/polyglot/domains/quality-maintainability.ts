@@ -74,10 +74,62 @@ export function collectGoQualityMaintainabilityFacts(
   return collectSharedQualityFacts(options, 'go');
 }
 
+function collectJavaSpecificQualityFacts(
+  options: PolyglotQualityPathOptions,
+): ObservedFact[] {
+  const { text, detector } = options;
+
+  return [
+    ...collectMatchedFacts({
+      text,
+      detector,
+      kind: 'java.quality.c-style-array-declaration',
+      pattern:
+        /\b(?:int|long|short|byte|char|boolean|float|double|[A-Z][A-Za-z0-9_.]*)\s+[A-Za-z_$][A-Za-z0-9_$]*\s*\[\s*\]\s*[=;]/g,
+      appliesTo: 'block',
+    }),
+    ...collectMatchedFacts({
+      text,
+      detector,
+      kind: 'java.quality.type-name-uppercase',
+      pattern:
+        /(?:\b(?:class|interface|enum)|@interface)\s+([a-z][A-Za-z0-9_$]*)/g,
+      appliesTo: 'block',
+    }),
+    ...collectMatchedFacts({
+      text,
+      detector,
+      kind: 'java.quality.multiple-variables-same-line',
+      pattern:
+        /\b(?:int|long|short|byte|char|boolean|float|double|[A-Z][A-Za-z0-9_.]*)\s+[A-Za-z_$][A-Za-z0-9_$]*\s*(?:\[\s*\]\s*)?(?:=\s*[^,;\n]+)?\s*,\s*[A-Za-z_$][A-Za-z0-9_$]*/g,
+      appliesTo: 'block',
+      predicate: (match) => {
+        const before = text.slice(0, match.startOffset);
+        const depthAtStart = (before.match(/\(/g) || []).length -
+          (before.match(/\)/g) || []).length;
+        if (depthAtStart > 0) return false;
+        const commaPos = text.indexOf(',', match.startOffset);
+        if (commaPos >= 0 && commaPos < match.endOffset) {
+          const beforeComma = text.slice(0, commaPos);
+          const depthAtComma = (beforeComma.match(/\(/g) || []).length -
+            (beforeComma.match(/\)/g) || []).length;
+          if (depthAtComma !== depthAtStart) return false;
+        }
+        const lineStart = before.lastIndexOf('\n') + 1;
+        const linePrefix = text.slice(lineStart, match.startOffset);
+        return !/\bfor\s*\(/.test(linePrefix);
+      },
+    }),
+  ];
+}
+
 export function collectJavaQualityMaintainabilityFacts(
   options: PolyglotQualityPathOptions,
 ): ObservedFact[] {
-  return collectSharedQualityFacts(options, 'java');
+  return [
+    ...collectSharedQualityFacts(options, 'java'),
+    ...collectJavaSpecificQualityFacts(options),
+  ];
 }
 
 export function collectPhpQualityMaintainabilityFacts(

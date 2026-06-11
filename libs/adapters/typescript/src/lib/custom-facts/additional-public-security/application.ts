@@ -371,7 +371,7 @@ export function collectHardcodedAuthSecretFacts(
               sink: calleeText,
               secretProperty: 'secret',
             },
-            text: calleeText,
+            text: `${calleeText}(secret: ${getNodeText(secondArgument!, context.sourceText)})`,
           }),
         );
       }
@@ -394,7 +394,7 @@ export function collectHardcodedAuthSecretFacts(
               sink: calleeText,
               secretProperty: 'secret',
             },
-            text: calleeText,
+            text: `${calleeText}(secret: ${getNodeText(firstArgument!, context.sourceText)})`,
           }),
         );
       }
@@ -423,7 +423,7 @@ export function collectHardcodedAuthSecretFacts(
                 sink: calleeText,
                 secretProperty,
               },
-              text: calleeText,
+              text: `${calleeText}(secret: ${secretProperty})`,
             }),
           );
         }
@@ -459,7 +459,7 @@ export function collectHardcodedAuthSecretFacts(
             sink: node.callee.name,
             secretProperty,
           },
-          text: node.callee.name,
+          text: `${node.callee.name}(secret: ${secretProperty})`,
         }),
       );
     }

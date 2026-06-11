@@ -77,6 +77,87 @@ export const JAVA_CORRECTNESS_FACT_KINDS = {
   assertionInProduction: 'java.correctness.assertion-in-production',
   arrayComparedToNonArray: 'java.correctness.array-compared-to-non-array',
   parameterReassignment: 'java.correctness.parameter-reassignment',
+
+  // Batch 06 (JAVA-E) — bug risk / framework correctness facts
+  volatileArrayElements: 'java.correctness.volatile-array-elements',
+  volatileIncrementNonAtomic: 'java.correctness.volatile-increment-non-atomic',
+  unsafeGetresource: 'java.correctness.unsafe-getresource',
+  duplicateBinaryArgument: 'java.correctness.duplicate-binary-argument',
+  illegalMonitorStateCaught: 'java.correctness.illegal-monitor-state-caught',
+  cloneWithoutSuper: 'java.correctness.clone-without-super',
+  equalsNull: 'java.correctness.equals-null',
+
+  // Batch 07 (JAVA-E) — bug risk / framework correctness facts
+  nonFinalImmutableFields: 'java.correctness.non-final-immutable-fields',
+  runfinalizersOnExit: 'java.correctness.runfinalizers-on-exit',
+  waitOnCondition: 'java.correctness.wait-on-condition',
+  mathMaxMinSwapped: 'java.correctness.math-max-min-swapped',
+  explicitFinalizerInvocation: 'java.correctness.explicit-finalizer-invocation',
+  enumEqualsMethod: 'java.correctness.enum-equals-method',
+  overloadedEquals: 'java.correctness.overloaded-equals',
+
+  // Batch 08 (JAVA-E) — bug risk / framework correctness facts
+  equalsInheritsParent: 'java.correctness.equals-inherits-parent',
+  equalsNullCheck: 'java.correctness.equals-null-check',
+  comparetoMinValue: 'java.correctness.compareto-min-value',
+  servletMutableFields: 'java.correctness.servlet-mutable-fields',
+  runnableRunDirect: 'java.correctness.runnable-run-direct',
+  twoLockWait: 'java.correctness.two-lock-wait',
+  syncBoxedPrimitive: 'java.correctness.sync-boxed-primitive',
+  classNameCollision: 'java.correctness.class-name-collision',
+
+  // Batch 09 (JAVA-E) — bug risk / framework correctness facts
+  ignoredInputstreamRead: 'java.correctness.ignored-inputstream-read',
+  ignoredInputstreamSkip: 'java.correctness.ignored-inputstream-skip',
+  constructorStartsThread: 'java.correctness.constructor-starts-thread',
+  forLoopMismatchedIncrement: 'java.correctness.for-loop-mismatched-increment',
+  readlineWithoutNullCheck: 'java.correctness.readline-without-null-check',
+  unsynchronizedWaitNotify: 'java.correctness.unsynchronized-wait-notify',
+  selfAssignment: 'java.correctness.self-assignment',
+  syncOnLockPrimitive: 'java.correctness.sync-on-lock-primitive',
+
+  // Batch 10 (JAVA-E) — bug risk / framework correctness facts
+  resultSetIndexZero: 'java.correctness.result-set-index-zero',
+  preparedStatementIndexZero: 'java.correctness.prepared-statement-index-zero',
+  impossibleToArrayDowncast: 'java.correctness.impossible-toarray-downcast',
+  invalidRegexLiteral: 'java.correctness.invalid-regex-literal',
+  lostIncrementInAssignment: 'java.correctness.lost-increment-in-assignment',
+  // Batch 11 (JAVA-E) — bug risk / framework facts
+  shiftOutOfRange: 'java.correctness.shift-out-of-range',
+  oddnessCheckFailsNegative: 'java.correctness.oddness-check-fails-negative',
+  hasNextInvokesNext: 'java.correctness.hasnext-invokes-next',
+  threadSleepWithLock: 'java.correctness.thread-sleep-with-lock',
+  stringFormatArgMismatch: 'java.correctness.string-format-arg-mismatch',
+  badShortCircuitNullCheck: 'java.correctness.bad-short-circuit-null-check',
+  waitNotifyOnThread: 'java.correctness.wait-notify-on-thread',
+
+  // Batch 12 (JAVA-E) — bug risk / framework facts
+  switchStatementLabels: 'java.correctness.switch-statement-labels',
+  weekYearInDatePattern: 'java.correctness.week-year-in-date-pattern',
+  jumpInFinally: 'java.correctness.jump-in-finally',
+  defaultPackageSpringScan: 'java.correctness.default-package-spring-scan',
+  caseInsensitiveRegexLacksUnicode: 'java.correctness.case-insensitive-regex-lacks-unicode',
+  assertSelfComparison: 'java.correctness.assert-self-comparison',
+  optionalGetWithoutPresentCheck: 'java.correctness.optional-get-without-present-check',
+  iterableIteratorReturnsThis: 'java.correctness.iterable-iterator-returns-this',
+
+  // Batch 13 (JAVA-E) — bug risk / framework correctness facts
+  randomCoercedToZero: 'java.correctness.random-coerced-to-zero',
+  mutableEnumFields: 'java.correctness.mutable-enum-fields',
+  noAllocationMethodCreatesObject: 'java.correctness.noallocation-method-creates-object',
+
+  // Batch 14 (JAVA-E) — bug risk / framework correctness facts
+  collectionContainsSelf: 'java.correctness.collection-contains-self',
+  collectionAddsSelf: 'java.correctness.collection-adds-self',
+  modulusMultiplicationPrecedence: 'java.correctness.modulus-multiplication-precedence',
+  bitwiseOrNeverEqual: 'java.correctness.bitwise-or-never-equal',
+  getterSetterSyncMismatch: 'java.correctness.getter-setter-sync-mismatch',
+
+  // Batch 15 (NEW) — JAVA-E1082, E1095, E1103, E1108
+  threadGroupDeprecatedMethods: 'java.correctness.threadgroup-deprecated-methods',
+  closeableProvidesInjection: 'java.correctness.closeable-provides-injection',
+  nonNullMethodReturnsNull: 'java.correctness.non-null-method-returns-null',
+  missingEnumSwitchElements: 'java.correctness.missing-enum-switch-elements',
 } as const;
 
 export interface CollectJavaCorrectnessFactsOptions {
@@ -162,6 +243,87 @@ export function collectJavaCorrectnessFacts(
     ...collectAssertionInProductionFacts(text, detector),
     ...collectArrayComparedToNonArrayFacts(text, detector),
     ...collectParameterReassignmentFacts(text, detector),
+
+    // Batch 06 (JAVA-E) — bug risk / framework facts
+    ...collectVolatileArrayElementsFacts(text, detector),
+    ...collectVolatileIncrementNonAtomicFacts(text, detector),
+    ...collectUnsafeGetresourceFacts(text, detector),
+    ...collectDuplicateBinaryArgumentFacts(text, detector),
+    ...collectIllegalMonitorStateCaughtFacts(text, detector),
+    ...collectCloneWithoutSuperFacts(text, detector),
+    ...collectEqualsNullFacts(text, detector),
+
+    // Batch 07 (JAVA-E) — bug risk / framework facts
+    ...collectNonFinalImmutableFieldsFacts(text, detector),
+    ...collectRunfinalizersOnExitFacts(text, detector),
+    ...collectWaitOnConditionFacts(text, detector),
+    ...collectMathMaxMinSwappedFacts(text, detector),
+    ...collectExplicitFinalizerInvocationFacts(text, detector),
+    ...collectEnumEqualsMethodFacts(text, detector),
+    ...collectOverloadedEqualsFacts(text, detector),
+
+    // Batch 08 (JAVA-E) — bug risk / framework facts
+    ...collectEqualsInheritsParentFacts(text, detector),
+    ...collectEqualsNullCheckFacts(text, detector),
+    ...collectComparetoMinValueFacts(text, detector),
+    ...collectServletMutableFieldsFacts(text, detector),
+    ...collectRunnableRunDirectFacts(text, detector),
+    ...collectTwoLockWaitFacts(text, detector),
+    ...collectSyncBoxedPrimitiveFacts(text, detector),
+    ...collectClassNameCollisionFacts(text, detector),
+
+    // Batch 09 (JAVA-E) — bug risk / framework facts
+    ...collectIgnoredInputstreamReadFacts(text, detector),
+    ...collectIgnoredInputstreamSkipFacts(text, detector),
+    ...collectConstructorStartsThreadFacts(text, detector),
+    ...collectForLoopMismatchedIncrementFacts(text, detector),
+    ...collectReadlineWithoutNullCheckFacts(text, detector),
+    ...collectUnsynchronizedWaitNotifyFacts(text, detector),
+    ...collectSelfAssignmentFacts(text, detector),
+    ...collectSyncOnLockPrimitiveFacts(text, detector),
+
+    // Batch 10 (JAVA-E) — bug risk / framework facts
+    ...collectResultSetIndexZeroFacts(text, detector),
+    ...collectPreparedStatementIndexZeroFacts(text, detector),
+    ...collectImpossibleToArrayDowncastFacts(text, detector),
+    ...collectInvalidRegexLiteralFacts(text, detector),
+    ...collectLostIncrementInAssignmentFacts(text, detector),
+    // Batch 11 (JAVA-E) — bug risk / framework facts
+    ...collectShiftOutOfRangeFacts(text, detector),
+    ...collectOddnessCheckFailsNegativeFacts(text, detector),
+    ...collectHasNextInvokesNextFacts(text, detector),
+    ...collectThreadSleepWithLockFacts(text, detector),
+    ...collectStringFormatArgMismatchFacts(text, detector),
+    ...collectBadShortCircuitNullCheckFacts(text, detector),
+    ...collectWaitNotifyOnThreadFacts(text, detector),
+
+    // Batch 12 (JAVA-E) — bug risk / framework facts
+    ...collectSwitchStatementLabelsFacts(text, detector),
+    ...collectWeekYearInDatePatternFacts(text, detector),
+    ...collectJumpInFinallyFacts(text, detector),
+    ...collectDefaultPackageSpringScanFacts(text, detector),
+    ...collectCaseInsensitiveRegexLacksUnicodeFacts(text, detector),
+    ...collectAssertSelfComparisonFacts(text, detector),
+    ...collectOptionalGetWithoutPresentCheckFacts(text, detector),
+    ...collectIterableIteratorReturnsThisFacts(text, detector),
+
+    // Batch 13 (JAVA-E) — bug risk / framework facts
+    ...collectRandomCoercedToZeroFacts(text, detector),
+    ...collectMutableEnumFieldsFacts(text, detector),
+    ...collectNoAllocationMethodCreatesObjectFacts(text, detector),
+
+    // Batch 14 (JAVA-E) — bug risk / framework facts
+    ...collectCollectionContainsSelfFacts(text, detector),
+    ...collectCollectionAddsSelfFacts(text, detector),
+    ...collectModulusMultiplicationPrecedenceFacts(text, detector),
+    ...collectBitwiseOrNeverEqualFacts(text, detector),
+    ...collectGetterSetterSyncMismatchFacts(text, detector),
+
+    // Batch 15 (NEW) — JAVA-E1082, E1095, E1103, E1108
+    ...collectThreadGroupDeprecatedMethodsFacts(text, detector),
+    ...collectCloseableProvidesInjectionFacts(text, detector),
+    ...collectNonNullMethodReturnsNullFacts(text, detector),
+    ...collectMissingEnumSwitchElementsFacts(text, detector),
   ];
 }
 
@@ -567,7 +729,7 @@ function collectUnconditionalRecursionFacts(
     const cleanedBody = stripNestedBlocks(bodyText);
 
     const selfCallPattern = new RegExp(
-      `(?:\\.\\s*${escapeRegex(methodName)}\\s*\\(|\\b${escapeRegex(methodName)}\\s*\\()`,
+      `(?:(?<!super)\\.\\s*${escapeRegex(methodName)}\\s*\\(|(?<!\\.)\\b${escapeRegex(methodName)}\\s*\\()`,
       'gu',
     );
 
@@ -2389,6 +2551,1159 @@ export function collectParameterReassignmentFacts(
   return findings;
 }
 
+// --- Batch 06 (JAVA-E) collectors ---
+
+function collectVolatileArrayElementsFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: JAVA_CORRECTNESS_FACT_KINDS.volatileArrayElements,
+    appliesTo: 'block',
+    pattern:
+      /volatile\s+\w+(?:<[^>]+>)?(?:\s*\[\s*\])+\s+\w+/gu,
+    predicate: (match) => {
+      const after = text.slice(match.endOffset).match(/^\s*/)?.[0] ?? '';
+      const nextChar = text[match.endOffset + after.length];
+      return nextChar !== '(';
+    },
+  });
+}
+
+function collectVolatileIncrementNonAtomicFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.volatileIncrementNonAtomic;
+  const findings: ObservedFact[] = [];
+
+  const volatileFieldPattern =
+    /volatile\s+(long|int|short|byte|char)\s+(\w+)\s*[=;]/gu;
+
+  const volatileFields = new Map<string, string>();
+  for (const match of text.matchAll(volatileFieldPattern)) {
+    const type = match[1];
+    const name = match[2];
+    const before = text.slice(Math.max(0, match.index! - 60), match.index!);
+    if (/\bAtomic(?:Integer|Long)\b/.test(before)) continue;
+    volatileFields.set(name, type);
+  }
+
+  if (volatileFields.size === 0) return findings;
+
+  const incPattern = /(\w+)\s*(?:\+\+|--|\+=|-=)/gu;
+  for (const match of findAllMatches(text, incPattern)) {
+    const varName = match.matchedText.match(/(\w+)/)?.[1];
+    if (!varName || !volatileFields.has(varName)) continue;
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.startOffset,
+        endOffset: match.endOffset,
+        text: match.matchedText,
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectUnsafeGetresourceFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: JAVA_CORRECTNESS_FACT_KINDS.unsafeGetresource,
+    appliesTo: 'block',
+    pattern:
+      /(?:getClass\(\)|\w+\.class)\s*\.\s*getResource\s*\(\s*["'][^/]/gu,
+  });
+}
+
+function collectDuplicateBinaryArgumentFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.duplicateBinaryArgument;
+  const findings: ObservedFact[] = [];
+
+  const dupPattern =
+    /(\w+(?:\.\w+)*)\s*(==|!=)\s*(\w+(?:\.\w+)*)\s*(?:\|\||&&)\s*\1\s*\2\s*\3/gu;
+
+  for (const match of findAllMatches(text, dupPattern)) {
+    const matched = match.matchedText;
+    if (/\*/.test(matched)) continue;
+
+    const callPattern = /\w+\s*\([^)]*\)\s*(?:\|\||&&)\s*\w+\s*\([^)]*\)/;
+    if (callPattern.test(matched)) continue;
+
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.startOffset,
+        endOffset: match.endOffset,
+        text: matched,
+        props: { confidence: 0.75 },
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectIllegalMonitorStateCaughtFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: JAVA_CORRECTNESS_FACT_KINDS.illegalMonitorStateCaught,
+    appliesTo: 'block',
+    pattern:
+      /\bcatch\s*\([^)]*\bIllegalMonitorStateException\b[^)]*\)/gu,
+  });
+}
+
+function collectCloneWithoutSuperFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.cloneWithoutSuper;
+  const findings: ObservedFact[] = [];
+
+  if (/\bfinal\s+class\b/.test(text)) return findings;
+
+  const cloneMethodPattern =
+    /(?:(?:public|protected|private)\s+)?\s*(?:Object\s+)?clone\s*\([^)]*\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{/gu;
+
+  for (const match of text.matchAll(cloneMethodPattern)) {
+    const openIndex = (match.index ?? 0) + match[0].lastIndexOf('{');
+    if (openIndex < 0) continue;
+
+    const closeIndex = findMatchingDelimiter(text, openIndex, '{', '}');
+    if (closeIndex < 0) continue;
+
+    const bodyText = text.slice(openIndex + 1, closeIndex);
+    if (/\bsuper\s*\.\s*clone\s*\(/.test(bodyText)) continue;
+
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.index ?? 0,
+        endOffset: closeIndex + 1,
+        text: match[0],
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectEqualsNullFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: JAVA_CORRECTNESS_FACT_KINDS.equalsNull,
+    appliesTo: 'block',
+    pattern:
+      /\w+(?:\.\w+)*\.equals\s*\(\s*null\s*\)/gu,
+    predicate: (match) => {
+      const lhs = match.matchedText.split('.equals')[0];
+      if (!lhs) return false;
+      return !/^"[^"]*"$/.test(lhs) && !/^'[^']*'$/.test(lhs);
+    },
+  });
+}
+
+// --- Batch 07 (JAVA-E) collectors ---
+
+function collectNonFinalImmutableFieldsFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.nonFinalImmutableFields;
+  const findings: ObservedFact[] = [];
+
+  const immutableAnnotationPattern =
+    /@(?:javax\.annotation\.concurrent\.Immutable|Immutable|Value|lombok\.Value)\b/gu;
+
+  for (const annMatch of findAllMatches(text, immutableAnnotationPattern)) {
+    const afterAnn = text.slice(annMatch.endOffset);
+    const classMatch = afterAnn.match(/^\s*(?:public\s+)?(?:abstract\s+)?(?:class|record)\s+\w+/);
+    if (!classMatch) continue;
+
+    const classStart = annMatch.endOffset + classMatch.index!;
+    const openBrace = text.indexOf('{', classStart);
+    if (openBrace < 0) continue;
+
+    const closeBrace = findMatchingDelimiter(text, openBrace, '{', '}');
+    if (closeBrace < 0) continue;
+
+    const body = text.slice(openBrace + 1, closeBrace);
+    const fieldPattern = /\b(?:private|protected|public)\s+(?:static\s+)?(\w+(?:<[^>]*>)?(?:\s*\[\s*\])?)\s+(\w+)\s*[=;]/gu;
+    for (const fieldMatch of body.matchAll(fieldPattern)) {
+      if (!/\bfinal\b/.test(fieldMatch[0])) {
+        findings.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: openBrace + 1 + (fieldMatch.index ?? 0),
+            endOffset: openBrace + 1 + (fieldMatch.index ?? 0) + fieldMatch[0].length,
+            text: fieldMatch[0],
+          }),
+        );
+      }
+    }
+  }
+
+  return findings;
+}
+
+function collectRunfinalizersOnExitFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: JAVA_CORRECTNESS_FACT_KINDS.runfinalizersOnExit,
+    appliesTo: 'block',
+    pattern:
+      /(?:System\.runFinalizersOnExit|Runtime\.getRuntime\(\)\.runFinalizersOnExit)\s*\(/gu,
+  });
+}
+
+function collectWaitOnConditionFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.waitOnCondition;
+  const findings: ObservedFact[] = [];
+  const conditionVars = new Set<string>();
+
+  const newConditionPattern = /(\w+)\s*=\s*\w+\.newCondition\s*\(/gu;
+  for (const match of text.matchAll(newConditionPattern)) {
+    conditionVars.add(match[1]);
+  }
+
+  if (conditionVars.size === 0) return findings;
+
+  const waitPattern = /(\w+)\.wait\s*\(/gu;
+  for (const match of text.matchAll(waitPattern)) {
+    const varName = match[1];
+    if (conditionVars.has(varName)) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: match.index ?? 0,
+          endOffset: (match.index ?? 0) + match[0].length,
+          text: match[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectMathMaxMinSwappedFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: JAVA_CORRECTNESS_FACT_KINDS.mathMaxMinSwapped,
+    appliesTo: 'block',
+    pattern:
+      /Math\.(max|min)\s*\(\s*(\w+)\s*,\s*Math\.(min|max)\s*\(\s*\2\s*,/gu,
+  });
+}
+
+function collectExplicitFinalizerInvocationFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.explicitFinalizerInvocation;
+  const findings: ObservedFact[] = [];
+
+  const finalizeCallPattern = /\w+\.finalize\s*\(/gu;
+  for (const match of findAllMatches(text, finalizeCallPattern)) {
+    const beforeCall = text.slice(0, match.startOffset);
+    const methodPattern = /\b(?:protected\s+)?void\s+finalize\s*\(\s*\)\s*(?:throws\s+\w+)?\s*\{/gu;
+    let insideFinalizeMethod = false;
+    let m: RegExpExecArray | null;
+    while ((m = methodPattern.exec(beforeCall)) !== null) {
+      const openBrace = beforeCall.indexOf('{', m.index);
+      if (openBrace < 0) continue;
+      const closeBrace = findMatchingDelimiter(beforeCall, openBrace, '{', '}');
+      if (closeBrace === -1 || closeBrace >= match.startOffset) {
+        insideFinalizeMethod = true;
+        break;
+      }
+    }
+    if (!insideFinalizeMethod) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: match.startOffset,
+          endOffset: match.endOffset,
+          text: match.matchedText,
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectEnumEqualsMethodFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.enumEqualsMethod;
+  const findings: ObservedFact[] = [];
+
+  const enumPattern = /\benum\s+(\w+)\s*\{/gu;
+  for (const enumMatch of text.matchAll(enumPattern)) {
+    const openBrace = (enumMatch.index ?? 0) + enumMatch[0].indexOf('{');
+    const closeBrace = findMatchingDelimiter(text, openBrace, '{', '}');
+    if (closeBrace < 0) continue;
+
+    const enumBody = text.slice(openBrace + 1, closeBrace);
+    const equalsPattern = /\b(?:public\s+)?boolean\s+equals\s*\(/gu;
+    if (equalsPattern.test(enumBody)) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: openBrace + 1,
+          endOffset: closeBrace,
+          text: `equals() in enum body`,
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectOverloadedEqualsFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.overloadedEquals;
+  const findings: ObservedFact[] = [];
+
+  const equalsPattern = /\b(?:public\s+)?boolean\s+equals\s*\(\s*(\w+(?:\[\])?)(?:\s+\w+)\s*\)/gu;
+  for (const match of text.matchAll(equalsPattern)) {
+    const paramType = match[1];
+    if (paramType !== 'Object') {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: match.index ?? 0,
+          endOffset: (match.index ?? 0) + match[0].length,
+          text: match[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+// --- Batch 08 (JAVA-E) collectors ---
+
+function collectEqualsInheritsParentFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.equalsInheritsParent;
+  const findings: ObservedFact[] = [];
+
+  const classPattern = /\bclass\s+(\w+)(?:<[^>]+>)?\s+extends\s+(\w+)\s*\{/gu;
+  for (const cls of text.matchAll(classPattern)) {
+    const openBrace = (cls.index ?? 0) + cls[0].length - 1;
+    const closeBrace = findMatchingDelimiter(text, openBrace, '{', '}');
+    if (closeBrace < 0) continue;
+
+    const classBody = text.slice(openBrace + 1, closeBrace);
+    const hasObjectEqualsOverride = /\b(@Override\s+)?public\s+boolean\s+equals\s*\(\s*Object\b/.test(classBody);
+    if (hasObjectEqualsOverride) continue;
+
+    const overloadedEqualsPattern = /\b(?:public\s+)?boolean\s+equals\s*\(\s*(\w+(?:\[\])?)(?:\s+\w+)\s*\)/gu;
+    for (const eqMatch of classBody.matchAll(overloadedEqualsPattern)) {
+      const paramType = eqMatch[1];
+      if (paramType !== 'Object') {
+        const absoluteStart = openBrace + 1 + (eqMatch.index ?? 0);
+        findings.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: absoluteStart,
+            endOffset: absoluteStart + eqMatch[0].length,
+            text: eqMatch[0],
+          }),
+        );
+      }
+    }
+  }
+
+  return findings;
+}
+
+function collectEqualsNullCheckFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.equalsNullCheck;
+  const findings: ObservedFact[] = [];
+
+  const equalsPattern = /\bboolean\s+equals\s*\(\s*Object\s+(\w+)\s*\)\s*\{/gu;
+  for (const match of text.matchAll(equalsPattern)) {
+    const paramName = match[1];
+    const openBrace = (match.index ?? 0) + match[0].length - 1;
+    const closeBrace = findMatchingDelimiter(text, openBrace, '{', '}');
+    if (closeBrace < 0) continue;
+
+    const methodBody = text.slice(openBrace + 1, closeBrace);
+
+    const nullGuardPattern = new RegExp(
+      `(?:${escapeRegex(paramName)}\\s*==\\s*null|${escapeRegex(paramName)}\\s*!=\\s*null|this\\s*==\\s*${escapeRegex(paramName)})`,
+      'gu',
+    );
+    if (nullGuardPattern.test(methodBody)) continue;
+
+    const safeCallPattern = new RegExp(
+      `Objects\\.equals\\s*\\(\\s*${escapeRegex(paramName)}`,
+      'gu',
+    );
+    if (safeCallPattern.test(methodBody)) continue;
+
+    const derefPattern = new RegExp(
+      `${escapeRegex(paramName)}\\.(?!equals\\s*\\()\\w+\\s*\\(`,
+      'gu',
+    );
+    const fieldAccessPattern = new RegExp(
+      `${escapeRegex(paramName)}\\.\\w+`,
+      'gu',
+    );
+
+    const hasDeref = derefPattern.test(methodBody) || fieldAccessPattern.test(methodBody);
+    if (hasDeref) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: match.index ?? 0,
+          endOffset: (match.index ?? 0) + match[0].length,
+          text: `equals(Object ${paramName}) without null check`,
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectComparetoMinValueFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.comparetoMinValue;
+
+  const methodPattern = /\b(?:public\s+)?int\s+(compareTo|compare)\s*\([^)]*\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{/gu;
+  const findings: ObservedFact[] = [];
+
+  for (const match of text.matchAll(methodPattern)) {
+    const openBrace = (match.index ?? 0) + match[0].lastIndexOf('{');
+    const closeBrace = findMatchingDelimiter(text, openBrace, '{', '}');
+    if (closeBrace < 0) continue;
+
+    const bodyText = text.slice(openBrace + 1, closeBrace);
+    const minValuePattern = /\bInteger\.MIN_VALUE\b|-2147483648/gu;
+    for (const valMatch of bodyText.matchAll(minValuePattern)) {
+      const absoluteStart = openBrace + 1 + (valMatch.index ?? 0);
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: absoluteStart,
+          endOffset: absoluteStart + valMatch[0].length,
+          text: valMatch[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectServletMutableFieldsFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.servletMutableFields;
+  const findings: ObservedFact[] = [];
+
+  const servletPattern = /\bclass\s+(\w+)\s+extends\s+(?:(?:javax|jakarta)\.servlet\.(?:http\.)?)?(?:HttpServlet|GenericServlet)\b/gu;
+  for (const cls of text.matchAll(servletPattern)) {
+    const classDeclEnd = (cls.index ?? 0) + cls[0].length;
+    const openBrace = text.indexOf('{', classDeclEnd);
+    if (openBrace < 0) continue;
+    const classClose = findMatchingDelimiter(text, openBrace, '{', '}');
+    if (classClose < 0) continue;
+
+    const classBody = text.slice(openBrace + 1, classClose);
+
+    const mutableFields = new Map<string, string>();
+    const fieldPattern = /(?:private|protected|public)\s+(?!final\b)(?:(?!static\b)(?:\w+(?:\.\w+)*)(?:<[^>]*>)?(?:\s*\[\s*\])?)\s+(\w+)\s*[=;]/gu;
+    for (const f of classBody.matchAll(fieldPattern)) {
+      mutableFields.set(f[1], f[1]);
+    }
+
+    if (mutableFields.size === 0) continue;
+
+    const handlerPattern = /\b(?:protected|public)\s+(?:void|int|String|boolean|long|Object)\s+(?:doGet|doPost|doPut|doDelete|doHead|doOptions|doTrace|service)\s*\([^)]*\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{/gu;
+    for (const handler of classBody.matchAll(handlerPattern)) {
+      const handlerOpen = (handler.index ?? 0) + handler[0].lastIndexOf('{');
+      const handlerClose = findMatchingDelimiter(classBody, handlerOpen, '{', '}');
+      if (handlerClose < 0) continue;
+
+      const handlerBody = classBody.slice(handlerOpen + 1, handlerClose);
+      const hasSync = /\bsynchronized\s*\(/.test(handlerBody);
+      if (hasSync) continue;
+
+      for (const [fieldName] of mutableFields) {
+        const accessPattern = new RegExp(
+          `(?<![A-Za-z_$0-9.])${escapeRegex(fieldName)}(?![A-Za-z_$0-9])`,
+          'gu',
+        );
+        if (accessPattern.test(handlerBody)) {
+          const absoluteStart = openBrace + 1 + handlerOpen + 1;
+          const accessMatch = handlerBody.match(accessPattern);
+          if (accessMatch) {
+            findings.push(
+              createOffsetFact(text, {
+                detector,
+                appliesTo: 'block',
+                kind,
+                startOffset: absoluteStart + (accessMatch.index ?? 0),
+                endOffset: absoluteStart + (accessMatch.index ?? 0) + fieldName.length,
+                text: fieldName,
+              }),
+            );
+          }
+        }
+      }
+    }
+  }
+
+  return findings;
+}
+
+function collectRunnableRunDirectFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: JAVA_CORRECTNESS_FACT_KINDS.runnableRunDirect,
+    appliesTo: 'block',
+    pattern: /(\w+(?:\.\w+)*)\.run\s*\(\s*\)/gu,
+    predicate: (match) => !/super\.run\s*\(/.test(match.matchedText),
+    props: () => ({ confidence: 0.80 }),
+  });
+}
+
+function collectTwoLockWaitFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.twoLockWait;
+  const findings: ObservedFact[] = [];
+
+  const syncPattern = /\bsynchronized\s*\([^)]*\)\s*\{/gu;
+  const syncBlocks: Array<{ syncOpen: number; syncClose: number }> = [];
+
+  for (const sync of text.matchAll(syncPattern)) {
+    const syncOpen = (sync.index ?? 0) + sync[0].lastIndexOf('{');
+    const syncClose = findMatchingDelimiter(text, syncOpen, '{', '}');
+    if (syncClose >= 0) {
+      syncBlocks.push({ syncOpen, syncClose });
+    }
+  }
+
+  if (syncBlocks.length < 2) return findings;
+
+  for (let i = 0; i < syncBlocks.length; i++) {
+    for (let j = 0; j < syncBlocks.length; j++) {
+      if (i === j) continue;
+      if (syncBlocks[j].syncOpen > syncBlocks[i].syncOpen && syncBlocks[j].syncClose < syncBlocks[i].syncClose) {
+        const innerBody = text.slice(syncBlocks[j].syncOpen + 1, syncBlocks[j].syncClose);
+        const waitPattern = /\b(?:this\.)?wait\s*\(\s*\)/gu;
+        for (const wait of innerBody.matchAll(waitPattern)) {
+          const absoluteStart = syncBlocks[j].syncOpen + 1 + (wait.index ?? 0);
+          findings.push(
+            createOffsetFact(text, {
+              detector,
+              appliesTo: 'block',
+              kind,
+              startOffset: absoluteStart,
+              endOffset: absoluteStart + wait[0].length,
+              text: wait[0],
+            }),
+          );
+        }
+      }
+    }
+  }
+
+  return findings;
+}
+
+function collectSyncBoxedPrimitiveFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.syncBoxedPrimitive;
+  const findings: ObservedFact[] = [];
+
+  const boxedTypes = ['Integer', 'Long', 'Short', 'Byte', 'Boolean', 'Character', 'Float', 'Double'];
+  const boxedVars = new Set<string>();
+
+  for (const boxedType of boxedTypes) {
+    const declPattern = new RegExp(
+      `\\b${boxedType}\\s+(\\w+)\\s*[=;]`,
+      'gu',
+    );
+    for (const decl of text.matchAll(declPattern)) {
+      boxedVars.add(decl[1]);
+    }
+  }
+
+  if (boxedVars.size === 0) return findings;
+
+  const syncPattern = /\bsynchronized\s*\(\s*(\w+)\s*\)/gu;
+  for (const sync of text.matchAll(syncPattern)) {
+    const monitorName = sync[1];
+    if (boxedVars.has(monitorName)) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: sync.index ?? 0,
+          endOffset: (sync.index ?? 0) + sync[0].length,
+          text: sync[0],
+        }),
+      );
+    }
+  }
+
+  const factorySyncPattern = /\bsynchronized\s*\(\s*(Integer|Long|Short|Byte|Boolean|Character|Float|Double)\./gu;
+  for (const sync of text.matchAll(factorySyncPattern)) {
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: sync.index ?? 0,
+        endOffset: (sync.index ?? 0) + sync[0].length,
+        text: sync[0],
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectClassNameCollisionFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.classNameCollision;
+  const findings: ObservedFact[] = [];
+
+  const classPattern = /\b(?:class|interface)\s+(\w+)\s*(?:<[^>]+>)?\s*(?:extends|implements)\s+([\w.,\s<>\n]+?)(?=\{|implements|extends)/gu;
+  for (const cls of text.matchAll(classPattern)) {
+    const className = cls[1];
+    const superTypes = cls[2];
+
+    const typePattern = /([\w.]+)\b/gu;
+    for (const type of superTypes.matchAll(typePattern)) {
+      const typeName = type[1];
+      if (!typeName.includes('.')) continue;
+      const simpleName = typeName.split('.').pop() ?? '';
+      if (simpleName === className) {
+        findings.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: cls.index ?? 0,
+            endOffset: (cls.index ?? 0) + cls[0].length,
+            text: cls[0],
+          }),
+        );
+        break;
+      }
+    }
+  }
+
+  return findings;
+}
+
+// --- Batch 09 (JAVA-E) collectors ---
+
+function collectIgnoredInputstreamReadFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: JAVA_CORRECTNESS_FACT_KINDS.ignoredInputstreamRead,
+    appliesTo: 'block',
+    pattern: /(?<!=\s*)(?<!return\s+)\b\w+\.read\s*\(/gu,
+  });
+}
+
+function collectIgnoredInputstreamSkipFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: JAVA_CORRECTNESS_FACT_KINDS.ignoredInputstreamSkip,
+    appliesTo: 'block',
+    pattern: /(?<!=\s*)(?<!return\s+)\b\w+\.skip\s*\(/gu,
+  });
+}
+
+function collectConstructorStartsThreadFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.constructorStartsThread;
+  const findings: ObservedFact[] = [];
+  const nonFinalClasses = new Map<string, { openBrace: number; closeBrace: number }>();
+
+  const classPattern = /(?:\bfinal\s+)?(?:public\s+)?(?:abstract\s+)?(?:class|record)\s+(\w+)\s*(?:extends\s+\w+(?:<[^>]*>)?\s*)?(?:implements[^{]*)?\{/gu;
+  for (const cls of text.matchAll(classPattern)) {
+    if (cls[0].startsWith('final')) continue;
+    const openBrace = (cls.index ?? 0) + cls[0].lastIndexOf('{');
+    const closeBrace = findMatchingDelimiter(text, openBrace, '{', '}');
+    if (closeBrace >= 0) {
+      nonFinalClasses.set(cls[1], { openBrace, closeBrace });
+    }
+  }
+
+  const ctorPattern = /(?:public|protected|private)?\s*(\w+)\s*\([^)]*\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{/gu;
+  for (const ctor of text.matchAll(ctorPattern)) {
+    const ctorName = ctor[1];
+    const classInfo = nonFinalClasses.get(ctorName);
+    if (!classInfo) continue;
+
+    const ctorOpen = (ctor.index ?? 0) + ctor[0].lastIndexOf('{');
+    if (ctorOpen < classInfo.openBrace || ctorOpen > classInfo.closeBrace) continue;
+
+    const ctorClose = findMatchingDelimiter(text, ctorOpen, '{', '}');
+    if (ctorClose < 0) continue;
+
+    const ctorBody = text.slice(ctorOpen + 1, ctorClose);
+    const threadStartPattern = /\.\s*(?:start\s*\(|(?:execute|submit)\s*\(\s*(?:new\s+)?Thread\s*\()/gu;
+    for (const start of ctorBody.matchAll(threadStartPattern)) {
+      const absoluteStart = ctorOpen + 1 + (start.index ?? 0);
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: absoluteStart,
+          endOffset: absoluteStart + start[0].length,
+          text: start[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectForLoopMismatchedIncrementFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.forLoopMismatchedIncrement;
+  const findings: ObservedFact[] = [];
+
+  const forPattern = /\bfor\s*\(\s*(?:\w+(?:\s*<[^>]*>)?\s+)?(\w+)\s*=\s*[^;]+;\s*(\w+)\s*(?:<|>|<=|>=|!=)\s*[^;]+;\s*(\w+)(?:\+\+|--|\s*\+=\s*\d+|\s*-=\s*\d+)\s*\)/gu;
+  for (const match of text.matchAll(forPattern)) {
+    const initVar = match[1];
+    const conditionVar = match[2];
+    const incrementVar = match[3];
+    if (conditionVar !== incrementVar) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: match.index ?? 0,
+          endOffset: (match.index ?? 0) + match[0].length,
+          text: match[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectReadlineWithoutNullCheckFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.readlineWithoutNullCheck;
+  const findings: ObservedFact[] = [];
+
+  const assignPattern = /(\w+)\s*=\s*(\w+)\.\s*readLine\s*\(\s*\)/gu;
+  for (const match of findAllMatches(text, assignPattern)) {
+    const assignEnd = match.endOffset;
+    const afterText = text.slice(assignEnd);
+    const lineStart = assignEnd;
+    const lines = afterText.split('\n');
+
+    const varName = match.matchedText.match(/(\w+)\s*=\s*/)?.[1] ?? '';
+
+    const readlineInWhilePattern = /while\s*\(\s*(?:\([^)]*\)\s*)?\s*(?:\w+\s*=\s*)?\w+\.\s*readLine\s*\(\s*\)\s*(?:!=\s*null\s*\))?/;
+    const beforeText = text.slice(Math.max(0, match.startOffset - 80), match.startOffset);
+    if (readlineInWhilePattern.test(beforeText)) continue;
+
+    let hasNullCheck = false;
+    let checkCount = 0;
+    for (const line of lines) {
+      if (checkCount > 5) break;
+      checkCount++;
+      const nullCheck = new RegExp(
+        `${varName}\\s*(?:==|!=)\\s*null`,
+        'gu',
+      );
+      if (nullCheck.test(line)) {
+        hasNullCheck = true;
+        break;
+      }
+    }
+
+    if (!hasNullCheck) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: match.startOffset,
+          endOffset: match.endOffset,
+          text: match.matchedText,
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectUnsynchronizedWaitNotifyFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.unsynchronizedWaitNotify;
+  const findings: ObservedFact[] = [];
+
+  const syncBlocks: Array<{ syncOpen: number; syncClose: number }> = [];
+  const syncPattern = /\bsynchronized\s*\([^)]*\)\s*\{/gu;
+  for (const sync of text.matchAll(syncPattern)) {
+    const syncOpen = (sync.index ?? 0) + sync[0].lastIndexOf('{');
+    const syncClose = findMatchingDelimiter(text, syncOpen, '{', '}');
+    if (syncClose >= 0) {
+      syncBlocks.push({ syncOpen, syncClose });
+    }
+  }
+
+  const waitNotifyPattern = /(\w+)\.\s*(?:wait|notify|notifyAll)\s*\(/gu;
+  for (const call of text.matchAll(waitNotifyPattern)) {
+    const callOffset = call.index ?? 0;
+    const isInsideSync = syncBlocks.some(
+      (b) => callOffset > b.syncOpen && callOffset < b.syncClose,
+    );
+    if (!isInsideSync) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: callOffset,
+          endOffset: callOffset + call[0].length,
+          text: call[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectSelfAssignmentFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.selfAssignment;
+  const findings: ObservedFact[] = [];
+
+  const assignPattern = /(\w+)\s*=\s*\1\s*;/gu;
+  for (const match of findAllMatches(text, assignPattern)) {
+    const expr = match.matchedText;
+
+    if (/this\./.test(expr)) continue;
+    if (/\w+\.\w+\s*=/.test(expr)) continue;
+
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.startOffset,
+        endOffset: match.endOffset,
+        text: match.matchedText,
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectSyncOnLockPrimitiveFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.syncOnLockPrimitive;
+  const findings: ObservedFact[] = [];
+  const lockVars = new Set<string>();
+
+  const lockTypes = [
+    'ReentrantLock', 'Lock', 'ReentrantReadWriteLock',
+    'StampedLock', 'ReadWriteLock',
+  ];
+  for (const lockType of lockTypes) {
+    const declPattern = new RegExp(
+      `\\b${lockType}\\s+(\\w+)\\s*[=;]`,
+      'gu',
+    );
+    for (const decl of text.matchAll(declPattern)) {
+      lockVars.add(decl[1]);
+    }
+  }
+
+  if (lockVars.size === 0) return findings;
+
+  const syncPattern = /\bsynchronized\s*\(\s*(\w+)\s*\)/gu;
+  for (const sync of text.matchAll(syncPattern)) {
+    const monitorName = sync[1];
+    if (lockVars.has(monitorName)) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: sync.index ?? 0,
+          endOffset: (sync.index ?? 0) + sync[0].length,
+          text: sync[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectResultSetIndexZeroFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.resultSetIndexZero;
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern:
+      /\b(?:resultSet|rs|results?|rset)\s*\.\s*(?:get|update)[A-Za-z]+\s*\(\s*0(?!\s*[L.lxXbBfFdD])\s*[,)]/gu,
+  });
+}
+
+function collectPreparedStatementIndexZeroFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.preparedStatementIndexZero;
+  const setterMethods = [
+    'setString', 'setInt', 'setLong', 'setBoolean', 'setDouble', 'setFloat',
+    'setBytes', 'setDate', 'setTime', 'setTimestamp', 'setObject', 'setBigDecimal',
+    'setNull', 'setArray', 'setBlob', 'setClob', 'setRef', 'setURL',
+    'setNString', 'setNCharacterStream', 'setBinaryStream', 'setAsciiStream',
+    'setCharacterStream', 'setRowId', 'setSQLXML',
+  ].join('|');
+  const varNames = 'preparedStatement|pstmt|ps|prepStmt|stmt|statement';
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: new RegExp(
+      `\\b(?:${varNames})\\s*\\.\\s*(?:${setterMethods})\\s*\\(\\s*0\\s*,`,
+      'gu',
+    ),
+  });
+}
+
+function collectImpossibleToArrayDowncastFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.impossibleToArrayDowncast;
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern:
+      /\(\s*\w+(?:\[\]\s*\)|\[\])\s+\w+\s*\.\s*toArray\s*\(\s*\)/gu,
+    predicate: (match) => {
+      return !/\.\s*toArray\s*\(\s*new\s+\w+\[/u.test(
+        text.slice(Math.max(0, match.startOffset - 80), match.endOffset + 20),
+      );
+    },
+  });
+}
+
+function collectInvalidRegexLiteralFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.invalidRegexLiteral;
+  const findings: ObservedFact[] = [];
+
+  const regexCallPattern =
+    /\b(?:Pattern\.compile|Pattern\.matches|String\.matches|String\.replaceAll|String\.replaceFirst|String\.split)\s*\(\s*"((?:[^"\\]|\\.)*)"\s*[,)]/gu;
+
+  const standardEscapes = new Set([
+    '\\d', '\\w', '\\s', '\\b', '\\D', '\\W', '\\S', '\\B',
+    '\\n', '\\t', '\\r', '\\\\', '\\.', '\\+', '\\*', '\\?',
+    '\\|', '\\(', '\\)', '\\[', '\\]', '\\{', '\\}', '\\^',
+    '\\$', '\\/', '\\0', '\\x', '\\u',
+  ]);
+
+  for (const match of text.matchAll(regexCallPattern)) {
+    const regexStr = match[1];
+    if (!regexStr) continue;
+
+    let invalid = false;
+
+    const openBrackets = (regexStr.match(/\[/gu) ?? []).length;
+    const closeBrackets = (regexStr.match(/\]/gu) ?? []).length;
+    if (openBrackets !== closeBrackets) invalid = true;
+
+    const openParens = (regexStr.match(/\(/gu) ?? []).length;
+    const closeParens = (regexStr.match(/\)/gu) ?? []).length;
+    if (openParens !== closeParens) invalid = true;
+
+    if (/\[[\s]*\]/u.test(regexStr)) invalid = true;
+
+    const rangePattern = /\[[^\]]*([a-zA-Z0-9])\s*-\s*([a-zA-Z0-9])\s*[^\]]*\]/gu;
+    let rangeMatch: RegExpExecArray | null;
+    while ((rangeMatch = rangePattern.exec(regexStr)) !== null) {
+      if (rangeMatch[1].charCodeAt(0) > rangeMatch[2].charCodeAt(0)) {
+        invalid = true;
+        break;
+      }
+    }
+
+    const escapeSeqPattern = /\\(.)/gu;
+    let escMatch: RegExpExecArray | null;
+    while ((escMatch = escapeSeqPattern.exec(regexStr)) !== null) {
+      const seq = escMatch[0];
+      if (!standardEscapes.has(seq)) {
+        invalid = true;
+        break;
+      }
+    }
+
+    if (regexStr.endsWith('\\') && !regexStr.endsWith('\\\\')) {
+      invalid = true;
+    }
+
+    if (invalid) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: match.index ?? 0,
+          endOffset: (match.index ?? 0) + match[0].length,
+          text: match[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectLostIncrementInAssignmentFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.lostIncrementInAssignment;
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\b(\w+)\s*=\s*\1\s*(\+\+|--)/gu,
+    predicate: (match) => {
+      const expr = match.matchedText;
+      return !/this\./u.test(expr);
+    },
+  });
+}
+
 function findEnclosingMethod(text: string, offset: number): string | null {
   const beforeOffset = text.slice(0, offset);
   const methodPattern =
@@ -2460,6 +3775,622 @@ function computeLineOffsets(text: string): number[] {
   return offsets;
 }
 
+function collectShiftOutOfRangeFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const invalidShiftPattern =
+    /[a-zA-Z_]\w*\s*(?:<<|>>>?)\s*(-?\d+)\b/gu;
+  const findings: ObservedFact[] = [];
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.shiftOutOfRange;
+
+  for (const match of text.matchAll(invalidShiftPattern)) {
+    const amountStr = match[1];
+    const amount = parseInt(amountStr, 10);
+    let isInvalid = false;
+
+    if (amount < 0) {
+      isInvalid = true;
+    } else if (amount >= 64) {
+      isInvalid = true;
+    }
+
+    if (!isInvalid) {
+      continue;
+    }
+
+    const startOffset = match.index!;
+    const endOffset = startOffset + match[0].length;
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset,
+        endOffset,
+        text: match[0],
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectOddnessCheckFailsNegativeFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const pattern = /%\s*2[lL]?\s*==\s*1[lL]?/gu;
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: JAVA_CORRECTNESS_FACT_KINDS.oddnessCheckFailsNegative,
+    appliesTo: 'block',
+    pattern,
+  });
+}
+
+function collectHasNextInvokesNextFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const findings: ObservedFact[] = [];
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.hasNextInvokesNext;
+
+  const hasNextMethodPattern = /\bboolean\s+hasNext\s*\(\s*\)/gu;
+  let hasNextPresent = false;
+  for (const _ of text.matchAll(hasNextMethodPattern)) {
+    hasNextPresent = true;
+    break;
+  }
+
+  if (!hasNextPresent) {
+    return findings;
+  }
+
+  const nextCallPattern = /\b\w+(?:\s*\([^)]*\))?\s*\.\s*next\s*\(\s*\)/gu;
+  for (const match of text.matchAll(nextCallPattern)) {
+    const startOffset = match.index!;
+    const endOffset = startOffset + match[0].length;
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset,
+        endOffset,
+        text: match[0],
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectThreadSleepWithLockFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const findings: ObservedFact[] = [];
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.threadSleepWithLock;
+
+  const hasSynchronized = /\bsynchronized\b/u.test(text);
+  if (!hasSynchronized) {
+    return findings;
+  }
+
+  const sleepPattern = /Thread\.sleep\s*\(/gu;
+  for (const match of text.matchAll(sleepPattern)) {
+    const startOffset = match.index!;
+    const endOffset = startOffset + match[0].length;
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset,
+        endOffset,
+        text: match[0],
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectStringFormatArgMismatchFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const findings: ObservedFact[] = [];
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.stringFormatArgMismatch;
+
+  const formatCallPattern =
+    /String\.format\s*\(\s*("(?:[^"\\]|\\.)*")\s*((?:,\s*[^,()]+(?:\([^)]*\))?)*)\s*\)/gu;
+
+  for (const match of text.matchAll(formatCallPattern)) {
+    const formatStr = match[1];
+    const argSection = match[2] || '';
+
+    let specifierCount = 0;
+    const specPattern = /%(?:(?:[1-9]\d*)\$)?[sdfFeEgGhHboxXaA%n]/gu;
+    for (const specMatch of formatStr.matchAll(specPattern)) {
+      const spec = specMatch[0];
+      if (spec !== '%%') {
+        specifierCount++;
+      }
+    }
+
+    if (specifierCount === 0) {
+      continue;
+    }
+
+    const args = argSection
+      .split(',')
+      .map((a) => a.trim())
+      .filter((a) => a.length > 0);
+    const argCount = args.length;
+
+    if (specifierCount !== argCount) {
+      const startOffset = match.index!;
+      const endOffset = startOffset + match[0].length;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset,
+          endOffset,
+          text: match[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectBadShortCircuitNullCheckFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const pattern = /(\w+)\s*(?:!=\s*null\s*\|\||==\s*null\s*\|\|)\s*\1\./gu;
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: JAVA_CORRECTNESS_FACT_KINDS.badShortCircuitNullCheck,
+    appliesTo: 'block',
+    pattern,
+  });
+}
+
+function collectWaitNotifyOnThreadFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const findings: ObservedFact[] = [];
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.waitNotifyOnThread;
+
+  const threadNames = new Set<string>();
+  const threadVarPattern =
+    /\bThread\s+(thread|[A-Za-z_]\w*thread\w*|t|worker|runner|taskThread)\b/giu;
+  for (const match of text.matchAll(threadVarPattern)) {
+    threadNames.add(match[1]);
+  }
+
+  const waitNotifyPattern =
+    /(\w+|\bThread\.currentThread\s*\(\s*\))\s*\.\s*(wait|notify|notifyAll)\s*\(/gu;
+  for (const match of text.matchAll(waitNotifyPattern)) {
+    const receiver = match[1];
+    let isThread = false;
+
+    if (receiver === 'Thread.currentThread()' || receiver === 'Thread.currentThread') {
+      isThread = true;
+    } else if (threadNames.has(receiver)) {
+      isThread = true;
+    }
+
+    if (!isThread) {
+      continue;
+    }
+
+    const startOffset = match.index!;
+    const endOffset = startOffset + match[0].length;
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset,
+        endOffset,
+        text: match[0],
+      }),
+    );
+  }
+
+  return findings;
+}
+
+// Batch 12 (JAVA-E) — bug risk / framework collectors
+
+function collectSwitchStatementLabelsFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const findings: ObservedFact[] = [];
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.switchStatementLabels;
+
+  if (!/\bswitch\b/u.test(text)) return findings;
+
+  const switchBlockPattern = /switch\s*\([^)]*\)\s*\{/gu;
+  for (const switchMatch of text.matchAll(switchBlockPattern)) {
+    const blockStart = (switchMatch.index ?? 0) + switchMatch[0].length - 1;
+    let depth = 1;
+    let pos = blockStart + 1;
+
+    while (pos < text.length && depth > 0) {
+      if (text[pos] === '{') depth++;
+      else if (text[pos] === '}') depth--;
+      pos++;
+    }
+
+    const blockBody = text.slice(blockStart + 1, pos - 1);
+    const labelPattern = /^[ \t]*([A-Za-z_]\w*)\s*:/gmu;
+    for (const labelMatch of blockBody.matchAll(labelPattern)) {
+      const label = labelMatch[1];
+      if (label === 'case' || label === 'default') continue;
+
+      const lineStart = blockStart + 1 + (labelMatch.index ?? 0);
+      const lineEnd = lineStart + labelMatch[0].length;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: lineStart,
+          endOffset: lineEnd,
+          text: labelMatch[0].trim(),
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectWeekYearInDatePatternFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const pattern =
+    /(?:SimpleDateFormat|DateTimeFormatter\.ofPattern)\s*\(\s*"((?:[^"\\]|\\.)*)"/gu;
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: JAVA_CORRECTNESS_FACT_KINDS.weekYearInDatePattern,
+    appliesTo: 'block',
+    pattern,
+    predicate: (match) => {
+      const formatStr = match.matchedText;
+      const quoteContent = formatStr.match(/"((?:[^"\\]|\\.)*)"/u);
+      if (!quoteContent) return false;
+      const patternStr = quoteContent[1];
+      return /YYYY/u.test(patternStr) && !/\bww\b/u.test(patternStr) && !/\bu\b/u.test(patternStr);
+    },
+  });
+}
+
+function collectJumpInFinallyFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const findings: ObservedFact[] = [];
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.jumpInFinally;
+
+  if (!/\bfinally\b/u.test(text)) return findings;
+
+  const finallyBlockPattern = /finally\s*\{/gu;
+  for (const finallyMatch of text.matchAll(finallyBlockPattern)) {
+    const blockStart = (finallyMatch.index ?? 0) + finallyMatch[0].length - 1;
+    let depth = 1;
+    let pos = blockStart + 1;
+
+    while (pos < text.length && depth > 0) {
+      if (text[pos] === '{') depth++;
+      else if (text[pos] === '}') depth--;
+      pos++;
+    }
+
+    const blockBody = text.slice(blockStart + 1, pos - 1);
+    const stripped = stripNestedBlocks(blockBody);
+    const jumpPattern = /\b(?:return|throw)\b[^;]*;/gu;
+    for (const jumpMatch of stripped.matchAll(jumpPattern)) {
+      const offsetInBlock = jumpMatch.index ?? 0;
+      const globalStart = blockStart + 1 + offsetInBlock;
+      const globalEnd = globalStart + jumpMatch[0].length;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: globalStart,
+          endOffset: globalEnd,
+          text: jumpMatch[0].trim(),
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectDefaultPackageSpringScanFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.defaultPackageSpringScan;
+  const findings: ObservedFact[] = [];
+
+  const hasPackageDecl = /\bpackage\s+\w[\w.]*\s*;/u.test(text);
+  if (!hasPackageDecl) {
+    const annotationPattern =
+      /@(?:SpringBootApplication|ComponentScan|ServletComponentScan)\b/gu;
+    for (const match of text.matchAll(annotationPattern)) {
+      const startOffset = match.index ?? 0;
+      const endOffset = startOffset + match[0].length;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset,
+          endOffset,
+          text: match[0],
+        }),
+      );
+    }
+  }
+
+  const emptyScanPattern =
+    /@ComponentScan\s*\(\s*(?:basePackages\s*=\s*)?""\s*\)/gu;
+  for (const match of text.matchAll(emptyScanPattern)) {
+    const startOffset = match.index ?? 0;
+    const endOffset = startOffset + match[0].length;
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset,
+        endOffset,
+        text: match[0],
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectCaseInsensitiveRegexLacksUnicodeFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const findings: ObservedFact[] = [];
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.caseInsensitiveRegexLacksUnicode;
+
+  const compilePattern =
+    /Pattern\.compile\s*\(\s*"[^"]*"\s*,\s*([^)]+)\s*\)/gu;
+  for (const match of text.matchAll(compilePattern)) {
+    const flags = match[1];
+    const hasCaseInsensitive =
+      /\bCASE_INSENSITIVE\b/u.test(flags) || /\(\?i\)/u.test(flags);
+    const hasUnicode =
+      /\bUNICODE_CASE\b/u.test(flags) ||
+      /\bUNICODE_CHARACTER_CLASS\b/u.test(flags) ||
+      /\(\?u\)/u.test(flags) ||
+      /\(\?U\)/u.test(flags);
+
+    if (hasCaseInsensitive && !hasUnicode) {
+      const startOffset = match.index ?? 0;
+      const endOffset = startOffset + match[0].length;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset,
+          endOffset,
+          text: match[0],
+        }),
+      );
+    }
+  }
+
+  const inlineFlagPattern =
+    /["']\(\?\s*i\s*\)["']\s*(?:\.\s*compile\s*\(|(?![^(]*[uU]\)))/gu;
+  for (const match of text.matchAll(inlineFlagPattern)) {
+    const context = text.slice(
+      Math.max(0, (match.index ?? 0) - 60),
+      (match.index ?? 0) + match[0].length + 60,
+    );
+    const hasUnicodeFlag = /\(\?\s*i\s*u\s*\)/u.test(context);
+    if (!hasUnicodeFlag) {
+      const startOffset = match.index ?? 0;
+      const endOffset = startOffset + match[0].length;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset,
+          endOffset,
+          text: match[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectAssertSelfComparisonFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const findings: ObservedFact[] = [];
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.assertSelfComparison;
+
+  const testMethodPattern =
+    /\b(?:equals|hashCode|objectMethods)\b/iu;
+  if (testMethodPattern.test(text)) {
+    const methodNames =
+      text.match(/(?:public\s+)?(?:boolean|int)\s+(equals|hashCode)\s*\(/gu) ?? [];
+    if (methodNames.length > 0) return findings;
+  }
+
+  const assertPattern =
+    /\bassert(?:Equals|Same)\s*\(\s*(\w+)\s*,\s*(\w+)\s*\)/gu;
+  for (const match of text.matchAll(assertPattern)) {
+    if (match[1] === match[2]) {
+      const startOffset = match.index ?? 0;
+      const endOffset = startOffset + match[0].length;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset,
+          endOffset,
+          text: match[0],
+        }),
+      );
+    }
+  }
+
+  const assertTrueSelfPattern = /assertTrue\s*\(\s*(\w+)\s*==\s*\1\s*\)/gu;
+  for (const match of text.matchAll(assertTrueSelfPattern)) {
+    const startOffset = match.index ?? 0;
+    const endOffset = startOffset + match[0].length;
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset,
+        endOffset,
+        text: match[0],
+      }),
+    );
+  }
+
+  const hasSameHashCodePattern =
+    /(\w+)\s*\.\s*hasSameHashCodeAs\s*\(\s*(\w+)\s*\)/gu;
+  for (const match of text.matchAll(hasSameHashCodePattern)) {
+    if (match[1] === match[2]) {
+      const startOffset = match.index ?? 0;
+      const endOffset = startOffset + match[0].length;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset,
+          endOffset,
+          text: match[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectOptionalGetWithoutPresentCheckFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const findings: ObservedFact[] = [];
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.optionalGetWithoutPresentCheck;
+
+  const getCallPattern = /\b(\w+)\s*\.\s*get\s*\(\s*\)/gu;
+  const seenReceivers = new Set<string>();
+
+  for (const match of text.matchAll(getCallPattern)) {
+    const receiver = match[1];
+
+    if (receiver === 'this' || receiver === 'super') continue;
+    if (seenReceivers.has(receiver)) continue;
+    seenReceivers.add(receiver);
+
+    const isPresentPattern = new RegExp(
+      `\\b${escapeRegex(receiver)}\\s*\\.\\s*isPresent\\s*\\(\\s*\\)`,
+      'gu',
+    );
+    const hasIsPresent = isPresentPattern.test(text);
+
+    if (!hasIsPresent) {
+      const startOffset = match.index ?? 0;
+      const endOffset = startOffset + match[0].length;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset,
+          endOffset,
+          text: match[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectIterableIteratorReturnsThisFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const findings: ObservedFact[] = [];
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.iterableIteratorReturnsThis;
+
+  if (!/\bimplements\b[\s\S]*\bIterable\b/i.test(text)) return findings;
+  if (!/\bimplements\b[\s\S]*\bIterator\b/i.test(text)) return findings;
+
+  const methodPattern =
+    /\bIterator(?:<[^<>;]*>)?\s+\w+\s*\(\s*\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{/gu;
+  for (const methodMatch of text.matchAll(methodPattern)) {
+    const bodyStart = (methodMatch.index ?? 0) + methodMatch[0].length - 1;
+    let depth = 1;
+    let pos = bodyStart + 1;
+
+    while (pos < text.length && depth > 0) {
+      if (text[pos] === '{') depth++;
+      else if (text[pos] === '}') depth--;
+      pos++;
+    }
+
+    const body = text.slice(bodyStart + 1, pos - 1);
+    const returnThisPattern = /\breturn\s+this\s*;/gu;
+    for (const returnMatch of body.matchAll(returnThisPattern)) {
+      const globalStart = bodyStart + 1 + (returnMatch.index ?? 0);
+      const globalEnd = globalStart + returnMatch[0].length;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: globalStart,
+          endOffset: globalEnd,
+          text: returnMatch[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
 function offsetToLine(offset: number, lineOffsets: number[]): number {
   let low = 0;
   let high = lineOffsets.length - 1;
@@ -2523,6 +4454,305 @@ function collectOptionalReturnTypeMethods(text: string): Set<string> {
   return names;
 }
 
+// --- Batch 15 (NEW) collectors ---
+
+function collectThreadGroupDeprecatedMethodsFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.threadGroupDeprecatedMethods;
+  const findings: ObservedFact[] = [];
+
+  const forbiddenMethods =
+    /(?:stop|suspend|resume|destroy|isDestroyed|setDaemon|isDaemon|checkAccess|allowThreadSuspension)\s*\(/gu;
+
+  // Static calls: ThreadGroup.stop(...)
+  const staticPattern = /\bThreadGroup\s*\.\s*(?:stop|suspend|resume|destroy|isDestroyed|setDaemon|isDaemon|checkAccess|allowThreadSuspension)\s*\(/gu;
+  for (const match of findAllMatches(text, staticPattern)) {
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.startOffset,
+        endOffset: match.endOffset,
+        text: match.matchedText,
+      }),
+    );
+  }
+
+  // Instance calls: variable.method(...) where method is one of the forbidden methods
+  // We match any call to these methods via instance invocation
+  const instancePattern = /(\w+(?:\.\w+)*)\s*\.\s*(stop|suspend|resume|destroy|isDestroyed|setDaemon|isDaemon|checkAccess|allowThreadSuspension)\s*\(/gu;
+  for (const match of findAllMatches(text, instancePattern)) {
+    // Skip if it's a ThreadGroup static call (already handled above) or a Thread method (Batch 13)
+    const receiver = match.matchedText.match(/^(\w+(?:\.\w+)*)/)?.[1];
+    if (!receiver || receiver === 'ThreadGroup' || receiver.endsWith('.ThreadGroup')) continue;
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.startOffset,
+        endOffset: match.endOffset,
+        text: match.matchedText,
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectCloseableProvidesInjectionFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.closeableProvidesInjection;
+  const findings: ObservedFact[] = [];
+
+  const closeableTypes = new Set([
+    'FileOutputStream', 'FileInputStream', 'FileReader', 'FileWriter',
+    'BufferedReader', 'BufferedWriter', 'BufferedInputStream', 'BufferedOutputStream',
+    'PrintWriter', 'PrintStream', 'ObjectOutputStream', 'ObjectInputStream',
+    'DataOutputStream', 'DataInputStream',
+    'Socket', 'ServerSocket', 'DatagramSocket', 'URLConnection', 'HttpURLConnection',
+    'Connection', 'Statement', 'PreparedStatement', 'CallableStatement', 'ResultSet',
+    'Scanner', 'Formatter',
+  ]);
+
+  // Find @Provides or @Inject annotations on methods (may be same line or previous line)
+  const diAnnotationPattern = /@(?:Provides|Inject)\b/gu;
+
+  for (const annMatch of findAllMatches(text, diAnnotationPattern)) {
+    const beforeMethod = text.slice(annMatch.startOffset);
+    const methodLineMatch = beforeMethod.match(
+      /@(?:Provides|Inject)\b[\s\S]{0,200}?\b(?:public|private|protected\s+)?(?:static\s+)?(?:<[^>]+>\s+)?(\w+(?:<[^>]*>)?)\s+\w+\s*\(/u,
+    );
+
+    if (!methodLineMatch) continue;
+
+    const returnType = methodLineMatch[1];
+
+    // Check if return type is a known Closeable type
+    const baseType = returnType.replace(/<[^>]*>/gu, '');
+    if (!closeableTypes.has(baseType)) continue;
+
+    // Check for @SuppressWarnings("CloseableProvides")
+    const beforeMethodText = text.slice(
+      Math.max(0, annMatch.startOffset - 200),
+      annMatch.startOffset,
+    );
+    if (/@SuppressWarnings\s*\(\s*"CloseableProvides"\s*\)/u.test(beforeMethodText)) continue;
+
+    const absoluteStart = annMatch.startOffset;
+    const methodText = methodLineMatch[0];
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: absoluteStart,
+        endOffset: absoluteStart + methodText.length,
+        text: methodText,
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectNonNullMethodReturnsNullFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.nonNullMethodReturnsNull;
+  const findings: ObservedFact[] = [];
+
+  // Known non-null annotations
+  const nonNullAnnotations = [
+    'Nonnull', 'NotNull', 'NonNull',
+    'javax\\.annotation\\.Nonnull',
+    'org\\.jetbrains\\.annotations\\.NotNull',
+  ];
+  const nonNullPattern = new RegExp(
+    `@(?:${nonNullAnnotations.join('|')})\\b`,
+    'gu',
+  );
+
+  for (const annMatch of findAllMatches(text, nonNullPattern)) {
+    // Skip if it's actually a @Nullable annotation that happens to match Nonnull
+    const beforeText = text.slice(Math.max(0, annMatch.startOffset - 20), annMatch.startOffset);
+    if (/Nullable\s*$/u.test(beforeText)) continue;
+
+    // Find the method declaration following the annotation
+    const afterAnn = text.slice(annMatch.startOffset);
+    const methodDeclMatch = afterAnn.match(
+      /@\w+[\s\S]{0,200}?\b(?:public|private|protected\s+)?(?:static\s+)?(?:final\s+)?(?:<[^>]+>\s+)?(?:\w+(?:\[\])*(?:\s*<[^>]*>)?)\s+(\w+)\s*\(/u,
+    );
+
+    if (!methodDeclMatch) continue;
+
+    const methodDeclEnd = annMatch.startOffset + methodDeclMatch.index! + methodDeclMatch[0].length;
+
+    // Find method body by looking for the opening brace
+    const bodyStart = text.indexOf('{', methodDeclEnd);
+    if (bodyStart < 0) continue;
+
+    const bodyEnd = findMatchingDelimiter(text, bodyStart, '{', '}');
+    if (bodyEnd < 0) continue;
+
+    const methodBody = text.slice(bodyStart + 1, bodyEnd);
+
+    // Find `return null` statements in method body
+    const returnNullPattern = /\breturn\s+null\s*;/gu;
+    for (const returnMatch of findAllMatches(methodBody, returnNullPattern)) {
+      const absoluteStart = bodyStart + 1 + returnMatch.startOffset;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: absoluteStart,
+          endOffset: absoluteStart + returnMatch.matchedText.length,
+          text: returnMatch.matchedText,
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectMissingEnumSwitchElementsFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.missingEnumSwitchElements;
+  const findings: ObservedFact[] = [];
+
+  // Pass 1: Find all enum definitions
+  const enumDefs = new Map<string, Set<string>>();
+  const enumPattern = /(?:public\s+)?enum\s+(\w+)\s*\{/gu;
+
+  for (const enumMatch of text.matchAll(enumPattern)) {
+    const enumName = enumMatch[1];
+    const openBrace = (enumMatch.index ?? 0) + enumMatch[0].lastIndexOf('{');
+    const closeBrace = findMatchingDelimiter(text, openBrace, '{', '}');
+    if (closeBrace < 0) continue;
+
+    const enumBody = text.slice(openBrace + 1, closeBrace);
+    const members = new Set<string>();
+
+    // Extract enum member names (identifiers before (, ; or , at top level)
+    const memberPattern = /(\w+)\s*(?:\(|;|,|\s*$)/gu;
+    let memberMatch: RegExpExecArray | null;
+    while ((memberMatch = memberPattern.exec(enumBody)) !== null) {
+      const name = memberMatch[1];
+      // Skip keywords and Java built-in names
+      if (/^(?:private|public|protected|static|final|abstract|class|enum|interface|void|int|long|double|float|boolean|char|byte|short)$/u.test(name)) continue;
+      // Skip if followed by ( -> likely a method, not an enum constant
+      const afterName = enumBody.slice(memberMatch.index! + memberMatch[1].length).trimStart();
+      if (afterName.startsWith('(')) continue;
+      members.add(name);
+    }
+
+    if (members.size > 0) {
+      enumDefs.set(enumName, members);
+    }
+  }
+
+  if (enumDefs.size === 0) return findings;
+
+  // Pass 2: Find switch statements and check for enum coverage
+  const switchPattern = /\bswitch\s*\(([^)]+)\)\s*\{/gu;
+  for (const switchMatch of text.matchAll(switchPattern)) {
+    const switchExpr = switchMatch[1].trim();
+    const switchOpen = (switchMatch.index ?? 0) + switchMatch[0].lastIndexOf('{');
+    const switchClose = findMatchingDelimiter(text, switchOpen, '{', '}');
+    if (switchClose < 0) continue;
+
+    const switchBody = text.slice(switchOpen + 1, switchClose);
+
+    // Check if default is present
+    const hasDefault = /\bdefault\s*:/u.test(switchBody);
+
+    // Extract case labels
+    const caseLabels = new Set<string>();
+    const casePattern = /\bcase\s+(\w+)\s*:/gu;
+    let caseMatch: RegExpExecArray | null;
+    while ((caseMatch = casePattern.exec(switchBody)) !== null) {
+      caseLabels.add(caseMatch[1]);
+    }
+
+    // Try to determine the enum type from the switch expression
+    let enumType: string | null = null;
+
+    // Check if expression is EnumType.identifier (e.g., Color.RED)
+    const qualifiedAccess = switchExpr.match(/^(\w+)\.\w+$/u);
+    if (qualifiedAccess) {
+      enumType = qualifiedAccess[1];
+    }
+
+    // Check if expression is a simple variable — try to find its type from declaration
+    if (!enumType && /^\w+$/u.test(switchExpr)) {
+      const varPattern = new RegExp(
+        `(\\w+(?:<[^>]*>)?)\\s+${switchExpr}\\s*[=;]`,
+        'gu',
+      );
+      const varDecl = varPattern.exec(text);
+      if (varDecl) {
+        const typeName = varDecl[1].replace(/<[^>]*>/gu, '');
+        if (enumDefs.has(typeName)) {
+          enumType = typeName;
+        }
+      }
+    }
+
+    // Check method parameter type if it matches an enum
+    if (!enumType && /^\w+$/u.test(switchExpr)) {
+      const paramPattern = new RegExp(
+        `\\([^)]*\\b(\\w+)\\s+${switchExpr}\\b[^)]*\\)`,
+        'gu',
+      );
+      const paramDecl = paramPattern.exec(text);
+      if (paramDecl) {
+        const typeName = paramDecl[1];
+        if (enumDefs.has(typeName)) {
+          enumType = typeName;
+        }
+      }
+    }
+
+    if (!enumType) continue;
+    if (!enumDefs.has(enumType)) continue;
+
+    const enumMembers = enumDefs.get(enumType)!;
+    const missingMembers: string[] = [];
+
+    for (const member of enumMembers) {
+      if (!caseLabels.has(member)) {
+        missingMembers.push(member);
+      }
+    }
+
+    if (missingMembers.length > 0 && !hasDefault) {
+      const missingText = `Missing: ${missingMembers.join(', ')}`;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: switchMatch.index ?? 0,
+          endOffset: switchClose + 1,
+          text: missingText,
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
@@ -2562,4 +4792,370 @@ function stripNestedBlocks(source: string): string {
   }
 
   return chars.join('');
+}
+
+// --- Batch 13 (JAVA-E) collectors ---
+
+function collectRandomCoercedToZeroFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.randomCoercedToZero;
+  const findings: ObservedFact[] = [];
+
+  // (int) Math.random() or (Integer)(Math.random()) without scaling factor
+  const castRandomPattern = /\((?:int|Integer)\)\s*\(?\s*Math\.random\s*\(\s*\)\s*\)?/gu;
+  for (const match of findAllMatches(text, castRandomPattern)) {
+    const afterMatch = text.slice(match.endOffset).match(/^\s*\*\s*\w+/);
+    if (afterMatch) continue;
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.startOffset,
+        endOffset: match.endOffset,
+        text: match.matchedText,
+      }),
+    );
+  }
+
+  // new Random().nextInt(1) — always returns 0
+  const nextIntOnePattern = /\bnew\s+Random\s*\(\s*\)\s*\.\s*nextInt\s*\(\s*1\s*\)/gu;
+  for (const match of findAllMatches(text, nextIntOnePattern)) {
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.startOffset,
+        endOffset: match.endOffset,
+        text: match.matchedText,
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectMutableEnumFieldsFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.mutableEnumFields;
+  const findings: ObservedFact[] = [];
+
+  const enumPattern = /\benum\s+(\w+)\s*\{/gu;
+  for (const enumMatch of text.matchAll(enumPattern)) {
+    const openBrace = (enumMatch.index ?? 0) + enumMatch[0].lastIndexOf('{');
+    const closeBrace = findMatchingDelimiter(text, openBrace, '{', '}');
+    if (closeBrace < 0) continue;
+
+    const enumBody = text.slice(openBrace + 1, closeBrace);
+    const cleanedBody = stripNestedBlocks(enumBody);
+
+    // Find non-final, non-static field declarations inside enum body
+    const fieldPattern = /(?:private|public|protected)\s+(?!final\b)(?!static\b)(\w+(?:\[\])*(?:\s*<[^>]*>)?)\s+(\w+)\s*[=;]/gu;
+    for (const field of findAllMatches(cleanedBody, fieldPattern)) {
+      const lineStart = cleanedBody.lastIndexOf('\n', field.startOffset) + 1;
+      const lineText = cleanedBody.slice(lineStart, cleanedBody.indexOf('\n', field.startOffset) >= 0 ? cleanedBody.indexOf('\n', field.startOffset) : cleanedBody.length);
+      if (lineText.includes('(')) continue;
+
+      const absoluteStart = openBrace + 1 + field.startOffset;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: absoluteStart,
+          endOffset: absoluteStart + field.matchedText.length,
+          text: field.matchedText,
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+function collectNoAllocationMethodCreatesObjectFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.noAllocationMethodCreatesObject;
+  const findings: ObservedFact[] = [];
+
+  // Find @NoAllocation annotation then scan the following method body for `new`
+  const noAllocPattern = /@NoAllocation\b([^{]*?(?:\([^)]*\))?)\s*\{/gu;
+  for (const match of text.matchAll(noAllocPattern)) {
+    const methodOpen = (match.index ?? 0) + match[0].length - 1;
+    const methodClose = findMatchingDelimiter(text, methodOpen, '{', '}');
+    if (methodClose < 0) continue;
+
+    const methodBody = text.slice(methodOpen + 1, methodClose);
+    const cleanedBody = stripNestedBlocks(methodBody);
+
+    // Find `new` keyword creating objects (not array new types)
+    const newPattern = /\bnew\s+(?:[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\(/gu;
+    for (const alloc of findAllMatches(cleanedBody, newPattern)) {
+      const absoluteStart = methodOpen + 1 + alloc.startOffset;
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: absoluteStart,
+          endOffset: absoluteStart + alloc.matchedText.length,
+          text: alloc.matchedText,
+        }),
+      );
+    }
+  }
+
+  return findings;
+}
+
+// --- Batch 14 (JAVA-E) collectors ---
+
+function collectCollectionContainsSelfFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.collectionContainsSelf;
+  const findings: ObservedFact[] = [];
+
+  const containsPattern =
+    /(?:(\w+)|(this))\s*\.\s*contains\s*\(\s*(?:\1|this)\s*\)/gu;
+  for (const match of text.matchAll(containsPattern)) {
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.index ?? 0,
+        endOffset: (match.index ?? 0) + match[0].length,
+        text: match[0],
+      }),
+    );
+  }
+
+  const containsValuePattern =
+    /(?:(\w+)|(this))\s*\.\s*containsValue\s*\(\s*(?:\1|this)\s*\)/gu;
+  for (const match of text.matchAll(containsValuePattern)) {
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.index ?? 0,
+        endOffset: (match.index ?? 0) + match[0].length,
+        text: match[0],
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectCollectionAddsSelfFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.collectionAddsSelf;
+  const findings: ObservedFact[] = [];
+
+  const addPattern =
+    /(?:(\w+)|(this))\s*\.\s*(?:add|addAll|putAll)\s*\(\s*(?:\1|this)\s*\)/gu;
+  for (const match of text.matchAll(addPattern)) {
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.index ?? 0,
+        endOffset: (match.index ?? 0) + match[0].length,
+        text: match[0],
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectModulusMultiplicationPrecedenceFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.modulusMultiplicationPrecedence;
+  const findings: ObservedFact[] = [];
+
+  const modMultPattern =
+    /(\w+(?:\.\w+)?)\s*%\s*(\w+(?:\.\w+)?)\s*\*\s*(\w+(?:\.\w+)?)/gu;
+  for (const match of text.matchAll(modMultPattern)) {
+    const fullMatch = match[0];
+    const matchStart = match.index ?? 0;
+
+    const beforeMatch = text.slice(0, matchStart);
+    const precedingChar = beforeMatch.trimEnd().slice(-1);
+
+    if (precedingChar === '(') continue;
+
+    const afterStar = matchStart + fullMatch.indexOf('*') + 1;
+    const afterStarTrimmed = text.slice(afterStar).trimStart();
+    if (afterStarTrimmed.startsWith(')')) continue;
+
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: matchStart,
+        endOffset: matchStart + fullMatch.length,
+        text: fullMatch,
+      }),
+    );
+  }
+
+  return findings;
+}
+
+function collectBitwiseOrNeverEqualFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.bitwiseOrNeverEqual;
+  const findings: ObservedFact[] = [];
+
+  function parseJavaInteger(raw: string): number | null {
+    if (raw.startsWith('0x') || raw.startsWith('0X')) {
+      return parseInt(raw.slice(2), 16);
+    }
+    if (raw.startsWith('0b') || raw.startsWith('0B')) {
+      return parseInt(raw.slice(2), 2);
+    }
+    if (raw.startsWith('0') && raw.length > 1 && /^0[0-7]+$/.test(raw)) {
+      return parseInt(raw, 8);
+    }
+    const num = parseInt(raw, 10);
+    if (isNaN(num)) return null;
+    return num;
+  }
+
+  const orEqualsPattern = /(\w+)\s*\|\s*(\d+)\s*\)?\s*(==|!=)\s*(\d+)/gu;
+  for (const match of text.matchAll(orEqualsPattern)) {
+    const constB = parseJavaInteger(match[2]);
+    const constC = parseJavaInteger(match[4]);
+    if (constB === null || constC === null) continue;
+
+    const operator = match[3];
+
+    if (operator === '==') {
+      if ((constB & constC) !== constB) {
+        findings.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: match.index ?? 0,
+            endOffset: (match.index ?? 0) + match[0].length,
+            text: match[0],
+          }),
+        );
+      }
+    } else {
+      if ((constB & constC) === constB) {
+        findings.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: match.index ?? 0,
+            endOffset: (match.index ?? 0) + match[0].length,
+            text: match[0],
+          }),
+        );
+      }
+    }
+  }
+
+  return findings;
+}
+
+function collectGetterSetterSyncMismatchFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = JAVA_CORRECTNESS_FACT_KINDS.getterSetterSyncMismatch;
+  const findings: ObservedFact[] = [];
+
+  const classPattern =
+    /\b(?:public\s+|protected\s+|private\s+)?(?:abstract\s+|static\s+|final\s+)?(?:class|record)\s+(\w+)\s*(?:extends\s+\w+(?:<[^>]*>)?\s*)?(?:implements[^{]*)?\{/gu;
+  for (const cls of text.matchAll(classPattern)) {
+    const openBrace = (cls.index ?? 0) + cls[0].lastIndexOf('{');
+    const closeBrace = findMatchingDelimiter(text, openBrace, '{', '}');
+    if (closeBrace < 0) continue;
+
+    const classBody = text.slice(openBrace + 1, closeBrace);
+
+    const getterPattern =
+      /\b(synchronized\s+)?(?:public\s+)?(?:static\s+)?\w+\s+(get\w+|is\w+)\s*\(/gu;
+    const getters = new Map<
+      string,
+      { offset: number; synced: boolean }
+    >();
+    for (const g of classBody.matchAll(getterPattern)) {
+      const propName = g[2].startsWith('is')
+        ? g[2].slice(2)
+        : g[2].slice(3);
+      if (!propName) continue;
+      const hasSync = !!g[1];
+      const methodStart = openBrace + 1 + (g.index ?? 0);
+      getters.set(propName.toLowerCase(), {
+        offset: methodStart,
+        synced: hasSync,
+      });
+    }
+
+    const setterPattern =
+      /\b(synchronized\s+)?(?:public\s+)?(?:static\s+)?void\s+(set\w+)\s*\(/gu;
+    const setters = new Map<
+      string,
+      { offset: number; synced: boolean }
+    >();
+    for (const s of classBody.matchAll(setterPattern)) {
+      const propName = s[2].slice(3);
+      if (!propName) continue;
+      const hasSync = !!s[1];
+      const methodStart = openBrace + 1 + (s.index ?? 0);
+      setters.set(propName.toLowerCase(), {
+        offset: methodStart,
+        synced: hasSync,
+      });
+    }
+
+    for (const [prop, getterInfo] of getters) {
+      const setterInfo = setters.get(prop);
+      if (!setterInfo) continue;
+
+      if (getterInfo.synced !== setterInfo.synced) {
+        const nonSyncedOffset = getterInfo.synced
+          ? setterInfo.offset
+          : getterInfo.offset;
+        const prefix = getterInfo.synced ? 'set' : 'get';
+        const nonSyncedName = `${prefix}${prop.charAt(0).toUpperCase()}${prop.slice(1)}`;
+        findings.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: nonSyncedOffset,
+            endOffset: nonSyncedOffset + nonSyncedName.length + 2,
+            text: nonSyncedName,
+          }),
+        );
+      }
+    }
+  }
+
+  return findings;
 }

@@ -849,4 +849,544 @@ describe('java performance collectors', () => {
       facts.filter((f) => f.kind === 'java.performance.boxed-double-constructor'),
     ).toHaveLength(0);
   });
+
+  it('flags Pattern.compile inside for loop (P0331)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'Matcher.java',
+      detector: 'java-detector',
+      text: [
+        'class Matcher {',
+        '  void match(List<String> patterns, String input) {',
+        '    for (String p : patterns) {',
+        '      Pattern.compile(p).matcher(input);',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      'java.performance.pattern-compile-in-loop',
+    );
+  });
+
+  it('does not flag Pattern.compile outside loop (P0331)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'Matcher.java',
+      detector: 'java-detector',
+      text: [
+        'class Matcher {',
+        '  void match(String input) {',
+        '    Pattern p = Pattern.compile("foo");',
+        '    p.matcher(input);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.pattern-compile-in-loop'),
+    ).toHaveLength(0);
+  });
+
+  it('flags toArray with non-zero sized array argument (P0335)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  String[] toArray(List<String> list) {',
+        '    return list.toArray(new String[list.size() + 1]);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      'java.performance.non-zero-to-array',
+    );
+  });
+
+  it('does not flag toArray with zero-sized array (P0335)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  String[] toArray(List<String> list) {',
+        '    return list.toArray(new String[0]);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.non-zero-to-array'),
+    ).toHaveLength(0);
+  });
+
+  it('flags keySet() iterator with Map.get() inside (P0361)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  void process(Map<String, String> map) {',
+        '    for (String k : map.keySet()) {',
+        '      String v = map.get(k);',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      'java.performance.keyset-instead-of-entryset',
+    );
+  });
+
+  it('does not flag entrySet() usage (P0361)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  void process(Map<String, String> map) {',
+        '    for (Map.Entry<String, String> e : map.entrySet()) {',
+        '      String v = e.getValue();',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.keyset-instead-of-entryset'),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag keySet() without Map.get() (P0361)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  void process(Map<String, String> map) {',
+        '    for (String k : map.keySet()) {',
+        '      System.out.println(k);',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.keyset-instead-of-entryset'),
+    ).toHaveLength(0);
+  });
+
+  it('flags replaceAll with literal string argument (P1001)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  String clean(String s) {',
+        '    return s.replaceAll("foo", "bar");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      'java.performance.replaceall-instead-of-replace',
+    );
+  });
+
+  it('does not flag replaceAll with regex special characters (P1001)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  String clean(String s) {',
+        '    return s.replaceAll("[a-z]+", "x");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.replaceall-instead-of-replace'),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag String.replace() (P1001)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  String clean(String s) {',
+        '    return s.replace("foo", "bar");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.replaceall-instead-of-replace'),
+    ).toHaveLength(0);
+  });
+
+  it('flags single-char string literal in indexOf (P1004)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  int findDot(String s) {',
+        '    return s.indexOf(".");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      'java.performance.single-char-string-indexof',
+    );
+  });
+
+  it('flags single-char string literal in lastIndexOf (P1004)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  int findLastDot(String s) {',
+        '    return s.lastIndexOf(".");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      'java.performance.single-char-string-indexof',
+    );
+  });
+
+  it('flags single-char string literal in contains (P1004)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  boolean hasDot(String s) {',
+        '    return s.contains(".");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      'java.performance.single-char-string-indexof',
+    );
+  });
+
+  it('does not flag char literal indexOf (P1004)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  int findDot(String s) {',
+        "    return s.indexOf('.');",
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.single-char-string-indexof'),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag multi-character string in indexOf (P1004)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  int findDot(String s) {',
+        '    return s.indexOf(".txt");',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.single-char-string-indexof'),
+    ).toHaveLength(0);
+  });
+
+  it('flags collection.removeAll(collection) (P1005)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  void clearList() {',
+        '    List<String> list = new ArrayList<>();',
+        '    list.removeAll(list);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      'java.performance.removeall-to-clear',
+    );
+  });
+
+  it('flags this.items.removeAll(this.items) (P1005)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  private List<String> items = new ArrayList<>();',
+        '  void clearItems() {',
+        '    this.items.removeAll(this.items);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      'java.performance.removeall-to-clear',
+    );
+  });
+
+  it('does not flag collection.removeAll(other) (P1005)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  void clearList() {',
+        '    List<String> list = new ArrayList<>();',
+        '    List<String> other = new ArrayList<>();',
+        '    list.removeAll(other);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.removeall-to-clear'),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag collection.removeAll(wrapped) (P1005)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  void clearList() {',
+        '    List<String> list = new ArrayList<>();',
+        '    list.removeAll(Collections.singletonList(list));',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.removeall-to-clear'),
+    ).toHaveLength(0);
+  });
+
+  it('flags String += in for loop (P1006)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  String concat(String[] items) {',
+        '    String result = "";',
+        '    for (int i = 0; i < items.length; i++) {',
+        '      result += items[i];',
+        '    }',
+        '    return result;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      'java.performance.string-concat-in-loop',
+    );
+  });
+
+  it('flags String = String + in while loop (P1006)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  String concat(String[] items) {',
+        '    String result = "";',
+        '    int i = 0;',
+        '    while (i < items.length) {',
+        '      result = result + items[i];',
+        '      i++;',
+        '    }',
+        '    return result;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      'java.performance.string-concat-in-loop',
+    );
+  });
+
+  it('does not flag numeric += in loop (P1006)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  int sum(int[] items) {',
+        '    int total = 0;',
+        '    for (int i = 0; i < items.length; i++) {',
+        '      total += items[i];',
+        '    }',
+        '    return total;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.string-concat-in-loop'),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag StringBuilder.append in loop (P1006)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'App.java',
+      detector: 'java-detector',
+      text: [
+        'class App {',
+        '  String concat(String[] items) {',
+        '    StringBuilder sb = new StringBuilder();',
+        '    for (int i = 0; i < items.length; i++) {',
+        '      sb.append(items[i]);',
+        '    }',
+        '    return sb.toString();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.string-concat-in-loop'),
+    ).toHaveLength(0);
+  });
+
+  it('flags @WorkerThread method called from @MainThread (P1007)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'Activity.java',
+      detector: 'java-detector',
+      text: [
+        'class Activity {',
+        '  @WorkerThread',
+        '  void fetchData() {',
+        '    // expensive work',
+        '  }',
+        '',
+        '  @MainThread',
+        '  void onButtonClick() {',
+        '    fetchData();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      'java.performance.expensive-method-on-ui-thread',
+    );
+  });
+
+  it('flags @Expensive method called from @UIThread (P1007)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'Activity.java',
+      detector: 'java-detector',
+      text: [
+        'class Activity {',
+        '  @Expensive',
+        '  void loadCache() {',
+        '    // expensive work',
+        '  }',
+        '',
+        '  @UIThread',
+        '  void onResume() {',
+        '    loadCache();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      'java.performance.expensive-method-on-ui-thread',
+    );
+  });
+
+  it('does not flag non-expensive method from @MainThread (P1007)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'Activity.java',
+      detector: 'java-detector',
+      text: [
+        'class Activity {',
+        '  void fetchData() {',
+        '    // normal work',
+        '  }',
+        '',
+        '  @MainThread',
+        '  void onButtonClick() {',
+        '    fetchData();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.expensive-method-on-ui-thread'),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag @WorkerThread method outside @MainThread context (P1007)', () => {
+    const facts = collectJavaPerformanceFacts({
+      path: 'Activity.java',
+      detector: 'java-detector',
+      text: [
+        'class Activity {',
+        '  @WorkerThread',
+        '  void fetchData() {',
+        '    // expensive work',
+        '  }',
+        '',
+        '  void onWorker() {',
+        '    fetchData();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter((f) => f.kind === 'java.performance.expensive-method-on-ui-thread'),
+    ).toHaveLength(0);
+  });
 });

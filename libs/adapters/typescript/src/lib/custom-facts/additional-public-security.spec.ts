@@ -645,7 +645,7 @@ describe('collectAdditionalPublicSecurityFacts', () => {
 
     expect(
       facts.filter((fact) => fact.kind === 'security.debug-mode-enabled'),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
     expect(
       facts.filter((fact) => fact.kind === 'security.information-leakage'),
     ).toHaveLength(1);

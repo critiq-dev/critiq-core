@@ -248,6 +248,22 @@ export function collectJavaTestingHygieneFacts(
         /\b(?:HttpClient\.newHttpClient|new\s+URL\s*\(|HttpURLConnection|RestTemplate)\b/g,
       appliesTo: 'block',
     }),
+    ...collectMatchedFacts({
+      text,
+      detector,
+      kind: 'java.testing.wrong-assertion-argument-order',
+      pattern:
+        /\b(?:assertEquals|assertSame|assertNotEquals|assertNotSame)\s*\(\s*[A-Za-z_$][A-Za-z0-9_$]*(?:\s*\([^)]*\))?\s*,\s*(?:\d+|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|true|false|null)\s*\)/g,
+      appliesTo: 'block',
+    }),
+    ...collectMatchedFacts({
+      text,
+      detector,
+      kind: 'java.testing.wrong-assertion-argument-order',
+      pattern:
+        /\bassertThat\s*\(\s*(?:\d+|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|true|false|null)\s*\)/g,
+      appliesTo: 'block',
+    }),
     ...collectSetupTeardownAnnotationFacts(text, detector),
     ...collectSetupWithoutSuperFacts(text, detector),
     ...collectTeardownWithoutSuperFacts(text, detector),

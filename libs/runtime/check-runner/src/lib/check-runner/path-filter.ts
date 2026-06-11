@@ -7,6 +7,7 @@ const FAST_IGNORED_DIRECTORY_SEGMENTS = new Set([
   'cdk.out',
   'coverage',
   'dist',
+  'examples',
   'node_modules',
   'vendor',
 ]);

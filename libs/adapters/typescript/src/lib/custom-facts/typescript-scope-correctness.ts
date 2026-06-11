@@ -172,6 +172,67 @@ function collectDeclarations(
         });
       }
     }
+
+    const fnDecl = functionFromStatement(statement);
+    if (fnDecl?.id) {
+      bindings.set(fnDecl.id.name, {
+        name: fnDecl.id.name,
+        kind: 'const',
+        declaredLine: fnDecl.id.loc?.start.line ?? 0,
+        referenced: true,
+        node: fnDecl.id,
+      });
+    }
+  }
+
+  collectNestedVarDeclarations(body, bindings);
+}
+
+function collectNestedVarDeclarations(
+  body: TSESTree.Statement[],
+  bindings: Map<string, Binding>,
+): void {
+  const queue = [...body];
+
+  while (queue.length > 0) {
+    const statement = queue.pop()!;
+
+    if (statement.type === 'VariableDeclaration' && statement.kind === 'var') {
+      for (const declarator of statement.declarations) {
+        if (declarator.id.type !== 'Identifier') {
+          continue;
+        }
+
+        if (!bindings.has(declarator.id.name)) {
+          bindings.set(declarator.id.name, {
+            name: declarator.id.name,
+            kind: 'var',
+            declaredLine: declarator.id.loc?.start.line ?? 0,
+            referenced: false,
+            node: declarator.id,
+          });
+        }
+      }
+    }
+
+    // Enqueue child statements from nested blocks (recursive for if/for/while/switch/etc.)
+    for (const value of Object.values(statement)) {
+      if (Array.isArray(value)) {
+        for (const entry of value) {
+          if (entry && typeof entry === 'object' && 'type' in entry &&
+              typeof (entry as { type: unknown }).type === 'string') {
+            const node = entry as TSESTree.Node;
+            if (node.type.endsWith('Statement') && node !== statement) {
+              queue.push(node as TSESTree.Statement);
+            }
+            if (node.type === 'SwitchCase') {
+              const sc = node as TSESTree.SwitchCase;
+              queue.push(...sc.consequent);
+            }
+          }
+        }
+      }
+    }
   }
 }
 
@@ -279,7 +340,7 @@ function analyzeReferencesInStatement(
         return;
       }
 
-      if (RESTRICTED_GLOBALS.has(name)) {
+      if (RESTRICTED_GLOBALS.has(name) && !bindings.has(name) && !parentBindings.has(name)) {
         facts.push(
           createObservedFact({
             appliesTo: 'file',
