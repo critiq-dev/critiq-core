@@ -24,6 +24,45 @@ function hasLoopAncestor(
   return parents.some((parent) => isLoopNode(parent));
 }
 
+const BUNDLED_FILE_PATTERNS = /[./](?:bundle|bundled|min)[./-]/i;
+const BUNDLED_MIN_NAMES = /\b(bundle|bundled|min)\b/i;
+const TEST_FILE_PATTERNS = /[/\\](?:__?tests?__?|spec|test|tests)[/\\]|\.(?:test|spec)\./i;
+const TUTORIAL_FILE_PATTERNS = /[/\\]tutorials?[/\\]|[/\\]examples?[/\\]/i;
+const MINIFIED_LINE_THRESHOLD = 500;
+
+function isSerializationContext(node: TSESTree.CallExpression, ancestors: readonly TSESTree.Node[]): boolean {
+  const parent = ancestors[ancestors.length - 1];
+  if (!parent || parent.type !== 'CallExpression') return false;
+  const callee = parent.callee;
+  if (callee.type === 'MemberExpression') {
+    const prop = callee.property.type === 'Identifier' ? callee.property.name : '';
+    const objText = callee.object.type === 'Identifier' ? callee.object.name : '';
+    if ((objText === 'res' || objText === 'response' || objText === 'reply') && (prop === 'json' || prop === 'send')) return true;
+    if (objText === 'fs' && (prop === 'writeFile' || prop === 'writeFileSync')) return true;
+    if (prop === 'postMessage') return true;
+  }
+  if (callee.type === 'Identifier' && callee.name === 'postMessage') return true;
+  return false;
+}
+
+function isExcludedSourceFile(path: string, sourceText: string): boolean {
+  if (TEST_FILE_PATTERNS.test(path)) {
+    return true;
+  }
+  if (TUTORIAL_FILE_PATTERNS.test(path)) {
+    return true;
+  }
+  const fileName = path.split(/[/\\]/).pop() ?? '';
+  if (BUNDLED_FILE_PATTERNS.test(fileName) || BUNDLED_MIN_NAMES.test(fileName)) {
+    return true;
+  }
+  const firstLines = sourceText.split('\n', 5);
+  if (firstLines.some((line) => line.length > MINIFIED_LINE_THRESHOLD)) {
+    return true;
+  }
+  return false;
+}
+
 function looksLikeRequestHandler(node: TSESTree.Node, sourceText: string): boolean {
   if (
     node.type !== 'FunctionDeclaration' &&
@@ -40,7 +79,7 @@ export const collectTypescriptPerformanceFacts: TypeScriptFactDetector = (
   context,
 ): ObservedFact[] => {
   const facts: ObservedFact[] = [];
-  const { sourceText, program, nodeIds } = context;
+  const { sourceText, program, nodeIds, path } = context;
 
   walkAstWithAncestors(program, (node, ancestors) => {
     const inLoop = hasLoopAncestor(node, ancestors);
@@ -123,15 +162,17 @@ export const collectTypescriptPerformanceFacts: TypeScriptFactDetector = (
         inner.callee.property.type === 'Identifier' &&
         inner.callee.property.name === 'stringify'
       ) {
-        facts.push(
-          createObservedFact({
-            appliesTo: 'block',
-            kind: 'performance.no-json-parse-stringify-clone',
-            node,
-            nodeIds,
-            text: getNodeText(node, sourceText),
-          }),
-        );
+        if (!isExcludedSourceFile(path, sourceText) && !isSerializationContext(node, ancestors)) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'block',
+              kind: 'performance.no-json-parse-stringify-clone',
+              node,
+              nodeIds,
+              text: getNodeText(node, sourceText),
+            }),
+          );
+        }
       }
     }
 
@@ -183,7 +224,7 @@ export const collectTypescriptPerformanceFacts: TypeScriptFactDetector = (
       }
     }
 
-    if (node.type === 'AwaitExpression' && inLoop) {
+    if (node.type === 'AwaitExpression' && inLoop && !isExcludedSourceFile(path, sourceText)) {
       facts.push(
         createObservedFact({
           appliesTo: 'block',

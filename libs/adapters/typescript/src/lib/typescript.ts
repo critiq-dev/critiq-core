@@ -21,10 +21,71 @@ export type TypeScriptAnalysisResult =
   | TypeScriptAnalysisSuccess
   | TypeScriptAnalysisFailure;
 
+const BUNDLED_FILE_PATTERNS = [
+  /-bundle\.[^./]+\.(?:js|jsx|ts|tsx)$/,
+  /\.min\.(?:js|jsx|ts|tsx)$/,
+];
+
+const TUTORIAL_PATH_PATTERNS = [
+  /\/tutorials\//,
+  /\/content\/tutorials\//,
+];
+
+const GITHUB_ACTIONS_PATH_PATTERN = /\/\.github\/actions\/.*\.(?:js|jsx|ts|tsx)$/;
+
+function isMinifiedSource(text: string): boolean {
+  const lines = text.split('\n');
+  if (lines.length === 0) return false;
+
+  let longLineCount = 0;
+  for (const line of lines) {
+    if (line.length > 500) {
+      longLineCount++;
+      if (longLineCount > 5) return true;
+    }
+  }
+
+  const totalLength = text.length;
+  const avgLineLength = totalLength / lines.length;
+  return avgLineLength > 200;
+}
+
+function canHandleTypeScriptPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, '/');
+
+  if (BUNDLED_FILE_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    return false;
+  }
+
+  if (GITHUB_ACTIONS_PATH_PATTERN.test(normalized)) {
+    return false;
+  }
+
+  if (TUTORIAL_PATH_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    return false;
+  }
+
+  return true;
+}
+
+function canHandleTypeScript(path: string, text: string): boolean {
+  if (!canHandleTypeScriptPath(path)) {
+    return false;
+  }
+
+  if (isMinifiedSource(text)) {
+    return false;
+  }
+
+  return true;
+}
+
 export const typescriptSourceAdapter = {
   packageName: '@critiq/adapter-typescript',
   supportedExtensions: ['.js', '.jsx', '.ts', '.tsx'],
   supportedLanguages: ['javascript', 'typescript'],
+  canHandlePath: canHandleTypeScriptPath,
+  canHandle: canHandleTypeScript,
   analyze: analyzeTypeScriptFile,
 } as const;
 

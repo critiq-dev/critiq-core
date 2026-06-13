@@ -6,12 +6,12 @@ import {
 } from '../../testing-paths';
 import { createOffsetFact } from '../fact-utils';
 import { collectMatchedFacts } from './collect-matched-facts';
-import { findMatchingDelimiter } from '../../runtime';
+import { findAllMatches, findMatchingDelimiter } from '../../runtime';
 
-const E2E_OR_INTEGRATION_PATH = /(?:^|\/)(?:e2e|integration)(?:\/|$)|[._]integration[._]/i;
+const E2E_OR_INTEGRATION_OR_BENCH_PATH = /(?:^|\/)(?:e2e|integration|benches)(?:\/|$)|[._]integration[._]/i;
 
 export function isNarrowUnitTestPath(path: string): boolean {
-  return isTestLikeSourcePath(path) && !E2E_OR_INTEGRATION_PATH.test(path);
+  return isTestLikeSourcePath(path) && !E2E_OR_INTEGRATION_OR_BENCH_PATH.test(path);
 }
 
 function lineContextHasTicket(text: string, startOffset: number): boolean {
@@ -165,6 +165,49 @@ export function collectRubyTestingHygieneFacts(
   ];
 }
 
+function isSleepDurationAboveThreshold(args: string): boolean {
+  const millis = args.match(/from_millis\s*\(\s*(\d+)\s*\)/);
+  if (millis) return parseInt(millis[1], 10) > 100;
+
+  const secs = args.match(/from_secs\s*\(\s*(\d+)\s*\)/);
+  if (secs) return parseInt(secs[1], 10) > 0;
+
+  const micros = args.match(/from_micros\s*\(\s*(\d+)\s*\)/);
+  if (micros) return parseInt(micros[1], 10) > 100_000;
+
+  const nanos = args.match(/from_nanos\s*\(\s*(\d+)\s*\)/);
+  if (nanos) return parseInt(nanos[1], 10) > 100_000_000;
+
+  return true;
+}
+
+function collectRustThreadSleepFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const pattern = /\bstd::thread::sleep\s*\(/g;
+  const matches = findAllMatches(text, pattern);
+
+  return matches
+    .filter((match) => {
+      const argsStart = match.endOffset;
+      const closeParen = findMatchingDelimiter(text, argsStart, '(', ')');
+      if (closeParen < 0) return true;
+      const args = text.slice(argsStart, closeParen + 1);
+      return isSleepDurationAboveThreshold(args);
+    })
+    .map((match) =>
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind: 'rust.testing.thread-sleep-in-unit-test',
+        startOffset: match.startOffset,
+        endOffset: match.endOffset,
+        text: match.matchedText,
+      }),
+    );
+}
+
 export function collectRustTestingHygieneFacts(
   options: PolyglotTestingPathOptions,
 ): ObservedFact[] {
@@ -174,18 +217,39 @@ export function collectRustTestingHygieneFacts(
     return [];
   }
 
-  return [
-    ...collectMatchedFacts({
-      text,
-      detector,
-      kind: 'rust.testing.ignore-without-ticket-reference',
-      pattern: /#\[\s*ignore\s*\]/g,
-      appliesTo: 'block',
-      predicate: (match) => {
-        const ctx = text.slice(Math.max(0, match.startOffset - 120), match.startOffset);
-        return !TICKET_OR_SUPPRESSION_PATTERN.test(ctx);
-      },
-    }),
+  const findings: ObservedFact[] = [];
+
+  // Compiler/test infrastructure paths have different #[ignore] conventions:
+  // compiler crate tests, tool tests (clippy/rustfmt), and UI test suites
+  // (feature gates, crash tests, hardware tests) where ignores are structural.
+  const isCompilerTestInfrastructure = /(?:^|\/)(?:compiler\/[^/]+\/tests\/|src\/tools\/[^/]+\/tests\/|tests\/ui\/)/.test(path);
+
+  if (!isCompilerTestInfrastructure) {
+    findings.push(
+      ...collectMatchedFacts({
+        text,
+        detector,
+        kind: 'rust.testing.ignore-without-ticket-reference',
+        pattern: /#\[\s*ignore\s*\]/g,
+        appliesTo: 'block',
+        predicate: (match) => {
+          // Check for ticket/suppression in preceding lines
+          const ctx = text.slice(Math.max(0, match.startOffset - 120), match.startOffset);
+          if (TICKET_OR_SUPPRESSION_PATTERN.test(ctx)) {
+            return false;
+          }
+          // Check for same-line comment after #[ignore] (e.g., #[ignore] // JIRA-77)
+          const restOfLine = text.slice(match.endOffset).split(/\r?\n/, 1)[0] ?? '';
+          if (TICKET_OR_SUPPRESSION_PATTERN.test(restOfLine)) {
+            return false;
+          }
+          return true;
+        },
+      }),
+    );
+  }
+
+  findings.push(
     ...collectMatchedFacts({
       text,
       detector,
@@ -193,14 +257,10 @@ export function collectRustTestingHygieneFacts(
       pattern: /\breqwest::/g,
       appliesTo: 'block',
     }),
-    ...collectMatchedFacts({
-      text,
-      detector,
-      kind: 'rust.testing.thread-sleep-in-unit-test',
-      pattern: /\b(?:std::thread::sleep|tokio::time::sleep)\s*\(/g,
-      appliesTo: 'block',
-    }),
-  ];
+    ...collectRustThreadSleepFacts(text, detector),
+  );
+
+  return findings;
 }
 
 export function collectJavaTestingHygieneFacts(

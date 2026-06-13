@@ -39,6 +39,10 @@ export const RUST_GENERAL_SECURITY_FACT_KINDS = {
   invisibleUnicode: 'rust.security.invisible-unicode',
   potentiallyVulnerableRegex: 'rust.security.potentially-vulnerable-regex',
   globalWritePermission: 'rust.security.global-write-permission',
+  manualErrorTypeId: 'rust.security.manual-error-type-id',
+  unsafeRemoveDirAll: 'rust.security.unsafe-remove-dir-all',
+  misusedBitwiseXor: 'rust.security.misused-bitwise-xor',
+  missingRegexAnchor: 'rust.security.missing-regex-anchor',
 } as const;
 
 /**
@@ -86,6 +90,10 @@ export function collectRustGeneralSecurityFacts(
     ...collectInvisibleUnicodeFacts(text, detector),
     ...collectPotentiallyVulnerableRegexFacts(text, detector),
     ...collectGlobalWritePermissionFacts(text, detector),
+    ...collectManualErrorTypeIdFacts(text, detector),
+    ...collectUnsafeRemoveDirAllFacts(text, detector),
+    ...collectMisusedBitwiseXorFacts(text, detector),
+    ...collectMissingRegexAnchorFacts(text, detector),
   ]);
 }
 
@@ -375,6 +383,17 @@ function collectInsecureTempFileFacts(
     }),
   );
 
+  facts.push(
+    ...collectMatchedFacts({
+      text,
+      detector,
+      kind,
+      appliesTo: 'block',
+      pattern:
+        /\b(?:std::fs::)?create_dir(?:_all)?\s*\(\s*["'`]\/tmp\/[^"'`*]+["'`]\s*\)/gu,
+    }),
+  );
+
   return facts;
 }
 
@@ -418,6 +437,17 @@ function collectWeakCryptoImportFacts(
       appliesTo: 'block',
       pattern:
         /^[ \t]*use\s+[A-Za-z_][A-Za-z0-9_]*\s*::\s*(?:md5|sha1|des|rc4)\b/gmu,
+    }),
+  );
+
+  facts.push(
+    ...collectMatchedFacts({
+      text,
+      detector,
+      kind,
+      appliesTo: 'block',
+      pattern:
+        /^[ \t]*use\s+[A-Za-z_][A-Za-z0-9_]*\s*::\s*\{[^}]*\b(?:md5|sha1|des|rc4)\b[^}]*\}/gmu,
     }),
   );
 
@@ -673,6 +703,120 @@ export function collectOpenRedirectFacts(
   }
 
   return facts;
+}
+
+function collectManualErrorTypeIdFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUST_GENERAL_SECURITY_FACT_KINDS.manualErrorTypeId;
+  const facts: ObservedFact[] = [];
+
+  for (const match of findAllMatches(text, /\bimpl\s+(?:<[^>]*>\s*)?(?:\w+(?:::\w+)*\s*::\s*)?Error\s+for\b/gu)) {
+    const braceOpen = text.indexOf('{', match.endOffset);
+    if (braceOpen < 0) continue;
+
+    const braceClose = findMatchingDelimiter(text, braceOpen, '{', '}');
+    if (braceClose < 0) continue;
+
+    const bodyText = text.slice(match.startOffset, braceClose + 1);
+
+    for (const fnMatch of findAllMatches(bodyText, /\bfn\s+type_id\s*\(/gu)) {
+      facts.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: match.startOffset + fnMatch.startOffset,
+          endOffset: match.startOffset + fnMatch.endOffset,
+          text: fnMatch.matchedText,
+          props: { pattern: 'manual-type-id' },
+        }),
+      );
+    }
+  }
+
+  return facts;
+}
+
+function collectUnsafeRemoveDirAllFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUST_GENERAL_SECURITY_FACT_KINDS.unsafeRemoveDirAll,
+    appliesTo: 'block',
+    pattern: /\b(?:std::fs::)?remove_dir_all\s*\(/gu,
+  });
+}
+
+function collectMisusedBitwiseXorFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUST_GENERAL_SECURITY_FACT_KINDS.misusedBitwiseXor;
+  const facts: ObservedFact[] = [];
+
+  for (const match of findAllMatches(text, /\b\d+(?:[uUi]?(?:8|16|32|64|128|size))?\s*\^\s*\d+(?:[uUi]?(?:8|16|32|64|128|size))?\b/gu)) {
+    const parts = match.matchedText.split('^');
+    if (parts.length !== 2) continue;
+
+    const leftVal = parseRustIntLiteral(parts[0]);
+    const rightVal = parseRustIntLiteral(parts[1]);
+
+    if (leftVal === undefined || rightVal === undefined) continue;
+    if (leftVal <= 0 || leftVal > 100 || rightVal < 2) continue;
+
+    facts.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.startOffset,
+        endOffset: match.endOffset,
+        text: match.matchedText,
+        props: { leftOperand: leftVal, rightOperand: rightVal },
+      }),
+    );
+  }
+
+  return facts;
+}
+
+function collectMissingRegexAnchorFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUST_GENERAL_SECURITY_FACT_KINDS.missingRegexAnchor;
+
+  return collectSnippetFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\bregex::Regex::new\s*\(/g,
+    state: emptySnippetState,
+    predicate: (snippet) => {
+      const args = extractRustCallArgs(snippet.text);
+      if (args.length === 0) return false;
+
+      const firstArg = args[0].trim();
+      if (!/^[rR]?#?"/u.test(firstArg)) return false;
+
+      const content = extractRustStringContent(firstArg);
+      if (content === undefined) return false;
+
+      return !/^\^|^\(\?/u.test(content);
+    },
+  });
+}
+
+function extractRustStringContent(literal: string): string | undefined {
+  const match = literal.match(/^[rR]?(#*)"(.*)"\1$/u);
+  if (!match) return undefined;
+  return match[2];
 }
 
 function findRustMethodChainEnd(

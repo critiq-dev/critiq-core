@@ -2,14 +2,15 @@ apiVersion: critiq.dev/v1alpha1
 kind: Rule
 metadata:
   id: ts.security.missing-request-timeout-or-retry
-  title: Missing request timeout or retry protection
-  summary: External calls should define timeout, cancellation, or retry behavior before they enter security-sensitive flows.
-  rationale: Authentication and dependency calls that have neither timeout nor retry protection fail unpredictably under network stress.
+  title: "[DEPRECATED] Use ts.correctness.missing-timeout-on-external-call instead"
+  summary: "DEPRECATED: This rule is consolidated into ts.correctness.missing-timeout-on-external-call. External calls should define timeout, cancellation, or retry behavior."
+  rationale: "DEPRECATED: Consolidated with the correctness variant. See ts.correctness.missing-timeout-on-external-call for the current rule."
   tags:
     - security
     - resilience
     - rules-catalog
     - crq-sec-030
+    - deprecated
   stability: stable
   appliesTo: block
 scope:
@@ -28,8 +29,9 @@ emit:
     tags:
       - security
       - resilience
+      - deprecated
   message:
-    title: Add timeout or retry protection to external calls
-    summary: "`${captures.issue.text}` performs an external call without timeout, cancellation, or retry handling."
+    title: "[DEPRECATED] Add timeout or retry protection to external calls"
+    summary: "DEPRECATED — Consolidated into ts.correctness.missing-timeout-on-external-call. `${captures.issue.text}` performs an external call without timeout, cancellation, or retry handling."
   remediation:
-    summary: Add explicit timeout or cancellation support, wrap the call in retry handling, or do both when the dependency is critical.
+    summary: "This rule is deprecated. Use ts.correctness.missing-timeout-on-external-call instead. Add explicit timeout or cancellation support, wrap the call in retry handling, or do both when the dependency is critical."

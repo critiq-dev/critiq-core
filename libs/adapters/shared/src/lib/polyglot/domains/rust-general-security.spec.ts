@@ -356,6 +356,139 @@ describe('rust-general-security collectors', () => {
     ).toBeGreaterThanOrEqual(1);
   });
 
+  it('flags manual Error::type_id override inside impl Error for block', () => {
+    const facts = collectRustGeneralSecurityFacts({
+      detector,
+      text: [
+        'impl std::error::Error for MyError {',
+        '    fn type_id(&self, _: std::any::TypeId) -> bool {',
+        '        true',
+        '    }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === RUST_GENERAL_SECURITY_FACT_KINDS.manualErrorTypeId,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('skips Error impl without manual type_id', () => {
+    const facts = collectRustGeneralSecurityFacts({
+      detector,
+      text: [
+        'impl std::error::Error for MyError {}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === RUST_GENERAL_SECURITY_FACT_KINDS.manualErrorTypeId,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags unsafe remove_dir_all calls', () => {
+    const facts = collectRustGeneralSecurityFacts({
+      detector,
+      text: [
+        'use std::fs;',
+        '',
+        'fn clean() -> std::io::Result<()> {',
+        '  fs::remove_dir_all("/tmp/build")?;',
+        '  std::fs::remove_dir_all("/tmp/cache")?;',
+        '  Ok(())',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === RUST_GENERAL_SECURITY_FACT_KINDS.unsafeRemoveDirAll,
+      ),
+    ).toHaveLength(2);
+  });
+
+  it('flags create_dir and create_dir_all in /tmp/', () => {
+    const facts = collectRustGeneralSecurityFacts({
+      detector,
+      text: [
+        'fn make() -> std::io::Result<()> {',
+        '  std::fs::create_dir("/tmp/work")?;',
+        '  std::fs::create_dir_all("/tmp/work/deep")?;',
+        '  std::fs::create_dir("/tmp/safe")?;',
+        '  std::fs::create_dir_all("/var/tmp/ok")?;',
+        '  Ok(())',
+        '}',
+      ].join('\n'),
+    });
+
+    const tempFileFacts = facts.filter(
+      (fact) => fact.kind === RUST_GENERAL_SECURITY_FACT_KINDS.insecureTempFile,
+    );
+
+    expect(tempFileFacts.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('flags brace-grouped weak crypto imports', () => {
+    const facts = collectRustGeneralSecurityFacts({
+      detector,
+      text: [
+        'use crypto::{sha1::Sha1, md5::Md5};',
+        'use hashes::{sha2::Sha256, sha1::Sha1};',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === RUST_GENERAL_SECURITY_FACT_KINDS.weakCryptoImport,
+      ),
+    ).toHaveLength(2);
+  });
+
+  it('flags integer literal XOR mistaken for exponentiation', () => {
+    const facts = collectRustGeneralSecurityFacts({
+      detector,
+      text: [
+        'fn compute() {',
+        '  let a = 2 ^ 32;',
+        '  let b = 128u64 ^ 16u64;',
+        '  let c = 0 ^ 32;',
+        '  let d = flags_a ^ flags_b;',
+        '  let e = 200 ^ 8;',
+        '}',
+      ].join('\n'),
+    });
+
+    const xorFacts = facts.filter(
+      (fact) => fact.kind === RUST_GENERAL_SECURITY_FACT_KINDS.misusedBitwiseXor,
+    );
+
+    expect(xorFacts).toHaveLength(1);
+  });
+
+  it('flags unanchored regex patterns in Regex::new', () => {
+    const facts = collectRustGeneralSecurityFacts({
+      detector,
+      text: [
+        'fn check(url: &str) -> bool {',
+        '  let re1 = regex::Regex::new("http://example.com").unwrap();',
+        '  let re2 = regex::Regex::new("^http://example.com").unwrap();',
+        '  let re3 = regex::Regex::new(r"(?i)^http").unwrap();',
+        '  re1.is_match(url) || re2.is_match(url) || re3.is_match(url)',
+        '}',
+      ].join('\n'),
+    });
+
+    const anchorFacts = facts.filter(
+      (fact) => fact.kind === RUST_GENERAL_SECURITY_FACT_KINDS.missingRegexAnchor,
+    );
+
+    expect(anchorFacts).toHaveLength(1);
+  });
+
   it('skips all collectors when path is a test source', () => {
     const facts = collectRustGeneralSecurityFacts({
       detector,

@@ -2,9 +2,9 @@ apiVersion: critiq.dev/v1alpha1
 kind: Rule
 metadata:
   id: ts.performance.sequential-async-calls
-  title: Sequential async calls that could run in parallel
-  summary: Independent awaited calls in the same block should not serialize unnecessarily.
-  rationale: Awaiting unrelated async operations one by one increases end-to-end latency without adding correctness.
+  title: Parallelize independent async calls with Promise.all
+  summary: Independent awaited calls in the same block should run concurrently. Skips test files, build scripts, and data-dependent chains.
+  rationale: Awaiting unrelated async operations one by one stalls the event loop and adds unnecessary wall-clock time without improving correctness or error isolation.
   tags:
     - performance
     - async
@@ -16,6 +16,15 @@ scope:
   languages:
     - typescript
     - javascript
+  paths:
+    exclude:
+      - "**/*.test.*"
+      - "**/*.spec.*"
+      - "**/__tests__/**"
+      - "**/tests/**"
+      - "**/test/**"
+      - "**/docs/**"
+      - "**/scripts/**"
 match:
   fact:
     kind: performance.sequential-async-calls
@@ -23,13 +32,13 @@ match:
 emit:
   finding:
     category: performance.async
-    severity: medium
+    severity: low
     confidence: 0.8
     tags:
       - performance
       - async
   message:
-    title: Parallelize independent async calls
-    summary: "`${captures.issue.text}` is awaited after an independent async call and may serialize work unnecessarily."
+    title: Parallelize independent async calls with `Promise.all`
+    summary: "`${captures.issue.text}` has no data dependency on the previous awaited call and could run concurrently."
   remediation:
-    summary: Start both operations first and await them together, for example with `Promise.all(...)`.
+    summary: Start all independent operations first, then await them together with `Promise.all(...)`. Do not apply when the second call depends on the first call's result, inside error-handling chains, or in build/test scripts where sequential ordering or state isolation is intentional.

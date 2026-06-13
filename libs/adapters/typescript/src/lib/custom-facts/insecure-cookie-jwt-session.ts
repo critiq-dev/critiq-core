@@ -39,7 +39,6 @@ const COOKIE_SINKS = new Set([
   'reply.cookie',
   'res.cookie',
   'response.cookies.set',
-  'serialize',
   'setCookie',
 ]);
 

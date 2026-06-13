@@ -67,10 +67,27 @@ function collectCreateFactoryBindings(program: TSESTree.Program): {
   return { reactNamespaceObjects, directNames };
 }
 
+const DEFINITELY_TYPED_TYPE_TEST = /\/types\/[^/]+\/[^/]+-tests\.(?:ts|tsx)$/;
+const DEFINITELY_TYPED_REACT_DOM_V15_V16 = /\/types\/react-dom\/v(?:15|16)\//;
+const EMBED_SDK_PACKAGE = /\/(?:embed|embed-react|embed-[^/]+)\//;
+
+function isDeprecatedReactApiExcludedPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, '/');
+  return (
+    DEFINITELY_TYPED_REACT_DOM_V15_V16.test(normalized) ||
+    DEFINITELY_TYPED_TYPE_TEST.test(normalized) ||
+    EMBED_SDK_PACKAGE.test(normalized)
+  );
+}
+
 /** Flags legacy React 17-era entrypoints superseded by `createRoot` and function components. */
 export function collectDeprecatedReactApiFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
+  if (isDeprecatedReactApiExcludedPath(context.path)) {
+    return [];
+  }
+
   const facts: ObservedFact[] = [];
   const reactDomBindings = collectReactDomCalleeBindings(context.program);
   const createFactoryBindings = collectCreateFactoryBindings(context.program);

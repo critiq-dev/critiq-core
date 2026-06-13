@@ -433,7 +433,7 @@ export function collectExpressModelBindings(
       return;
     }
 
-    if (/(db|data|model|models|mongo|schema)/iu.test(sourceValue)) {
+    if (/(model|models|mongo|schema)/iu.test(sourceValue)) {
       names.add(localName);
     }
   };

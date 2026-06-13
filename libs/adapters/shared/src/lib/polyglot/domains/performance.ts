@@ -4,6 +4,10 @@ import { findAllMatches, findMatchingDelimiter } from '../../runtime';
 import { createOffsetFact, dedupeFacts } from '../fact-utils';
 import { collectMatchedFacts } from './collect-matched-facts';
 import { collectSnippetFacts } from './collect-snippet-facts';
+import {
+  collectRubySpecificPerformanceFacts,
+  RUBY_PERFORMANCE_FACT_KINDS,
+} from './ruby-performance';
 import type { TrackedIdentifierState } from '../types';
 
 export interface PolyglotPerformancePathOptions {
@@ -1018,8 +1022,14 @@ export function collectPythonPerformanceFacts(
 export function collectRubyPerformanceFacts(
   options: PolyglotPerformancePathOptions,
 ): ObservedFact[] {
-  return collectSharedPerformanceFacts(options, 'ruby');
+  const { text, detector } = options;
+  return dedupeFacts([
+    ...collectSharedPerformanceFacts(options, 'ruby'),
+    ...collectRubySpecificPerformanceFacts(text, detector),
+  ]);
 }
+
+export { RUBY_PERFORMANCE_FACT_KINDS };
 
 export const RUST_PERFORMANCE_FACT_KINDS = {
   singleCharStringLiteralPattern:

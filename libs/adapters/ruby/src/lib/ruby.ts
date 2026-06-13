@@ -123,7 +123,7 @@ const rubyAdapterDefinition: PolyglotAdapterDefinition<RubyScanState> = {
       pattern: weakHashCallPattern,
     }),
     ...collectRubyGeneralSecurityFacts({ text, path, detector }),
-    ...collectRubyBugRiskFacts({ text, detector }),
+    ...collectRubyBugRiskFacts({ text, detector, path }),
     ...collectRubyRailsSecurityFacts({
       text,
       detector,
@@ -171,7 +171,7 @@ const rubyAdapterDefinition: PolyglotAdapterDefinition<RubyScanState> = {
 export const { analyze: analyzeRubyFile, sourceAdapter: rubySourceAdapter } =
   createRegexPolyglotAdapter({
     packageName: '@critiq/adapter-ruby',
-    supportedExtensions: ['.rb', '.erb'] as const,
+    supportedExtensions: ['.rb', '.erb', '.rake'] as const,
     supportedLanguages: ['ruby'] as const,
     definition: rubyAdapterDefinition,
   });

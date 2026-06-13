@@ -195,6 +195,17 @@ function extractDangerouslySetInnerHtmlValue(
   return unwrapExpression(htmlProperty.value as TSESTree.Expression);
 }
 
+function isJsonStringifyPayload(
+  expression: TSESTree.Expression | undefined,
+  sourceText: string,
+): boolean {
+  if (!expression || expression.type !== 'CallExpression') {
+    return false;
+  }
+  const calleeText = getCalleeText(expression.callee, sourceText);
+  return calleeText === 'JSON.stringify';
+}
+
 function hasUnsafeRequestHtmlExpression(
   expression: TSESTree.Expression | undefined,
   taintedNames: ReadonlySet<string>,
@@ -238,6 +249,10 @@ export function collectHttpResponseFacts(
         context.sourceText,
       )
     ) {
+      return;
+    }
+
+    if (isJsonStringifyPayload(payload, context.sourceText)) {
       return;
     }
 

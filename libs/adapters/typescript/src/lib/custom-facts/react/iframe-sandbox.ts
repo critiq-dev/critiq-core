@@ -9,7 +9,13 @@ import {
 import { hasJsxAttribute } from './jsx-attributes';
 import { getJsxTagName } from './jsx-elements';
 
-/** Intrinsic `<iframe>` elements without a `sandbox` attribute. */
+/**
+ * Intrinsic `<iframe>` elements without a `sandbox` attribute.
+ *
+ * Skips iframes with `allowFullScreen` or `allow` attributes — these signal
+ * intentional trust (e.g., app marketplace embeds, payment gateways) or
+ * explicit CORS/permission management.
+ */
 export function collectIframeMissingSandboxFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
@@ -27,6 +33,17 @@ export function collectIframeMissingSandboxFacts(
     }
 
     if (hasJsxAttribute(node, 'sandbox')) {
+      return;
+    }
+
+    // allowFullScreen signals intentional trust — app marketplace embeds,
+    // payment gateways that need full browser capabilities.
+    if (hasJsxAttribute(node, 'allowFullScreen')) {
+      return;
+    }
+
+    // allow attribute signals explicit CORS/permission policy management.
+    if (hasJsxAttribute(node, 'allow')) {
       return;
     }
 

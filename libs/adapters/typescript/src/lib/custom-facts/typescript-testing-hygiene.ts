@@ -10,13 +10,25 @@ import {
 
 const SNAPSHOT_INTENT_COMMENT = /^\s*\/\/\s*snapshot:/;
 
+/** Minimum length for a non-ticket string to be considered a meaningful skip reason. */
+const MIN_REASON_LENGTH = 6;
+
+/** x-pattern test keywords where the first argument IS the test name/documentation. */
+const X_PATTERNS = new Set(['xit', 'xtest', 'xdescribe']);
+
 const UNIT_TEST_PATH =
   /(?:^|\/)(?:__tests__|spec|test|tests)(?:\/|$)|\.(spec|test)\.(?:[jt]sx?)$/i;
 const INTEGRATION_OR_E2E =
-  /(?:^|\/)(?:e2e|integration)(?:\/|$)|[._]integration[._]/i;
+  /(?:^|\/)(?:e2e|integration|browser|smoke)(?:\/|$)|[._](?:integration|browser|smoke)[._]/i;
+const TEST_INFRASTRUCTURE =
+  /(?:^|\/)(?:sandbox|setup)(?:\/|$)/i;
 
 function pathLooksLikeNarrowUnitTest(path: string): boolean {
-  return UNIT_TEST_PATH.test(path) && !INTEGRATION_OR_E2E.test(path);
+  return (
+    UNIT_TEST_PATH.test(path) &&
+    !INTEGRATION_OR_E2E.test(path) &&
+    !TEST_INFRASTRUCTURE.test(path)
+  );
 }
 
 function lineContextHasTicket(sourceText: string, nodeStart: number): boolean {
@@ -85,20 +97,34 @@ function calleeIndicatesSkip(calleeText: string | undefined): boolean {
 function skipCallAcceptsReason(
   call: TSESTree.CallExpression,
   sourceText: string,
+  calleeText: string,
 ): boolean {
-  const first = call.arguments[0];
-  if (!first) {
-    return false;
-  }
+  const isXPattern = X_PATTERNS.has(calleeText);
 
-  if (first.type === 'Literal' && typeof first.value === 'string') {
-    return TICKET_OR_SUPPRESSION_PATTERN.test(first.value);
+  for (const arg of call.arguments) {
+    if (arg.type === 'Literal' && typeof arg.value === 'string') {
+      if (arg.value.length === 0) continue;
+      if (isXPattern) return true;
+      if (arg.value.length >= MIN_REASON_LENGTH || TICKET_OR_SUPPRESSION_PATTERN.test(arg.value)) return true;
+    }
+    if (arg.type === 'TemplateLiteral') {
+      const text = getNodeText(arg, sourceText) ?? '';
+      if (text.length === 0) continue;
+      if (isXPattern) return true;
+      if (text.length >= MIN_REASON_LENGTH || TICKET_OR_SUPPRESSION_PATTERN.test(text)) return true;
+    }
   }
+  return false;
+}
 
-  if (first.type === 'TemplateLiteral') {
-    return TICKET_OR_SUPPRESSION_PATTERN.test(getNodeText(first, sourceText) ?? '');
+function precedingLineHasComment(sourceText: string, nodeStart: number): boolean {
+  const before = sourceText.slice(0, nodeStart);
+  const lines = before.split(/\r?\n/);
+  const startIdx = Math.max(0, lines.length - 3);
+  for (let i = startIdx; i < lines.length - 1; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith('//') || trimmed.startsWith('/*')) return true;
   }
-
   return false;
 }
 
@@ -130,6 +156,10 @@ function snapshotCallLacksIntent(
   }
 
   if (firstArg?.type === 'TemplateLiteral') {
+    return false;
+  }
+
+  if (firstArg?.type === 'ObjectExpression') {
     return false;
   }
 
@@ -253,8 +283,9 @@ export const collectTypescriptTestingHygieneFacts: TypeScriptFactDetector = (
 
     if (isTest && calleeIndicatesSkip(calleeText)) {
       if (
-        skipCallAcceptsReason(node, sourceText) ||
-        lineContextHasTicket(sourceText, nodeStart)
+        skipCallAcceptsReason(node, sourceText, calleeText) ||
+        lineContextHasTicket(sourceText, nodeStart) ||
+        precedingLineHasComment(sourceText, nodeStart)
       ) {
         return;
       }
@@ -287,16 +318,24 @@ export const collectTypescriptTestingHygieneFacts: TypeScriptFactDetector = (
     }
 
     if (isTest && !fakeTimers) {
-      const wallClockCallee =
+      const isTimerWithDelay =
         calleeText === 'setTimeout' ||
         calleeText === 'setInterval' ||
-        calleeText === 'Date.now' ||
         calleeText.endsWith('.setTimeout') ||
-        calleeText.endsWith('.setInterval') ||
-        calleeText === 'performance.now' ||
-        calleeText.endsWith('.performance.now');
+        calleeText.endsWith('.setInterval');
 
-      if (wallClockCallee) {
+      if (isTimerWithDelay) {
+        const delayArg = node.arguments[1];
+        const isMicroDelay =
+          !delayArg ||
+          (delayArg.type === 'Literal' &&
+            typeof delayArg.value === 'number' &&
+            delayArg.value <= 50);
+
+        if (isMicroDelay) {
+          return;
+        }
+
         facts.push(
           createObservedFact({
             appliesTo: 'block',

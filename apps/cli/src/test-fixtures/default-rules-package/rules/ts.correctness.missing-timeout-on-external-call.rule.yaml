@@ -2,9 +2,16 @@ apiVersion: critiq.dev/v1alpha1
 kind: Rule
 metadata:
   id: ts.correctness.missing-timeout-on-external-call
-  title: Missing timeout on external call
-  summary: External HTTP calls should declare timeout or cancellation behavior.
-  rationale: Network calls without explicit timeouts can hang indefinitely and make retry or fallback behavior unreliable.
+  title: Missing timeout or retry on external call
+  summary: External calls should declare timeout, cancellation, or retry behavior.
+  rationale: Network calls without explicit timeouts can hang indefinitely and make retry or fallback behavior unreliable. Adding retry protection further improves resilience against transient failures.
+  references:
+    - kind: cwe
+      id: CWE-16
+      title: Configuration
+    - kind: owasp
+      title: Secure Configuration Cheat Sheet
+      url: https://cheatsheetseries.owasp.org/cheatsheets/Secure_Configuration_Cheat_Sheet.html
   tags:
     - correctness
     - resilience
@@ -29,7 +36,7 @@ emit:
       - correctness
       - resilience
   message:
-    title: Configure timeouts on external calls
-    summary: "`${captures.issue.text}` performs an external call without explicit timeout or cancellation settings."
+    title: Configure timeouts and retry protection on external calls
+    summary: "`${captures.issue.text}` performs an external call without explicit timeout, cancellation, or retry settings."
   remediation:
-    summary: Add a timeout-bearing config object, such as `signal` for `fetch` or `timeout` for axios.
+    summary: Add a timeout-bearing config object (e.g., `signal` for `fetch` or `timeout` for axios) and consider wrapping with a retry library (e.g., `p-retry` or `retry`) to handle transient failures.

@@ -76,6 +76,11 @@ function loopBodyHasExit(body: TSESTree.Statement): boolean {
       return;
     }
 
+    if (inner.type === 'YieldExpression') {
+      found = true;
+      return;
+    }
+
     if (
       inner.type === 'CallExpression' &&
       inner.callee.type === 'MemberExpression' &&

@@ -2,10 +2,12 @@ import {
   collectGoPerformanceFacts,
   collectJavaPerformanceFacts,
   collectPhpPerformanceFacts,
+  collectRubyPerformanceFacts,
   collectRustPerformanceFacts,
   GO_PERFORMANCE_FACT_KINDS,
   PHP_PERFORMANCE_FACT_KINDS,
   RUST_PERFORMANCE_FACT_KINDS,
+  RUBY_PERFORMANCE_FACT_KINDS,
 } from './performance';
 
 describe('php performance collectors', () => {
@@ -1388,5 +1390,412 @@ describe('java performance collectors', () => {
     expect(
       facts.filter((f) => f.kind === 'java.performance.expensive-method-on-ui-thread'),
     ).toHaveLength(0);
+  });
+});
+
+describe('ruby performance collectors (batch 16 RB-PR)', () => {
+  it('flags static array .count (RB-PR1010)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: '[1, 2, 3].count',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.noStaticSizeComputation,
+    );
+  });
+
+  it('flags static array .size (RB-PR1010)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: '[:a, :b, :c].size',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.noStaticSizeComputation,
+    );
+  });
+
+  it('flags static array .length (RB-PR1010)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: '[true, false, nil].length',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.noStaticSizeComputation,
+    );
+  });
+
+  it('does not flag .count on variable receiver (RB-PR1010)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'items.count',
+    });
+
+    expect(facts.map((f) => f.kind)).not.toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.noStaticSizeComputation,
+    );
+  });
+
+  it('flags static hash .count (RB-PR1010)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: '{a: 1, b: 2}.count',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.noStaticSizeComputation,
+    );
+  });
+
+  it('does not flag .count on variable hash receiver (RB-PR1010)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'hash.count',
+    });
+
+    expect(facts.map((f) => f.kind)).not.toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.noStaticSizeComputation,
+    );
+  });
+
+  it('flags .map {}.flatten pattern (RB-PR1011)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'items.map { |i| i.id }.flatten',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.preferFlatMap,
+    );
+  });
+
+  it('does not flag bare .map without flatten (RB-PR1011)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'items.map { |i| i.id }',
+    });
+
+    expect(facts.map((f) => f.kind)).not.toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.preferFlatMap,
+    );
+  });
+
+  it('flags .keys.include? pattern (RB-PR1012)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'hash.keys.include?(key)',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.efficientHashSearch,
+    );
+  });
+
+  it('flags .values.include? pattern (RB-PR1012)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'hash.values.include?(val)',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.efficientHashSearch,
+    );
+  });
+
+  it('does not flag bare .include? (RB-PR1012)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'hash.include?(key)',
+    });
+
+    expect(facts.map((f) => f.kind)).not.toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.efficientHashSearch,
+    );
+  });
+
+  it('flags OpenStruct.new (RB-PR1013)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'config = OpenStruct.new',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.preferStructOverOpenStruct,
+    );
+  });
+
+  it('flags OpenStruct.new with args (RB-PR1013)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'config = OpenStruct.new(name: "test")',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.preferStructOverOpenStruct,
+    );
+  });
+
+  it('does not flag Struct.new (RB-PR1013)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'Config = Struct.new(:name, :value)',
+    });
+
+    expect(facts.map((f) => f.kind)).not.toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.preferStructOverOpenStruct,
+    );
+  });
+
+  it('flags range .include? (RB-PR1014)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: '(1..100).include?(n)',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.rangeCoverOverInclude,
+    );
+  });
+
+  it('flags exclusive range .include? (RB-PR1014)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: '("a"..."z").include?(ch)',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.rangeCoverOverInclude,
+    );
+  });
+
+  it('does not flag bare .include? on non-range (RB-PR1014)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'array.include?(item)',
+    });
+
+    expect(facts.map((f) => f.kind)).not.toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.rangeCoverOverInclude,
+    );
+  });
+
+  it('flags method with &block and .call (RB-PR1015)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: [
+        'def with_timing(&block)',
+        '  result = block.call',
+        '  result',
+        'end',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.yieldOverBlockCall,
+    );
+  });
+
+  it('does not flag method without &block (RB-PR1015)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: [
+        'def with_timing',
+        '  result = yield',
+        '  result',
+        'end',
+      ].join('\n'),
+    });
+
+    expect(facts.map((f) => f.kind)).not.toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.yieldOverBlockCall,
+    );
+  });
+
+  it('flags .match in if condition (RB-PR1016)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'if str.match(/pattern/)',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.regexMatchOverMatch,
+    );
+  });
+
+  it('does not flag .match with variable assignment (RB-PR1016)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'm = str.match(/pattern/)',
+    });
+
+    expect(facts.map((f) => f.kind)).not.toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.regexMatchOverMatch,
+    );
+  });
+
+  it('flags .merge! with single-key hash (RB-PR1017)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'opts.merge!(timeout: 30)',
+    });
+
+    expect(facts.map((f) => f.kind)).toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.mergeSingleKey,
+    );
+  });
+
+  it('does not flag .merge! with multi-key hash (RB-PR1017)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'opts.merge!(timeout: 30, retries: 3)',
+    });
+
+    expect(facts.map((f) => f.kind)).not.toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.mergeSingleKey,
+    );
+  });
+
+  it('does not flag .merge without bang (RB-PR1017)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: 'opts.merge(timeout: 30)',
+    });
+
+    expect(facts.map((f) => f.kind)).not.toContain(
+      RUBY_PERFORMANCE_FACT_KINDS.mergeSingleKey,
+    );
+  });
+
+  it('includes shared performance facts alongside ruby-specific (RB-PR)', () => {
+    const facts = collectRubyPerformanceFacts({
+      path: 'test.rb',
+      detector: 'ruby-detector',
+      text: [
+        '[1, 2, 3].count',
+        'hash.keys.include?(key)',
+        'config = OpenStruct.new',
+      ].join('\n'),
+    });
+
+    const kinds = facts.map((f) => f.kind);
+    expect(kinds).toContain(RUBY_PERFORMANCE_FACT_KINDS.noStaticSizeComputation);
+    expect(kinds).toContain(RUBY_PERFORMANCE_FACT_KINDS.efficientHashSearch);
+    expect(kinds).toContain(RUBY_PERFORMANCE_FACT_KINDS.preferStructOverOpenStruct);
+    expect(kinds).toHaveLength(3);
+  });
+
+  describe('ruby performance collectors (batch 18 RB-PR1026/1027)', () => {
+    it('flags gsub with \\A-anchored regex and empty replacement (RB-PR1026)', () => {
+      const facts = collectRubyPerformanceFacts({
+        path: 'test.rb',
+        detector: 'ruby-detector',
+        text: "str.gsub(/\\Aprefix/, '')",
+      });
+
+      expect(facts.map((f) => f.kind)).toContain(
+        RUBY_PERFORMANCE_FACT_KINDS.preferDeletePrefix,
+      );
+    });
+
+    it('flags sub with \\A-anchored regex and empty replacement (RB-PR1026)', () => {
+      const facts = collectRubyPerformanceFacts({
+        path: 'test.rb',
+        detector: 'ruby-detector',
+        text: "str.sub(/\\Aprefix/, '')",
+      });
+
+      expect(facts.map((f) => f.kind)).toContain(
+        RUBY_PERFORMANCE_FACT_KINDS.preferDeletePrefix,
+      );
+    });
+
+    it('flags gsub with \\z-anchored regex and empty replacement (RB-PR1027)', () => {
+      const facts = collectRubyPerformanceFacts({
+        path: 'test.rb',
+        detector: 'ruby-detector',
+        text: 'str.gsub(/suffix\\z/, "")',
+      });
+
+      expect(facts.map((f) => f.kind)).toContain(
+        RUBY_PERFORMANCE_FACT_KINDS.preferDeleteSuffix,
+      );
+    });
+
+    it('flags sub with \\z-anchored regex and flag (RB-PR1027)', () => {
+      const facts = collectRubyPerformanceFacts({
+        path: 'test.rb',
+        detector: 'ruby-detector',
+        text: "str.sub(/suffix\\z/i, '')",
+      });
+
+      expect(facts.map((f) => f.kind)).toContain(
+        RUBY_PERFORMANCE_FACT_KINDS.preferDeleteSuffix,
+      );
+    });
+
+    it('does not flag gsub without anchor (RB-PR1026/1027)', () => {
+      const facts = collectRubyPerformanceFacts({
+        path: 'test.rb',
+        detector: 'ruby-detector',
+        text: "str.gsub(/middle/, '')",
+      });
+
+      expect(facts.map((f) => f.kind)).not.toContain(
+        RUBY_PERFORMANCE_FACT_KINDS.preferDeletePrefix,
+      );
+      expect(facts.map((f) => f.kind)).not.toContain(
+        RUBY_PERFORMANCE_FACT_KINDS.preferDeleteSuffix,
+      );
+    });
+
+    it('does not flag gsub with non-empty replacement (RB-PR1026)', () => {
+      const facts = collectRubyPerformanceFacts({
+        path: 'test.rb',
+        detector: 'ruby-detector',
+        text: "str.gsub(/\\Aprefix/, 'other')",
+      });
+
+      expect(facts.map((f) => f.kind)).not.toContain(
+        RUBY_PERFORMANCE_FACT_KINDS.preferDeletePrefix,
+      );
+    });
+
+    it('flags both rules when regex has both anchors', () => {
+      const facts = collectRubyPerformanceFacts({
+        path: 'test.rb',
+        detector: 'ruby-detector',
+        text: "str.gsub(/\\Aprefix\\z/, '')",
+      });
+
+      const kinds = facts.map((f) => f.kind);
+      expect(kinds).toContain(RUBY_PERFORMANCE_FACT_KINDS.preferDeletePrefix);
+      expect(kinds).toContain(RUBY_PERFORMANCE_FACT_KINDS.preferDeleteSuffix);
+    });
   });
 });

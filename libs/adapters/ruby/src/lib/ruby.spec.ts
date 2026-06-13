@@ -890,4 +890,134 @@ describe('rubySourceAdapter', () => {
     const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
     expect(kinds).not.toContain('ruby.bug-risk.useless-access-modifier');
   });
+
+  it('flags plain method instead of proc', () => {
+    const result = rubySourceAdapter.analyze(
+      'plain_method.rb',
+      ['items.map(method(:to_s))'].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected analysis success.');
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
+    expect(kinds).toContain('ruby.bug-risk.plain-method-instead-of-proc');
+  });
+
+  it('does not flag &method(:foo) syntax', () => {
+    const result = rubySourceAdapter.analyze(
+      'ampersand_method.rb',
+      ['items.map(&method(:to_s))'].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected analysis success.');
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
+    expect(kinds).not.toContain('ruby.bug-risk.plain-method-instead-of-proc');
+  });
+
+  it('flags Time.now without zone', () => {
+    const result = rubySourceAdapter.analyze(
+      'time_now.rb',
+      ['current = Time.now()'].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected analysis success.');
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
+    expect(kinds).toContain('ruby.bug-risk.time-without-zone');
+  });
+
+  it('does not flag Time.zone.now', () => {
+    const result = rubySourceAdapter.analyze(
+      'time_zone.rb',
+      ['current = Time.zone.now'].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected analysis success.');
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
+    expect(kinds).not.toContain('ruby.bug-risk.time-without-zone');
+  });
+
+  it('flags Rails.env.qa? which is invalid', () => {
+    const result = rubySourceAdapter.analyze(
+      'env_check.rb',
+      ['if Rails.env.qa?', '  puts "QA"', 'end'].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected analysis success.');
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
+    expect(kinds).toContain('ruby.bug-risk.invalid-rails-env-predicate');
+  });
+
+  it('does not flag Rails.env.production? which is valid', () => {
+    const result = rubySourceAdapter.analyze(
+      'valid_env.rb',
+      ['if Rails.env.production?', '  puts "Prod"', 'end'].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected analysis success.');
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
+    expect(kinds).not.toContain('ruby.bug-risk.invalid-rails-env-predicate');
+  });
+
+  it('flags old-style validates_presence_of macro', () => {
+    const result = rubySourceAdapter.analyze(
+      'old_validation.rb',
+      ['validates_presence_of :name'].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected analysis success.');
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
+    expect(kinds).toContain('ruby.bug-risk.old-style-validation-macro');
+  });
+
+  it('does not flag modern validates syntax', () => {
+    const result = rubySourceAdapter.analyze(
+      'modern_validation.rb',
+      ['validates :name, presence: true'].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected analysis success.');
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
+    expect(kinds).not.toContain('ruby.bug-risk.old-style-validation-macro');
+  });
+
+  it('flags map+to_h pattern for index-by', () => {
+    const result = rubySourceAdapter.analyze(
+      'index_by.rb',
+      ['users.map { |u| [u.id, u] }.to_h'].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected analysis success.');
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
+    expect(kinds).toContain('ruby.performance.enumerable-index-by');
+  });
+
+  it('flags map+to_h pattern for index-with', () => {
+    const result = rubySourceAdapter.analyze(
+      'index_with.rb',
+      ['users.map { |u| [u, u.name] }.to_h'].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error('Expected analysis success.');
+
+    const kinds = result.data.semantics?.controlFlow?.facts.map((f) => f.kind) ?? [];
+    expect(kinds).toContain('ruby.performance.enumerable-index-with');
+  });
 });

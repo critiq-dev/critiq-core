@@ -4,8 +4,6 @@ const authLikeNameTokens = new Set([
   'authentication',
   'authorization',
   'bearer',
-  'cookie',
-  'cookies',
   'credential',
   'credentials',
   'identity',

@@ -108,6 +108,154 @@ export const RUBY_BUG_RISK_FACT_KINDS = {
     'ruby.bug-risk.unused-method-arguments',
   uselessAccessModifier:
     'ruby.bug-risk.useless-access-modifier',
+  ambiguousBlockAssociation:
+    'ruby.bug-risk.ambiguous-block-association',
+  ambiguousOperatorArgument:
+    'ruby.bug-risk.ambiguous-operator-argument',
+  ambiguousRegexpLiteral:
+    'ruby.bug-risk.ambiguous-regexp-literal',
+  uselessComparison:
+    'ruby.bug-risk.useless-comparison',
+  elseWithoutRescue:
+    'ruby.bug-risk.else-without-rescue',
+  uselessSetterCall:
+    'ruby.bug-risk.useless-setter-call',
+  mixedRegexCaptures:
+    'ruby.bug-risk.mixed-regex-captures',
+  unqualifiedConstant:
+    'ruby.bug-risk.unqualified-constant',
+  duplicateElsifBlock:
+    'ruby.bug-risk.duplicate-elsif-block',
+  unreachableLoop:
+    'ruby.bug-risk.unreachable-loop',
+  multipleRescuesForSameException:
+    'ruby.bug-risk.multiple-rescues-for-same-exception',
+  selfAssignment:
+    'ruby.bug-risk.self-assignment',
+  identicalBinaryOperands:
+    'ruby.bug-risk.identical-binary-operands',
+  branchesWithoutBody:
+    'ruby.bug-risk.branches-without-body',
+  trailingCommaAttribute:
+    'ruby.bug-risk.trailing-comma-attribute',
+  equalInsteadOfEqual:
+    'ruby.bug-risk.equal-instead-of-equal',
+  invalidIntegerTimes:
+    'ruby.bug-risk.invalid-integer-times',
+  constantInBlock:
+    'ruby.bug-risk.constant-in-block',
+  callbackOrder:
+    'ruby.bug-risk.callback-order',
+  routesMatchSingleVerb:
+    'ruby.bug-risk.routes-match-single-verb',
+  redundantForeignKey:
+    'ruby.bug-risk.redundant-foreign-key',
+  callbackOverride:
+    'ruby.bug-risk.callback-override',
+  irreversibleMigration:
+    'ruby.bug-risk.irreversible-migration',
+  nonNullColumnWithoutDefault:
+    'ruby.bug-risk.non-null-column-without-default',
+  consoleOutputInsteadOfLogger:
+    'ruby.bug-risk.console-output-instead-of-logger',
+  incorrectPluralization:
+    'ruby.bug-risk.incorrect-pluralization',
+  usePresenceOverExplicitCheck:
+    'ruby.bug-risk.use-presence-over-explicit-check',
+  usePresentToSimplifyConditional:
+    'ruby.bug-risk.use-present-to-simplify-conditional',
+  rakeTaskMissingEnvironment:
+    'ruby.bug-risk.rake-task-missing-environment',
+  useSquareBracketsForAttributes:
+    'ruby.bug-risk.use-square-brackets-for-attributes',
+  redundantAllowNil:
+    'ruby.bug-risk.redundant-allow-nil',
+  plainMethodInsteadOfProc:
+    'ruby.bug-risk.plain-method-instead-of-proc',
+  timeWithoutZone:
+    'ruby.bug-risk.time-without-zone',
+  invalidRailsEnvPredicate:
+    'ruby.bug-risk.invalid-rails-env-predicate',
+  oldStyleValidationMacro:
+    'ruby.bug-risk.old-style-validation-macro',
+  deprecatedFilterMethods:
+    'ruby.bug-risk.deprecated-filter-methods',
+  activeRecordAlias:
+    'ruby.bug-risk.active-record-alias',
+  activeRecordMethodOverride:
+    'ruby.bug-risk.active-record-method-override',
+  activeSupportAlias:
+    'ruby.bug-risk.active-support-alias',
+  controllerBaseSubclass:
+    'ruby.bug-risk.controller-base-subclass',
+  activeJobBaseSubclass:
+    'ruby.bug-risk.active-job-base-subclass',
+  actionMailerBaseSubclass:
+    'ruby.bug-risk.action-mailer-base-subclass',
+  activeRecordBaseSubclass:
+    'ruby.bug-risk.active-record-base-subclass',
+  assertNotUsage:
+    'ruby.bug-risk.assert-not-usage',
+  deprecatedBelongsToRequired:
+    'ruby.bug-risk.deprecated-belongs-to-required',
+  useBlankSimplify:
+    'ruby.bug-risk.use-blank-simplify',
+  alterQueriesCombine:
+    'ruby.bug-risk.alter-queries-combine',
+  tableWithoutTimestamps:
+    'ruby.bug-risk.table-without-timestamps',
+  badDateUsage:
+    'ruby.bug-risk.bad-date-usage',
+  useDelegate:
+    'ruby.bug-risk.use-delegate',
+  allEachToFindEach:
+    'ruby.bug-risk.all-each-to-find-each',
+  allowBlankWithDelegate:
+    'ruby.bug-risk.allow-blank-with-delegate',
+  deprecatedFindByDynamic:
+    'ruby.bug-risk.deprecated-find-by-dynamic',
+  enumArraySyntax:
+    'ruby.bug-risk.enum-array-syntax',
+  enumDuplicateValues:
+    'ruby.bug-risk.enum-duplicate-values',
+  exitInAppCode:
+    'ruby.bug-risk.exit-in-app-code',
+  railsEnvEquality:
+    'ruby.bug-risk.rails-env-equality',
+  railsRootJoin:
+    'ruby.bug-risk.rails-root-join',
+  whereFirstOverFindBy:
+    'ruby.bug-risk.where-first-over-find-by',
+  hasAndBelongsToMany:
+    'ruby.bug-risk.has-and-belongs-to-many',
+  dependentOptionCascade:
+    'ruby.bug-risk.dependent-option-cascade',
+  helperInstanceVariables:
+    'ruby.bug-risk.helper-instance-variables',
+  httpMethodsWithoutParams:
+    'ruby.bug-risk.http-methods-without-params',
+  deprecatedHttpStatusSymbols:
+    'ruby.bug-risk.deprecated-http-status-symbols',
+  skipFilterConditional:
+    'ruby.bug-risk.skip-filter-conditional',
+  missingInverseOf:
+    'ruby.bug-risk.missing-inverse-of',
+  undefinedActionFilter:
+    'ruby.bug-risk.undefined-action-filter',
+  redundantWithOptionsReceiver:
+    'ruby.bug-risk.redundant-with-options-receiver',
+  classNameShouldBeString:
+    'ruby.bug-risk.class-name-should-be-string',
+  nonPreferredAssertFalseness:
+    'ruby.bug-risk.non-preferred-assert-falseness',
+  relativeDateAsConstant:
+    'ruby.bug-risk.relative-date-as-constant',
+  inconsistentRequestReferrer:
+    'ruby.bug-risk.inconsistent-request-referrer',
+  inconsistentSafeNavigationTry:
+    'ruby.bug-risk.inconsistent-safe-navigation-try',
+  safeNavigationWithBlank:
+    'ruby.bug-risk.safe-navigation-with-blank',
 } as const;
 
 const RESCUE_EXCEPTION_CLASS_NAMES =
@@ -116,12 +264,13 @@ const RESCUE_EXCEPTION_CLASS_NAMES =
 export interface CollectRubyBugRiskFactsOptions {
   text: string;
   detector: string;
+  path?: string;
 }
 
 export function collectRubyBugRiskFacts(
   options: CollectRubyBugRiskFactsOptions,
 ): ObservedFact[] {
-  const { text, detector } = options;
+  const { text, detector, path } = options;
 
   return dedupeFacts([
     ...collectExceptionClassOverwrittenFacts(text, detector),
@@ -184,6 +333,80 @@ export function collectRubyBugRiskFacts(
     ...collectUnreachableCodeFacts(text, detector),
     ...collectUnusedMethodArgumentsFacts(text, detector),
     ...collectUselessAccessModifierFacts(text, detector),
+    ...collectAmbiguousBlockAssociationFacts(text, detector),
+    ...collectAmbiguousOperatorArgumentFacts(text, detector),
+    ...collectAmbiguousRegexpLiteralFacts(text, detector),
+    ...collectUselessComparisonFacts(text, detector),
+    ...collectElseWithoutRescueFacts(text, detector),
+    ...collectUselessSetterCallFacts(text, detector),
+    ...collectMixedRegexCapturesFacts(text, detector),
+    ...collectUnqualifiedConstantFacts(text, detector),
+    ...collectDuplicateElsifBlockFacts(text, detector),
+    ...collectUnreachableLoopFacts(text, detector),
+    ...collectMultipleRescuesForSameExceptionFacts(text, detector),
+    ...collectSelfAssignmentFacts(text, detector),
+    ...collectIdenticalBinaryOperandsFacts(text, detector),
+    ...collectBranchesWithoutBodyFacts(text, detector),
+    ...collectTrailingCommaAttributeFacts(text, detector),
+    ...collectEqualInsteadOfEqualFacts(text, detector),
+    ...collectInvalidIntegerTimesFacts(text, detector),
+    ...collectConstantInBlockFacts(text, detector),
+    ...collectCallbackOrderFacts(text, detector),
+    ...collectRoutesMatchSingleVerbFacts(text, detector, path),
+    ...collectRedundantForeignKeyFacts(text, detector),
+    ...collectCallbackOverrideFacts(text, detector),
+    ...collectIrreversibleMigrationFacts(text, detector, path),
+    ...collectNonNullColumnWithoutDefaultFacts(text, detector),
+    ...collectConsoleOutputInsteadOfLoggerFacts(text, detector),
+    ...collectIncorrectPluralizationFacts(text, detector),
+    ...collectUsePresenceOverExplicitCheckFacts(text, detector),
+    ...collectUsePresentToSimplifyConditionalFacts(text, detector),
+    ...collectRakeTaskMissingEnvironmentFacts(text, detector, path),
+    ...collectUseSquareBracketsForAttributesFacts(text, detector),
+    ...collectRedundantAllowNilFacts(text, detector),
+    ...collectPlainMethodInsteadOfProcFacts(text, detector),
+    ...collectTimeWithoutZoneFacts(text, detector),
+    ...collectInvalidRailsEnvPredicateFacts(text, detector),
+    ...collectOldStyleValidationMacroFacts(text, detector),
+    ...collectDeprecatedFilterMethodsFacts(text, detector),
+    ...collectActiveRecordAliasFacts(text, detector),
+    ...collectActiveRecordMethodOverrideFacts(text, detector),
+    ...collectActiveSupportAliasFacts(text, detector),
+    ...collectControllerBaseSubclassFacts(text, detector),
+    ...collectActiveJobBaseSubclassFacts(text, detector),
+    ...collectActionMailerBaseSubclassFacts(text, detector),
+    ...collectActiveRecordBaseSubclassFacts(text, detector),
+    ...collectAssertNotUsageFacts(text, detector),
+    ...collectDeprecatedBelongsToRequiredFacts(text, detector),
+    ...collectUseBlankSimplifyFacts(text, detector),
+    ...collectAlterQueriesCombineFacts(text, detector, path),
+    ...collectTableWithoutTimestampsFacts(text, detector, path),
+    ...collectBadDateUsageFacts(text, detector),
+    ...collectUseDelegateFacts(text, detector),
+    ...collectAllowBlankWithDelegateFacts(text, detector),
+    ...collectAllEachToFindEachFacts(text, detector),
+    ...collectDeprecatedFindByDynamicFacts(text, detector),
+    ...collectEnumArraySyntaxFacts(text, detector),
+    ...collectEnumDuplicateValuesFacts(text, detector),
+    ...collectExitInAppCodeFacts(text, detector),
+    ...collectRailsEnvEqualityFacts(text, detector),
+    ...collectRailsRootJoinFacts(text, detector),
+    ...collectWhereFirstOverFindByFacts(text, detector),
+    ...collectHasAndBelongsToManyFacts(text, detector),
+    ...collectDependentOptionCascadeFacts(text, detector),
+    ...collectHelperInstanceVariablesFacts(text, detector),
+    ...collectHttpMethodsWithoutParamsFacts(text, detector),
+    ...collectDeprecatedHttpStatusSymbolsFacts(text, detector),
+    ...collectSkipFilterConditionalFacts(text, detector),
+    ...collectMissingInverseOfFacts(text, detector),
+    ...collectUndefinedActionFilterFacts(text, detector),
+    ...collectRedundantWithOptionsReceiverFacts(text, detector),
+    ...collectClassNameShouldBeStringFacts(text, detector),
+    ...collectNonPreferredAssertFalsenessFacts(text, detector, path),
+    ...collectRelativeDateAsConstantFacts(text, detector),
+    ...collectInconsistentRequestReferrerFacts(text, detector),
+    ...collectInconsistentSafeNavigationTryFacts(text, detector),
+    ...collectSafeNavigationWithBlankFacts(text, detector),
   ]);
 }
 
@@ -2500,4 +2723,2417 @@ function collectUselessAccessModifierFacts(
   }
 
   return facts;
+}
+
+function collectAmbiguousBlockAssociationFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.ambiguousBlockAssociation,
+    appliesTo: 'block',
+    pattern: /\b(?!(?:if|unless|while|until|case|and|or|not|def|class|module|return|break|next|redo)\b)\w+[?!]?[ \t]+\w+[?!]?(?:[ \t]*\{\s*\||[ \t]+do\s+\|)/g,
+  });
+}
+
+function collectAmbiguousOperatorArgumentFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.ambiguousOperatorArgument;
+  const lines = text.split('\n');
+  const facts: ObservedFact[] = [];
+  let offset = 0;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const pattern = /\b\w+[?!]?[ \t]+[+\-!~][a-zA-Z_]\w*/g;
+
+    for (const match of findAllMatches(stripped, pattern)) {
+      const before = stripped.slice(0, match.startOffset).trim();
+      if (/[,([{=+\-*/%<>!~|&^?:]\s*$/.test(before)) {
+        continue;
+      }
+      facts.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: offset + match.startOffset,
+          endOffset: offset + match.endOffset,
+          text: match.matchedText,
+        }),
+      );
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectAmbiguousRegexpLiteralFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.ambiguousRegexpLiteral;
+  const lines = text.split('\n');
+  const facts: ObservedFact[] = [];
+  let offset = 0;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const pattern = /\b(?!(?:if|unless|while|until|case|and|or|not|return|break|next)\b)\w+[?!]?[ \t]+\/[^/\n]{2,}\/[a-z]*/g;
+
+    for (const match of findAllMatches(stripped, pattern)) {
+      const before = stripped.slice(0, match.startOffset).trim();
+      if (/[0-9)]$/.test(before) || /[,([{=+\-*/%<>\s]\s*$/.test(before)) {
+        continue;
+      }
+      facts.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: offset + match.startOffset,
+          endOffset: offset + match.endOffset,
+          text: match.matchedText,
+        }),
+      );
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectUselessComparisonFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.uselessComparison;
+  const lines = text.split('\n');
+  const facts: ObservedFact[] = [];
+  let offset = 0;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const pattern = /\b([a-zA-Z_]\w*(?:\.\w+)*)\s*(==|!=|>|<|>=|<=|===)\s*\1\b/g;
+
+    for (const match of findAllMatches(stripped, pattern)) {
+      // Skip if the matched symbols contain a dot (method chain) to avoid FP
+      if (match.matchedText.includes('.')) {
+        continue;
+      }
+      facts.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'function',
+          kind,
+          startOffset: offset + match.startOffset,
+          endOffset: offset + match.endOffset,
+          text: match.matchedText,
+        }),
+      );
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectElseWithoutRescueFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.elseWithoutRescue;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  let inBegin = false;
+  let beginIndent = -1;
+  let hasRescue = false;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    if (/^begin\b/.test(trimmed)) {
+      inBegin = true;
+      beginIndent = stripped.search(/\S/);
+      hasRescue = false;
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (inBegin) {
+      const lineIndent = stripped.search(/\S/);
+
+      if (/^rescue\b/.test(trimmed)) {
+        hasRescue = true;
+        offset += line.length + 1;
+        continue;
+      }
+
+      if (/^else\b/.test(trimmed) && !hasRescue) {
+        facts.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'function',
+            kind,
+            startOffset: offset + stripped.search(/\S/),
+            endOffset: offset + stripped.search(/\S/) + 4,
+            text: 'else',
+          }),
+        );
+        offset += line.length + 1;
+        continue;
+      }
+
+      if (/^end\b/.test(trimmed) || (lineIndent <= beginIndent && !/^\s*$/.test(stripped))) {
+        inBegin = false;
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectUselessSetterCallFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.uselessSetterCall,
+    appliesTo: 'function',
+    pattern: /(?:self\.(\w+)|@(\w+))\s*=\s*(?:self\.\1|@\2)(?!\s*(?:\.|\())|(?:self\.(\w+)|@(\w+))\s*=\s*\3\s*\|\|\s*|@(\w+)\s*=\s*@\5\s*$/gm,
+    predicate: (match) => {
+      const rest = text.slice(match.endOffset).split('\n')[0];
+      // Skip if there are method calls or operators on the right side
+      return !/\s*\.\s*\w+\s*\(/.test(rest) && !/\s*[+\-*/%]\s*/.test(rest);
+    },
+  });
+}
+
+function collectMixedRegexCapturesFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.mixedRegexCaptures;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  const regexPattern = /\/((?:[^/\\]|\\.)*)\/([a-z]*)/g;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    let regMatch: RegExpExecArray | null;
+
+    while ((regMatch = regexPattern.exec(stripped)) !== null) {
+      const pattern = regMatch[1];
+      const hasNamed = /\?<\w+>/.test(pattern);
+      const hasNumbered = /\((?!\?)/.test(pattern);
+
+      if (hasNamed && hasNumbered) {
+        facts.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'function',
+            kind,
+            startOffset: offset + regMatch.index,
+            endOffset: offset + regMatch.index + regMatch[0].length,
+            text: regMatch[0],
+          }),
+        );
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectUnqualifiedConstantFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.unqualifiedConstant;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+
+  const qualifiedConstants = new Set<string>();
+  const fileDefinedClasses = new Set<string>();
+  const moduleMatch = text.match(/module\s+(\w+)/);
+  const currentModule = moduleMatch ? moduleMatch[1] : null;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    // Collect class definitions
+    const classDefMatch = trimmed.match(/^class\s+(?:::)?(\w+)/);
+    if (classDefMatch) {
+      fileDefinedClasses.add(classDefMatch[1]);
+    }
+
+    // Collect references to namespaced constants
+    const qualifiedMatch = findAllMatches(stripped, /\b(\w+)::\w+/g);
+    for (const match of qualifiedMatch) {
+      qualifiedConstants.add(match.matchedText.split('::')[0]);
+    }
+
+    // Check for class inheritance with bare constants
+    if (currentModule && trimmed.startsWith('class')) {
+      const inheritMatch = trimmed.match(/class\s+\w+\s*<\s*(\w+)/);
+      if (inheritMatch) {
+        const parentClass = inheritMatch[1];
+        if (!fileDefinedClasses.has(parentClass) && !qualifiedConstants.has(parentClass) && parentClass !== 'Object' && parentClass !== 'Struct') {
+          const idx = stripped.indexOf(parentClass);
+          facts.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'function',
+            kind,
+            startOffset: offset + idx,
+            endOffset: offset + idx + parentClass.length,
+            text: parentClass,
+          }),
+        );
+        }
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectDuplicateElsifBlockFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.duplicateElsifBlock;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  let conditionStack: string[] = [];
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    const elsifMatch = trimmed.match(/^elsif\s+(.+?)(?:\s+then\b)?$/);
+    if (elsifMatch) {
+      const condition = elsifMatch[1].replace(/\s+/g, '');
+
+      if (conditionStack.length > 0 && conditionStack[conditionStack.length - 1] === condition) {
+        const idx = stripped.indexOf('elsif');
+        facts.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'function',
+            kind,
+            startOffset: offset + idx,
+            endOffset: offset + idx + 5,
+            text: 'elsif',
+          }),
+        );
+      }
+
+      conditionStack.push(condition);
+    }
+
+    if (/^end\b/.test(trimmed)) {
+      conditionStack = [];
+    }
+
+    if (/^if\b/.test(trimmed)) {
+      conditionStack = [];
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectUnreachableLoopFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.unreachableLoop;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  const loopStack: Array<{ indent: number; foundFirstStmt: boolean }> = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const stripped = stripHashLineComment(lines[i]);
+    const trimmed = stripped.trim();
+
+    // Detect loop starts
+    const loopMatch = trimmed.match(/^\s*(?:while|until)\s+/);
+    const forMatch = trimmed.match(/^\s*for\s+/);
+    const loopDoMatch = trimmed.match(/(?:loop|times|upto|downto|each|map)\s+(?:do|\{)/);
+
+    if (loopMatch || forMatch) {
+      const indent = stripped.search(/\S/);
+      loopStack.push({ indent, foundFirstStmt: false });
+      offset += lines[i].length + 1;
+      continue;
+    }
+
+    if (loopDoMatch) {
+      const indent = stripped.search(/\S/);
+      loopStack.push({ indent, foundFirstStmt: false });
+      offset += lines[i].length + 1;
+      continue;
+    }
+
+    // Check loop body
+    if (loopStack.length > 0) {
+      const currentLoop = loopStack[loopStack.length - 1];
+      const lineIndent = stripped.search(/\S/);
+
+      if (lineIndent > currentLoop.indent && !currentLoop.foundFirstStmt && /\S/.test(trimmed) && !trimmed.startsWith('#') && !trimmed.startsWith('end')) {
+        currentLoop.foundFirstStmt = true;
+
+        // Check if first statement is unconditional exit
+        if (/^\s*(?:return|break|raise|throw|exit|abort|fail)\b/.test(stripped) && !/\b(?:if|unless|while|until|rescue)\b/.test(stripped.slice(stripped.search(/\S/)).slice(6))) {
+          facts.push(
+            createOffsetFact(text, {
+              detector,
+              appliesTo: 'function',
+              kind,
+              startOffset: offset + stripped.search(/\S/),
+              endOffset: offset + stripped.search(/\S/) + 6,
+              text: stripped.trim().split(/\s/)[0],
+            }),
+          );
+        }
+      }
+
+      if (lineIndent <= currentLoop.indent && /^end\b/.test(trimmed)) {
+        loopStack.pop();
+      } else if (lineIndent <= currentLoop.indent && /\S/.test(trimmed) && !trimmed.startsWith('#')) {
+        loopStack.pop();
+      }
+    }
+
+    offset += lines[i].length + 1;
+  }
+
+  return facts;
+}
+
+function collectMultipleRescuesForSameExceptionFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.multipleRescuesForSameException;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  let rescueClasses: string[] = [];
+  let blockDepth = 0;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    if (/\b(?:begin|def\s+\w+|do\b)/.test(trimmed) && !/\bthen\b/.test(trimmed)) {
+      blockDepth += 1;
+      if (/\b(?:begin|def\s+\w+)/.test(trimmed)) {
+        rescueClasses = [];
+      }
+    }
+
+    if (/^end\b/.test(trimmed)) {
+      blockDepth = Math.max(0, blockDepth - 1);
+      if (blockDepth === 0) {
+        rescueClasses = [];
+      }
+    }
+
+    const rescueMatch = trimmed.match(/^rescue\s+(?:::)?(\w+)(?:\s*=>\s*\w+)?(?:\s*,\s*(?:::)?(\w+))?/);
+    if (rescueMatch) {
+      for (let g = 1; g < rescueMatch.length; g++) {
+        const excName = rescueMatch[g];
+        if (excName && rescueClasses.includes(excName)) {
+          const idx = stripped.indexOf(excName);
+          facts.push(
+            createOffsetFact(text, {
+              detector,
+              appliesTo: 'function',
+              kind,
+              startOffset: offset + (idx >= 0 ? idx : trimmed.indexOf('rescue')),
+              endOffset: offset + (idx >= 0 ? idx + excName.length : trimmed.indexOf('rescue') + 6),
+              text: excName,
+            }),
+          );
+        }
+      }
+
+      for (let g = 1; g < rescueMatch.length; g++) {
+        if (rescueMatch[g] && !rescueClasses.includes(rescueMatch[g])) {
+          rescueClasses.push(rescueMatch[g]);
+        }
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectSelfAssignmentFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.selfAssignment;
+
+  return collectMatchedFacts({
+    text, detector, kind,
+    appliesTo: 'block',
+    pattern: /(\b[a-z_]\w*)\s*=\s*\1\b(?!\w)/g,
+    predicate: (match) => {
+      const lineStart = text.lastIndexOf('\n', match.startOffset) + 1;
+      const linePrefix = text.slice(lineStart, match.startOffset);
+      if (/^\s*def\b/.test(linePrefix)) return false;
+      const rest = text.slice(match.endOffset).split('\n')[0];
+      return !/\s*(?:[+\-*/%|&^]|<=>|and|or)\s/.test(rest) && !rest.startsWith('.');
+    },
+  }).concat(
+    collectMatchedFacts({
+      text, detector, kind,
+      appliesTo: 'block',
+      pattern: /(\b[A-Z]\w*)\s*=\s*\1\b(?!\w)/g,
+    }),
+    collectMatchedFacts({
+      text, detector, kind,
+      appliesTo: 'block',
+      pattern: /(\b[a-z_]\w*)\s*,\s*(\b[a-z_]\w*)\s*=\s*\1\s*,\s*\2\b(?!\w)/g,
+    }),
+  );
+}
+
+function collectIdenticalBinaryOperandsFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.identicalBinaryOperands;
+
+  return collectMatchedFacts({
+    text, detector, kind,
+    appliesTo: 'block',
+    pattern: /(\b[a-zA-Z_]\w*)[ \t]*([+\-*/%])[ \t]*\1\b(?!\w)/g,
+    predicate: (m) => !m.matchedText.includes('\n'),
+  }).concat(
+    collectMatchedFacts({
+      text, detector, kind,
+      appliesTo: 'block',
+      pattern: /(\b[a-zA-Z_]\w*)[ \t]*(\|)[ \t]*\1\b(?!\w)(?!\|)/g,
+      predicate: (m) => {
+        if (m.matchedText.includes('\n')) return false;
+        if (text[m.startOffset - 1] === '|') return false;
+        const pipeIdx = m.matchedText.indexOf('|');
+        if (pipeIdx > 0 && /\w/.test(m.matchedText[pipeIdx - 1])) return false;
+        return true;
+      },
+    }),
+    collectMatchedFacts({
+      text, detector, kind,
+      appliesTo: 'block',
+      pattern: /(\b[a-zA-Z_]\w*)[ \t]*(&)[ \t]*\1\b(?!\w)(?!&)/g,
+      predicate: (m) => !m.matchedText.includes('\n'),
+    }),
+    collectMatchedFacts({
+      text, detector, kind,
+      appliesTo: 'block',
+      pattern: /(\b[a-zA-Z_]\w*)[ \t]*(\^)[ \t]*\1\b(?!\w)/g,
+      predicate: (m) => !m.matchedText.includes('\n'),
+    }),
+    collectMatchedFacts({
+      text, detector, kind,
+      appliesTo: 'block',
+      pattern: /(\b[a-zA-Z_]\w*)[ \t]*(<=>)[ \t]*\1\b(?!\w)/g,
+      predicate: (m) => !m.matchedText.includes('\n'),
+    }),
+  );
+}
+
+function collectBranchesWithoutBodyFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.branchesWithoutBody;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  let pendingStart = -1;
+  let pendingLine = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const stripped = stripHashLineComment(lines[i]);
+    const trimmed = stripped.trim();
+
+    if (/^\s*\S/.test(lines[i]) && /^(?!if|unless|elsif|end|else|when)\s*\S.*\s+(?:if|unless)\s+/.test(lines[i])) {
+      offset += lines[i].length + 1;
+      continue;
+    }
+
+    if (pendingStart !== -1) {
+      if (/\S/.test(trimmed) && !trimmed.startsWith('#')) {
+        if (/^(?:end|elsif|else)\b/.test(trimmed)) {
+          facts.push(
+            createOffsetFact(text, {
+              detector,
+              appliesTo: 'function',
+              kind,
+              startOffset: pendingStart,
+              endOffset: pendingStart + lines[pendingLine].trim().length,
+              text: lines[pendingLine].trim(),
+            }),
+          );
+        }
+        pendingStart = -1;
+        pendingLine = -1;
+      }
+    }
+
+    if (/^(?:if|unless)\s+/.test(trimmed) && !/\bthen\b/.test(trimmed)) {
+      pendingStart = offset + stripped.search(/\S/);
+      pendingLine = i;
+    } else if (/^elsif\s+/.test(trimmed)) {
+      pendingStart = offset + stripped.search(/\S/);
+      pendingLine = i;
+    }
+
+    offset += lines[i].length + 1;
+  }
+
+  return facts;
+}
+
+function collectTrailingCommaAttributeFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.trailingCommaAttribute,
+    appliesTo: 'block',
+    pattern: /\b(?:attr_reader|attr_writer|attr_accessor)\s+(?:(?::\w+)\s*,\s*)*(?::\w+)\s*,(?!\s*:)/g,
+  });
+}
+
+function collectEqualInsteadOfEqualFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.equalInsteadOfEqual,
+    appliesTo: 'block',
+    pattern: /(\w+)\.object_id\s*==\s*\1\.object_id/g,
+  });
+}
+
+function collectInvalidIntegerTimesFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.invalidIntegerTimes;
+
+  return collectMatchedFacts({
+    text, detector, kind,
+    appliesTo: 'block',
+    pattern: /\b0\.times\b(?!\.)/g,
+  }).concat(
+    collectMatchedFacts({
+      text, detector, kind,
+      appliesTo: 'block',
+      pattern: /\b1\.times\b(?!\.)/g,
+    }),
+    collectMatchedFacts({
+      text, detector, kind,
+      appliesTo: 'block',
+      pattern: /\b0x0\.times\b/g,
+    }),
+    collectMatchedFacts({
+      text, detector, kind,
+      appliesTo: 'block',
+      pattern: /\b-1\.times\b(?!\.)/g,
+    }),
+  );
+}
+
+function collectConstantInBlockFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.constantInBlock;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  let inDef = false;
+  let defDepth = 0;
+
+  const moduleClassPattern = /^\s*(?:class|module)\s+(?:::)?[A-Z]\w*/;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    if (moduleClassPattern.test(trimmed)) {
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (/^\s*def\s+/.test(trimmed)) {
+      inDef = true;
+      defDepth += 1;
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (inDef && /^\s*end\b/.test(trimmed)) {
+      defDepth -= 1;
+      if (defDepth <= 0) {
+        inDef = false;
+        defDepth = 0;
+      }
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (inDef) {
+      const constMatch = trimmed.match(/\b([A-Z]\w*)\s*=(?![=>])\s*/);
+      if (constMatch) {
+        const idx = stripped.indexOf(constMatch[1]);
+        facts.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'function',
+            kind,
+            startOffset: offset + idx,
+            endOffset: offset + idx + constMatch[1].length,
+            text: constMatch[1],
+          }),
+        );
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectCallbackOrderFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.callbackOrder;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  let inClass = false;
+  let classDepth = 0;
+  const callbackWeights: Map<string, number> = new Map([
+    ['before_validation', 1],
+    ['after_validation', 2],
+    ['before_save', 3],
+    ['around_save', 4],
+    ['before_create', 5],
+    ['around_create', 6],
+    ['after_create', 7],
+    ['after_save', 8],
+    ['after_commit', 9],
+    ['after_rollback', 10],
+  ]);
+  const callbackOrder: Array<{ name: string; weight: number; offset: number; length: number }> = [];
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    if (/^\s*class\s+/.test(trimmed)) {
+      inClass = true;
+      classDepth += 1;
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (inClass && /^\s*end\b/.test(trimmed)) {
+      classDepth -= 1;
+      if (classDepth <= 0) {
+        for (let i = 0; i < callbackOrder.length - 1; i++) {
+          for (let j = i + 1; j < callbackOrder.length; j++) {
+            if (callbackOrder[i].weight > callbackOrder[j].weight) {
+              facts.push(
+                createOffsetFact(text, {
+                  detector,
+                  appliesTo: 'block',
+                  kind,
+                  startOffset: callbackOrder[j].offset,
+                  endOffset: callbackOrder[j].offset + callbackOrder[j].length,
+                  text: callbackOrder[j].name,
+                }),
+              );
+            }
+          }
+        }
+        inClass = false;
+        classDepth = 0;
+        callbackOrder.length = 0;
+      }
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (inClass) {
+      for (const [name, weight] of callbackWeights) {
+        const cbMatch = trimmed.match(new RegExp(`\\b${name}\\s+(?::\\w+\\s*,?\\s*)*`));
+        if (cbMatch) {
+          const idx = stripped.indexOf(name);
+          callbackOrder.push({
+            name,
+            weight,
+            offset: offset + (idx >= 0 ? idx : 0),
+            length: name.length,
+          });
+        }
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectRoutesMatchSingleVerbFacts(
+  text: string,
+  detector: string,
+  path?: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.routesMatchSingleVerb;
+
+  if (!path || !path.includes('routes')) {
+    return [];
+  }
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    predicate: (match) => {
+      const lineStart = text.lastIndexOf('\n', match.startOffset) + 1;
+      const lineEnd = text.indexOf('\n', match.startOffset);
+      const line = text.slice(lineStart, lineEnd >= 0 ? lineEnd : undefined);
+      return !/via:\s*:all\b/.test(line) && !/via:\s*\[[^\]]*,[^\]]*\]/.test(line);
+    },
+    pattern: /^\s*match\b/gm,
+  });
+}
+
+function collectRedundantForeignKeyFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.redundantForeignKey;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\b(?:has_many|has_one|belongs_to)\s+:(\w+).*?foreign_key:\s*['"](\w+)['"]/g,
+    predicate: (match) => {
+      const textAround = match.matchedText;
+      const reexec = new RegExp(/\b(?:has_many|has_one|belongs_to)\s+:(\w+).*?foreign_key:\s*['"](\w+)['"]/);
+      const parts = textAround.match(reexec);
+      const assocName = parts?.[1] ?? '';
+      const fkValue = parts?.[2] ?? '';
+      const conventionFk = `${assocName}_id`;
+      return fkValue === conventionFk;
+    },
+  });
+}
+
+function collectCallbackOverrideFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.callbackOverride;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  let inClass = false;
+  let classDepth = 0;
+  const afterCommitMethods: Map<string, number> = new Map();
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    if (/^\s*class\s+/.test(trimmed)) {
+      inClass = true;
+      classDepth += 1;
+      afterCommitMethods.clear();
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (inClass && /^\s*end\b/.test(trimmed)) {
+      classDepth -= 1;
+      if (classDepth <= 0) {
+        inClass = false;
+        classDepth = 0;
+        afterCommitMethods.clear();
+      }
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (inClass) {
+      const cbMatch = trimmed.match(
+        /\b(after_commit|after_create_commit|after_update_commit|after_destroy_commit)\s+(:\w+)/,
+      );
+      if (cbMatch) {
+        const methodName = cbMatch[2];
+        const firstOffset = afterCommitMethods.get(methodName);
+        if (firstOffset !== undefined) {
+          const idx = stripped.indexOf(cbMatch[1]);
+          facts.push(
+            createOffsetFact(text, {
+              detector,
+              appliesTo: 'block',
+              kind,
+              startOffset: offset + (idx >= 0 ? idx : 0),
+              endOffset: offset + (idx >= 0 ? idx : 0) + cbMatch[1].length,
+              text: cbMatch[1],
+            }),
+          );
+        } else {
+          const idx = stripped.indexOf(cbMatch[1]);
+          afterCommitMethods.set(methodName, offset + (idx >= 0 ? idx : 0));
+        }
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectIrreversibleMigrationFacts(
+  text: string,
+  detector: string,
+  path?: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.irreversibleMigration;
+
+  if (!path || !path.includes('db/migrate')) {
+    return [];
+  }
+
+  const lines = text.split('\n');
+  const facts: ObservedFact[] = [];
+  let offset = 0;
+  let inMigrationClass = false;
+  let classDepth = 0;
+  let defDepth = 0;
+  let hasUp = false;
+  let hasDown = false;
+  let hasChange = false;
+  let migrationStartOffset = 0;
+  let inChangeMethod = false;
+
+  const IRREVERSIBLE_OPS =
+    /\b(?:drop_table|remove_column|rename_column|change_column|change_table|remove_index|remove_belongs_to|remove_reference|execute)\b/g;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    if (/^\s*class\s+\w+\s*<\s*(?:::)?ActiveRecord::Migration/.test(trimmed)) {
+      inMigrationClass = true;
+      classDepth = stripped.search(/\S/);
+      defDepth = 0;
+      hasUp = false;
+      hasDown = false;
+      hasChange = false;
+      inChangeMethod = false;
+      migrationStartOffset = offset + classDepth;
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (inMigrationClass) {
+      if (/^\s*class\b/.test(trimmed)) {
+        classDepth += 1;
+        offset += line.length + 1;
+        continue;
+      }
+
+      if (/^\s*def\s+/.test(trimmed)) {
+        defDepth += 1;
+        if (/^\s*def\s+change\b/.test(trimmed)) {
+          hasChange = true;
+          inChangeMethod = true;
+        } else if (/^\s*def\s+up\b/.test(trimmed)) {
+          hasUp = true;
+          inChangeMethod = false;
+        } else if (/^\s*def\s+down\b/.test(trimmed)) {
+          hasDown = true;
+          inChangeMethod = false;
+        } else {
+          inChangeMethod = false;
+        }
+        offset += line.length + 1;
+        continue;
+      }
+
+      if (/^\s*end\b/.test(trimmed)) {
+        if (defDepth > 0) {
+          defDepth -= 1;
+          if (defDepth === 0) {
+            inChangeMethod = false;
+          }
+        } else {
+          classDepth -= 1;
+          if (classDepth <= 0) {
+            if (!hasChange && (hasUp !== hasDown)) {
+              facts.push(
+                createOffsetFact(text, {
+                  detector,
+                  appliesTo: 'block',
+                  kind,
+                  startOffset: migrationStartOffset,
+                  endOffset: offset + 3,
+                  text: text.slice(migrationStartOffset, offset + 3).split('\n')[0].trim(),
+                }),
+              );
+            }
+            inMigrationClass = false;
+            classDepth = 0;
+          }
+        }
+        offset += line.length + 1;
+        continue;
+      }
+
+      if (inChangeMethod) {
+        for (const match of findAllMatches(stripped, IRREVERSIBLE_OPS)) {
+          facts.push(
+            createOffsetFact(text, {
+              detector,
+              appliesTo: 'block',
+              kind,
+              startOffset: offset + match.startOffset,
+              endOffset: offset + match.endOffset,
+              text: match.matchedText,
+            }),
+          );
+        }
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+const COLUMN_TYPE_METHODS =
+  'string|integer|text|boolean|datetime|date|float|decimal|binary|json|jsonb';
+
+function collectNonNullColumnWithoutDefaultFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.nonNullColumnWithoutDefault;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const columnCallPattern = new RegExp(
+      `\\b(?:t\\.(?:${COLUMN_TYPE_METHODS})|add_column|change_column)\\b`,
+      'g',
+    );
+
+    for (const callMatch of findAllMatches(stripped, columnCallPattern)) {
+      if (callMatch.matchedText.startsWith('t.timestamps') || callMatch.matchedText.startsWith('t.references')) {
+        continue;
+      }
+
+      if (!/null:\s*false\b/.test(stripped)) {
+        continue;
+      }
+
+      if (/\bdefault:\s*(?!nil\b)/.test(stripped)) {
+        continue;
+      }
+
+      facts.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: offset + callMatch.startOffset,
+          endOffset: offset + callMatch.endOffset,
+          text: callMatch.matchedText,
+        }),
+      );
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectConsoleOutputInsteadOfLoggerFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.consoleOutputInsteadOfLogger,
+    appliesTo: 'block',
+    pattern: /^\s*(?:puts|print|p|pp)\b[ (]/gm,
+  });
+}
+
+function collectIncorrectPluralizationFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const PLURAL_FORMS =
+    'days|hours|minutes|weeks|months|years|seconds|megabytes|gigabytes|kilobytes|bytes';
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.incorrectPluralization,
+    appliesTo: 'block',
+    pattern: new RegExp(`\\b1\\.(?:${PLURAL_FORMS})\\b`, 'g'),
+  });
+}
+
+function collectUsePresenceOverExplicitCheckFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.usePresenceOverExplicitCheck;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /(\w+(?:\.\w+)*)\.present\?\s*\?\s*\1\s*:\s*nil\b/g,
+  }).concat(
+    collectMatchedFacts({
+      text,
+      detector,
+      kind,
+      appliesTo: 'block',
+      pattern: /(\w+(?:\.\w+)*)\.blank\?\s*\?\s*nil\b\s*:\s*\1/g,
+    }),
+  );
+}
+
+function collectUsePresentToSimplifyConditionalFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.usePresentToSimplifyConditional;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /(\w+(?:\.\w+)*)\s*!=\s*nil\b\s*&&\s*!\1\.empty\?/g,
+  });
+}
+
+function collectRakeTaskMissingEnvironmentFacts(
+  text: string,
+  detector: string,
+  path?: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.rakeTaskMissingEnvironment;
+
+  if (!path || !path.endsWith('.rake')) {
+    return [];
+  }
+
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    const taskMatch = trimmed.match(/^task\s+(?::\w+|['"]\w+['"])\s*(?:=>\s*(\[[^\]]*\]|:?\w+))?(?:\s+do\b|\s*\{)?/);
+    if (!taskMatch) {
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (trimmed.match(/task\s+:environment\b/)) {
+      offset += line.length + 1;
+      continue;
+    }
+
+    const depsSection = taskMatch[1];
+    let hasEnvironment = false;
+
+    if (depsSection) {
+      if (depsSection.startsWith('[')) {
+        const depNames = depsSection.slice(1, -1).split(',').map(d => d.trim().replace(/^:/, ''));
+        hasEnvironment = depNames.includes('environment');
+      } else {
+        const depName = depsSection.replace(/^:/, '');
+        hasEnvironment = depName === 'environment';
+      }
+    }
+
+    if (!hasEnvironment) {
+      const taskIdx = stripped.indexOf('task');
+      if (taskIdx !== -1) {
+        facts.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: offset + taskIdx,
+            endOffset: offset + taskIdx + 4,
+            text: 'task',
+          }),
+        );
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectUseSquareBracketsForAttributesFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.useSquareBracketsForAttributes;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\bread_attribute\s*\([^)]+\)/g,
+  }).concat(
+    collectMatchedFacts({
+      text,
+      detector,
+      kind,
+      appliesTo: 'block',
+      pattern: /\bwrite_attribute\s*\([^,]+,\s*[^)]+\)/g,
+    }),
+  );
+}
+
+function collectRedundantAllowNilFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.redundantAllowNil,
+    appliesTo: 'block',
+    pattern: /\bvalidates\b.*\ballow_nil:\s*true\b.*\ballow_blank:\s*true\b/g,
+  });
+}
+
+function collectPlainMethodInsteadOfProcFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const enumerableMethods = 'map|each|select|reject|detect|find|any\\?|all\\?|count|filter|collect|inject|reduce|sort_by|group_by';
+  const basePattern = `\\.(?:${enumerableMethods})`;
+  const withParens = new RegExp(basePattern + '\\s*\\(\\s*method\\s*\\(', 'g');
+  const withoutParens = new RegExp(basePattern + '\\s+method\\s*\\(', 'g');
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.plainMethodInsteadOfProc,
+    appliesTo: 'block',
+    pattern: new RegExp(`${basePattern}\\s*(?:\\(\\s*)?method\\s*\\(`, 'g'),
+    predicate: (match) => {
+      const before = text.slice(0, match.startOffset);
+      const lineEnd = text.indexOf('\n', match.startOffset);
+      const restOfLine = text.slice(match.startOffset, lineEnd >= 0 ? lineEnd : undefined);
+      return !(before + restOfLine).includes('&method(');
+    },
+  });
+}
+
+function collectTimeWithoutZoneFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.timeWithoutZone,
+    appliesTo: 'block',
+    pattern: /\bTime\.(?:now|parse|current|at|new)\s*(?:\(|(?=\s|$|\.|,|\)|\+|-|\*|\/|&&|\|\|))/g,
+    predicate: (match) => {
+      const before = text.slice(0, match.startOffset);
+      const lineEnd = text.indexOf('\n', match.startOffset);
+      const restOfLine = text.slice(match.startOffset, lineEnd >= 0 ? lineEnd : undefined);
+      return !/Time\.zone\b/.test(before + restOfLine);
+    },
+  });
+}
+
+function collectInvalidRailsEnvPredicateFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.invalidRailsEnvPredicate;
+  const facts: ObservedFact[] = [];
+  const validEnvs = new Set(['development', 'test', 'production', 'staging', 'local']);
+
+  for (const match of findAllMatches(text, /\bRails\.env\.(\w+)\?/g)) {
+    const envName = match.matchedText.match(/\.(\w+)\?$/)?.[1];
+    if (envName && !validEnvs.has(envName)) {
+      facts.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: match.startOffset,
+          endOffset: match.endOffset,
+          text: match.matchedText,
+        }),
+      );
+    }
+  }
+
+  return facts;
+}
+
+function collectOldStyleValidationMacroFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.oldStyleValidationMacro,
+    appliesTo: 'block',
+    pattern: /\bvalidates_(?:presence|numericality|length|format|inclusion|exclusion|acceptance|confirmation|uniqueness|associated|each)_of\s+/g,
+  });
+}
+
+const DEPRECATED_FILTER_METHODS =
+  'before_filter|after_filter|around_filter|append_before_filter|append_after_filter|append_around_filter|skip_before_filter|skip_after_filter|skip_around_filter|prepend_before_filter|prepend_after_filter|prepend_around_filter';
+
+function collectDeprecatedFilterMethodsFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.deprecatedFilterMethods,
+    appliesTo: 'block',
+    pattern: new RegExp(`\\b(?:${DEPRECATED_FILTER_METHODS})\\b`, 'g'),
+  });
+}
+
+function collectActiveRecordAliasFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.activeRecordAlias,
+    appliesTo: 'block',
+    pattern: /\bupdate_attributes!?\s*\(/g,
+  });
+}
+
+const AR_OVERRIDE_METHODS =
+  'save|save!|create|create!|update|update!|destroy|destroy!|delete|delete_all|reload|touch|increment|increment!|decrement|decrement!|toggle|toggle!|lock!|update_attribute|update_column|update_columns';
+
+function collectActiveRecordMethodOverrideFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.activeRecordMethodOverride;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+
+  const classDefs: Array<{ startLine: number; endLine: number }> = [];
+  const currentClassStack: Array<{ startLine: number; indent: number }> = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const indent = line.search(/\S/);
+    const stripped = stripHashLineComment(line);
+
+    if (/^\s*class\s+[\w:]+/.test(stripped)) {
+      if (
+        /<\s*(?:::)?(ActiveRecord::Base|ApplicationRecord)\b/.test(stripped)
+      ) {
+        currentClassStack.push({ startLine: i, indent: indent >= 0 ? indent : 0 });
+      }
+    }
+
+    if (/^\s*end\b/.test(stripped) && currentClassStack.length > 0) {
+      const last = currentClassStack[currentClassStack.length - 1];
+      if (indent <= last.indent) {
+        currentClassStack.pop();
+        classDefs.push({ startLine: last.startLine, endLine: i });
+      }
+    }
+  }
+
+  const linesToCheck = new Set<number>();
+  for (const cd of classDefs) {
+    for (let i = cd.startLine + 1; i < cd.endLine; i++) {
+      linesToCheck.add(i);
+    }
+  }
+
+  const overridePattern = new RegExp(
+    `^\\s*def\\s+(?:(?:self\\.)?(${AR_OVERRIDE_METHODS})\\b)`,
+  );
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!linesToCheck.has(i)) continue;
+
+    const line = lines[i];
+    const stripped = stripHashLineComment(line);
+    const defMatch = stripped.match(overridePattern);
+
+    if (defMatch) {
+      const methodName = defMatch[1];
+      const lineOffset = lines.slice(0, i).join('\n').length;
+      const lineStartOffset = lineOffset > 0 ? lineOffset + 1 : 0;
+      const matchIndex = defMatch.index || 0;
+      const methodOffsetInLine = stripped.indexOf(methodName, matchIndex);
+
+      if (methodOffsetInLine >= 0) {
+        const methodStart = lineStartOffset + methodOffsetInLine;
+        facts.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: methodStart,
+            endOffset: methodStart + methodName.length,
+            text: methodName,
+          }),
+        );
+      }
+    }
+  }
+
+  return facts;
+}
+
+function collectActiveSupportAliasFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.activeSupportAlias,
+    appliesTo: 'block',
+    pattern: /\.(?:starts_with\?|ends_with\?|append|prepend)\s*[(]/g,
+  });
+}
+
+function collectControllerBaseSubclassFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.controllerBaseSubclass,
+    appliesTo: 'block',
+    pattern: /\bclass\s+\w+\s*<\s*ActionController::Base\b/g,
+  });
+}
+
+function collectActiveJobBaseSubclassFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.activeJobBaseSubclass,
+    appliesTo: 'block',
+    pattern: /\bclass\s+\w+\s*<\s*ActiveJob::Base\b/g,
+  });
+}
+
+function collectActionMailerBaseSubclassFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.actionMailerBaseSubclass,
+    appliesTo: 'block',
+    pattern: /\bclass\s+\w+\s*<\s*ActionMailer::Base\b/g,
+  });
+}
+
+function collectActiveRecordBaseSubclassFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.activeRecordBaseSubclass,
+    appliesTo: 'block',
+    pattern: /\bclass\s+\w+\s*<\s*ActiveRecord::Base\b/g,
+  });
+}
+
+function collectAssertNotUsageFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.assertNotUsage,
+    appliesTo: 'block',
+    pattern: /\bassert\s+!/g,
+  });
+}
+
+function collectDeprecatedBelongsToRequiredFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.deprecatedBelongsToRequired,
+    appliesTo: 'block',
+    pattern: /\bbelongs_to\s+:\w+(?:\s*,\s*[^)]*?)?\s*,\s*required:\s*true\b/g,
+  });
+}
+
+function collectUseBlankSimplifyFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.useBlankSimplify,
+    appliesTo: 'block',
+    pattern: /(\w+(?:\.\w+)*)\.nil\?\s*\|\|\s*\1\.(?:empty|blank)\?/g,
+  });
+}
+
+function collectAlterQueriesCombineFacts(
+  text: string,
+  detector: string,
+  _path?: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.alterQueriesCombine,
+    appliesTo: 'block',
+    pattern: /\bchange_column(?:\s+|_|\b)/g,
+  });
+}
+
+function collectTableWithoutTimestampsFacts(
+  text: string,
+  detector: string,
+  _path?: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.tableWithoutTimestamps;
+
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  let inCreateTable = false;
+  let createTableIndent = 0;
+  let hasTimestamps = false;
+  let createTableStartOffset = 0;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    if (/^create_table\s+/.test(trimmed)) {
+      inCreateTable = true;
+      createTableIndent = stripped.search(/\S/);
+      hasTimestamps = false;
+      createTableStartOffset = offset + stripped.search(/\S/);
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (inCreateTable) {
+      if (/\.timestamps\b/.test(trimmed)) {
+        hasTimestamps = true;
+      }
+
+      const lineIndent = stripped.search(/\S/);
+      if (lineIndent >= 0 && lineIndent <= createTableIndent && trimmed !== '' && !trimmed.startsWith('#')) {
+        inCreateTable = false;
+        if (!hasTimestamps) {
+          const endIdx = text.indexOf('\n', createTableStartOffset);
+          const firstLine = text.slice(createTableStartOffset, endIdx >= 0 ? endIdx : undefined);
+          facts.push(
+            createOffsetFact(text, {
+              detector,
+              appliesTo: 'block',
+              kind,
+              startOffset: createTableStartOffset,
+              endOffset: createTableStartOffset + firstLine.length,
+              text: firstLine,
+            }),
+          );
+        }
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  if (inCreateTable && !hasTimestamps) {
+    const endIdx = text.indexOf('\n', createTableStartOffset);
+    const firstLine = text.slice(createTableStartOffset, endIdx >= 0 ? endIdx : undefined);
+    facts.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: createTableStartOffset,
+        endOffset: createTableStartOffset + firstLine.length,
+        text: firstLine,
+      }),
+    );
+  }
+
+  return facts;
+}
+
+function collectBadDateUsageFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.badDateUsage,
+    appliesTo: 'block',
+    pattern: /\bDate\.(?:parse|today|tomorrow|yesterday)\b|\bDateTime\.(?:now|current)\b/g,
+    predicate: (match) => {
+      const before = text.slice(0, match.startOffset);
+      const lineEnd = text.indexOf('\n', match.startOffset);
+      const restOfLine = text.slice(match.startOffset, lineEnd >= 0 ? lineEnd : undefined);
+      return !/Time\.(?:zone|current)\b/.test(before + restOfLine);
+    },
+  });
+}
+
+function collectUseDelegateFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.useDelegate;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const stripped = stripHashLineComment(lines[i]);
+    const trimmed = stripped.trim();
+
+    const defMatch = trimmed.match(/^def\s+(\w+)\s*$/);
+    if (!defMatch) {
+      offset += lines[i].length + 1;
+      continue;
+    }
+
+    const methodName = defMatch[1];
+    const nextLine = i + 1 < lines.length ? stripHashLineComment(lines[i + 1]).trim() : '';
+
+    if (!nextLine) {
+      offset += lines[i].length + 1;
+      continue;
+    }
+
+    if (nextLine.startsWith('#')) {
+      offset += lines[i].length + 1;
+      continue;
+    }
+
+    const delegationMatch = nextLine.match(
+      /^(?:@(\w+)\.|(\w+)\.)(\w+)(?:\s*\([^)]*\))?\s*$/,
+    );
+    if (!delegationMatch) {
+      offset += lines[i].length + 1;
+      continue;
+    }
+
+    const calledMethod = delegationMatch[3];
+    if (calledMethod !== methodName) {
+      offset += lines[i].length + 1;
+      continue;
+    }
+
+    const defLineStart = offset + stripped.search(/\S/);
+    facts.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'function',
+        kind,
+        startOffset: defLineStart,
+        endOffset: defLineStart + methodName.length,
+        text: methodName,
+      }),
+    );
+
+    offset += lines[i].length + 1;
+  }
+
+  return facts;
+}
+
+function collectAllowBlankWithDelegateFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.allowBlankWithDelegate,
+    appliesTo: 'block',
+    pattern: /\bdelegate\s+(?::\w+(?:\s*,\s*)?)+(?:.*\b)allow_blank:\s*true\b/g,
+  });
+}
+
+function collectAllEachToFindEachFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.allEachToFindEach,
+    appliesTo: 'block',
+    pattern: /\b(?:all|where\([^)]*\))\.each\s*(?:do\b|\{)/g,
+  });
+}
+
+function collectDeprecatedFindByDynamicFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.deprecatedFindByDynamic,
+    appliesTo: 'block',
+    pattern: /\bfind_by_[a-z_]\w*\s*\(/g,
+    predicate: (match) => !match.matchedText.startsWith('find_by_sql'),
+  });
+}
+
+function collectEnumArraySyntaxFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.enumArraySyntax,
+    appliesTo: 'block',
+    pattern: /\benum\s+:(\w+)\s*,\s*\[/g,
+  });
+}
+
+function collectEnumDuplicateValuesFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.enumDuplicateValues;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const enumMatch = stripped.match(/\benum\s+(\w+)\s*:\s*\{([^}]*)\}/);
+
+    if (enumMatch) {
+      const hashContent = enumMatch[2];
+      const valuePairs = hashContent.split(',').map(p => p.trim()).filter(Boolean);
+      const seenValues = new Set<string>();
+
+      for (const pair of valuePairs) {
+        const kvMatch = pair.match(/(\w+)\s*:\s*(-?\d+(?:\.\d+)?)/);
+        if (!kvMatch) continue;
+
+        const value = kvMatch[2];
+        if (seenValues.has(value)) {
+          const idx = stripped.indexOf(kvMatch[0]);
+          facts.push(
+            createOffsetFact(text, {
+              detector,
+              appliesTo: 'block',
+              kind,
+              startOffset: offset + (idx >= 0 ? idx : 0),
+              endOffset: offset + (idx >= 0 ? idx + kvMatch[0].length : 0),
+              text: kvMatch[0],
+            }),
+          );
+        } else {
+          seenValues.add(value);
+        }
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectExitInAppCodeFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.exitInAppCode,
+    appliesTo: 'block',
+    pattern: /\bexit[!]?\b(?!\s*\.\s*\w)/g,
+    predicate: (match) => {
+      const lineStart = text.lastIndexOf('\n', match.startOffset) + 1;
+      const lineEnd = text.indexOf('\n', match.startOffset);
+      const line = text.slice(lineStart, lineEnd >= 0 ? lineEnd : undefined);
+      const hashIndex = line.indexOf('#');
+      if (hashIndex >= 0 && match.startOffset > lineStart + hashIndex) {
+        return false;
+      }
+      const charBefore = text[match.startOffset - 1];
+      if (charBefore === "'" || charBefore === '"') {
+        return false;
+      }
+      const linePrefix = line.slice(0, match.startOffset - lineStart).trimStart();
+      return !/^(def|when|class|module|desc)\s/.test(linePrefix);
+    },
+  });
+}
+
+function collectRailsEnvEqualityFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.railsEnvEquality,
+    appliesTo: 'block',
+    pattern: /\bRails\.env\s*(==|!=|\.eql\?\(|\.equal\?\(|\.include\?\(|\.(?:is_a|kind_of)\?\(|\.in\?\()/g,
+  });
+}
+
+function collectRailsRootJoinFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.railsRootJoin;
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /\bRails\.root\s*\.to_s\s*\+/g,
+  }).concat(
+    collectMatchedFacts({
+      text,
+      detector,
+      kind,
+      appliesTo: 'block',
+      pattern: /\bRails\.root\s*\+\s*['"]/g,
+    }),
+    collectMatchedFacts({
+      text,
+      detector,
+      kind,
+      appliesTo: 'block',
+      pattern: /\bFile\.join\s*\(\s*Rails\.root\b/g,
+    }),
+  );
+}
+
+const HTTP_STATUS_SYMBOLS =
+  'ok|created|accepted|no_content|moved_permanently|found|see_other|not_modified|bad_request|unauthorized|forbidden|not_found|unprocessable_entity|internal_server_error|service_unavailable';
+
+function collectHasAndBelongsToManyFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.hasAndBelongsToMany,
+    appliesTo: 'block',
+    pattern: /\bhas_and_belongs_to_many\s+:\w+/g,
+  });
+}
+
+function collectDependentOptionCascadeFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.dependentOptionCascade;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const assocMatch = stripped.match(
+      /\b(?:has_many|has_one|belongs_to)\s+:\w+\b/,
+    );
+    if (assocMatch && /\bdependent\s*:\s*:/.test(stripped)) {
+      facts.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: offset + assocMatch.index!,
+          endOffset: offset + assocMatch.index! + assocMatch[0].length,
+          text: assocMatch[0],
+        }),
+      );
+    }
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectHelperInstanceVariablesFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.helperInstanceVariables;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  const moduleIndents: number[] = [];
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    const moduleMatch = trimmed.match(/^module\s+(?:\w*::)*\w+Helper\b/);
+    if (moduleMatch) {
+      moduleIndents.push(stripped.search(/\S/));
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (moduleIndents.length > 0 && trimmed === 'end') {
+      const currentIndent = stripped.search(/\S/);
+      if (currentIndent === moduleIndents[moduleIndents.length - 1]) {
+        moduleIndents.pop();
+      }
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (moduleIndents.length > 0) {
+      const ivarMatch = trimmed.match(/@\w+/);
+      if (ivarMatch) {
+        const atIndex = stripped.indexOf('@');
+        facts.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: offset + atIndex,
+            endOffset: offset + atIndex + ivarMatch[0].length,
+            text: ivarMatch[0],
+          }),
+        );
+      }
+    }
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectHttpMethodsWithoutParamsFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.httpMethodsWithoutParams;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  const methodPattern = /\b(?:get|post|put|patch|delete|head)\s+:\w+/;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const match = stripped.match(methodPattern);
+    if (match) {
+      const afterAction = stripped.slice(match.index! + match[0].length).trim();
+      if (!afterAction.startsWith(',') && !afterAction.startsWith('(')) {
+        facts.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: offset + match.index!,
+            endOffset: offset + match.index! + match[0].length,
+            text: match[0],
+          }),
+        );
+      }
+    }
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectDeprecatedHttpStatusSymbolsFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.deprecatedHttpStatusSymbols;
+  const statusSymbolPattern = new RegExp(
+    `\\bstatus:\\s*:(${HTTP_STATUS_SYMBOLS})\\b`,
+    'g',
+  );
+  const headSymbolPattern = new RegExp(
+    `\\bhead\\s+:(${HTTP_STATUS_SYMBOLS})\\b`,
+    'g',
+  );
+
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: statusSymbolPattern,
+  }).concat(
+    collectMatchedFacts({
+      text,
+      detector,
+      kind,
+      appliesTo: 'block',
+      pattern: headSymbolPattern,
+    }),
+  );
+}
+
+function collectSkipFilterConditionalFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.skipFilterConditional;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  let inSkipCall = false;
+  let callText = '';
+  let callFirstLineStart = 0;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    if (!inSkipCall) {
+      const skipMatch = trimmed.match(
+        /^(skip_before_action|skip_after_action|skip_around_action)\b/,
+      );
+      if (skipMatch) {
+        inSkipCall = true;
+        callFirstLineStart = offset + stripped.search(/\S/);
+        callText = stripped;
+        if (!trimmed.endsWith(',') && !trimmed.endsWith('\\')) {
+          inSkipCall = false;
+          const hasOnlyExcept = /\b(?:only|except)\s*:/.test(callText);
+          const hasIfUnless = /\b(?:if|unless)\s*:/.test(callText);
+          if (hasOnlyExcept && hasIfUnless) {
+            facts.push(
+              createOffsetFact(text, {
+                detector,
+                appliesTo: 'block',
+                kind,
+                startOffset: callFirstLineStart,
+                endOffset: callFirstLineStart + stripped.trimEnd().length,
+                text: trimmed,
+              }),
+            );
+          }
+        }
+      }
+    } else {
+      callText += '\n' + stripped;
+      if (!trimmed.endsWith(',') && !trimmed.endsWith('\\')) {
+        inSkipCall = false;
+        const hasOnlyExcept = /\b(?:only|except)\s*:/.test(callText);
+        const hasIfUnless = /\b(?:if|unless)\s*:/.test(callText);
+        if (hasOnlyExcept && hasIfUnless) {
+          const firstLine = callText.split('\n')[0];
+          facts.push(
+            createOffsetFact(text, {
+              detector,
+              appliesTo: 'block',
+              kind,
+              startOffset: callFirstLineStart,
+              endOffset: callFirstLineStart + firstLine.trimEnd().length,
+              text: firstLine.trim(),
+            }),
+          );
+        }
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectMissingInverseOfFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.missingInverseOf;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  let inAssociation = false;
+  let assocText = '';
+  let assocFirstLineStart = 0;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    if (!inAssociation) {
+      const assocMatch = trimmed.match(/^(has_many|belongs_to|has_one)\s+:\w+\b/);
+      if (assocMatch) {
+        inAssociation = true;
+        assocFirstLineStart = offset + stripped.search(/\S/);
+        assocText = stripped;
+        if (!trimmed.endsWith(',') && !trimmed.endsWith('\\')) {
+          inAssociation = false;
+          if (!/\binverse_of\s*:/.test(assocText)) {
+            facts.push(
+              createOffsetFact(text, {
+                detector,
+                appliesTo: 'block',
+                kind,
+                startOffset: assocFirstLineStart,
+                endOffset: assocFirstLineStart + stripped.trimEnd().length,
+                text: trimmed,
+              }),
+            );
+          }
+        }
+      }
+    } else {
+      assocText += '\n' + stripped;
+      if (!trimmed.endsWith(',') && !trimmed.endsWith('\\')) {
+        inAssociation = false;
+        if (!/\binverse_of\s*:/.test(assocText)) {
+          facts.push(
+            createOffsetFact(text, {
+              detector,
+              appliesTo: 'block',
+              kind,
+              startOffset: assocFirstLineStart,
+              endOffset: assocFirstLineStart + assocText.split('\n')[0].trimEnd().length,
+              text: assocText.split('\n')[0].trim(),
+            }),
+          );
+        }
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectUndefinedActionFilterFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.undefinedActionFilter;
+  const facts: ObservedFact[] = [];
+  const definedMethods = new Set<string>();
+  const beforeActions: {
+    name: string;
+    startOffset: number;
+    length: number;
+    text: string;
+  }[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    const defMatch = trimmed.match(/^def\s+(\w+)/);
+    if (defMatch) {
+      definedMethods.add(defMatch[1]);
+    }
+
+    const baMatch = trimmed.match(/^before_action\s+:(\w+)/);
+    if (baMatch) {
+      const idx = stripped.indexOf(baMatch[0]);
+      beforeActions.push({
+        name: baMatch[1],
+        startOffset: offset + idx,
+        length: baMatch[0].length,
+        text: baMatch[0],
+      });
+    }
+
+    offset += line.length + 1;
+  }
+
+  for (const ba of beforeActions) {
+    if (!definedMethods.has(ba.name)) {
+      facts.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: ba.startOffset,
+          endOffset: ba.startOffset + ba.length,
+          text: ba.text,
+        }),
+      );
+    }
+  }
+
+  return facts;
+}
+
+function collectWhereFirstOverFindByFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.whereFirstOverFindBy,
+    appliesTo: 'block',
+    pattern: /\b[A-Z]\w*\.find_by\s*\(/g,
+    predicate: (match) => !match.matchedText.startsWith('find_by_sql'),
+  });
+}
+
+function collectRedundantWithOptionsReceiverFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.redundantWithOptionsReceiver;
+  const facts: ObservedFact[] = [];
+  const lines = text.split('\n');
+  let offset = 0;
+  let inWithOptionsBlock = false;
+  let blockVarName = '';
+
+  for (const line of lines) {
+    const stripped = stripHashLineComment(line);
+    const trimmed = stripped.trim();
+
+    const woMatch = trimmed.match(/^with_options\s+.*\s+do\s+\|(\w+)\|/);
+    if (woMatch) {
+      inWithOptionsBlock = true;
+      blockVarName = woMatch[1];
+      offset += line.length + 1;
+      continue;
+    }
+
+    const endMatch = trimmed.match(/^end\b/);
+    if (endMatch && inWithOptionsBlock) {
+      inWithOptionsBlock = false;
+      blockVarName = '';
+      offset += line.length + 1;
+      continue;
+    }
+
+    if (inWithOptionsBlock && blockVarName) {
+      const receiverPattern = new RegExp(
+        `\\b${blockVarName}\\.(?:has_many|has_one|belongs_to|has_and_belongs_to_many|validate|validates|scope|default_scope)\\b`,
+        'g',
+      );
+      for (const match of findAllMatches(stripped, receiverPattern)) {
+        facts.push(
+          createOffsetFact(text, {
+            detector,
+            appliesTo: 'block',
+            kind,
+            startOffset: offset + match.startOffset,
+            endOffset: offset + match.endOffset,
+            text: match.matchedText,
+          }),
+        );
+      }
+    }
+
+    offset += line.length + 1;
+  }
+
+  return facts;
+}
+
+function collectClassNameShouldBeStringFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.classNameShouldBeString,
+    appliesTo: 'block',
+    pattern: /\bclass_name:\s*[A-Z]\w*(?:\s*\.\s*\w+)*(?:::[A-Z]\w*)*\b(?!\s*:)/g,
+    predicate: (match) => {
+      const val = match.matchedText.replace(/^class_name:\s*/, '');
+      return !/^['"]/.test(val) && !/^(nil|true|false)\b/.test(val);
+    },
+  });
+}
+
+function collectNonPreferredAssertFalsenessFacts(
+  text: string,
+  detector: string,
+  path?: string,
+): ObservedFact[] {
+  if (path && !path.includes('test/') && !path.includes('specs/') && !path.includes('_test.rb') && !path.includes('_spec.rb') && !path.includes('/spec/')) {
+    return [];
+  }
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.nonPreferredAssertFalseness,
+    appliesTo: 'block',
+    pattern: /\brefute\b/g,
+  });
+}
+
+function collectRelativeDateAsConstantFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.relativeDateAsConstant,
+    appliesTo: 'block',
+    pattern: /\b[A-Z][A-Z_]{1,}\s*=\s*.+\.(?:today|now|since|ago|from_now|beginning_of_day|end_of_day)\b/g,
+  });
+}
+
+function collectInconsistentRequestReferrerFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  const kind = RUBY_BUG_RISK_FACT_KINDS.inconsistentRequestReferrer;
+  const facts: ObservedFact[] = [];
+  for (const match of findAllMatches(text, /\brequest\.referrer\b/g)) {
+    facts.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.startOffset,
+        endOffset: match.endOffset,
+        text: match.matchedText,
+      }),
+    );
+  }
+  return facts;
+}
+
+function collectInconsistentSafeNavigationTryFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.inconsistentSafeNavigationTry,
+    appliesTo: 'block',
+    pattern: /\.try!\(/g,
+  });
+}
+
+function collectSafeNavigationWithBlankFacts(
+  text: string,
+  detector: string,
+): ObservedFact[] {
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind: RUBY_BUG_RISK_FACT_KINDS.safeNavigationWithBlank,
+    appliesTo: 'block',
+    pattern: /&\.blank\?/g,
+  });
 }
