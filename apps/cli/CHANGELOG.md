@@ -1,5 +1,116 @@
 # @critiq/cli
 
+## 0.4.0
+
+### Minor Changes
+
+- 1e2a570: Ship CloudFormation cfn-lint adapter support, 26 PHP analyzer parity adapter facts, and Ruby, Android, and Electron adapter facts. Prompt to install `@critiq/rules` when the configured catalog package is missing from local or global `node_modules`.
+- 5fd870f: Add Wave 1 benchmark peer-gap facts for path-join user input, insecure HTTP server bootstrap, and Python path traversal user input.
+- 5fd870f: Improve Wave 2 benchmark peer-gap SAST facts for contextual Python weak hashes, request-tainted dynamic code execution, Flask markup precision, taint-gated DOM HTML sinks, and user-controlled RegExp construction.
+- 82fd4d5: Add batch-01 JavaScript parity adapter facts:
+  - `language.new-symbol-instance` (JS-0233) — flags `new Symbol()` usage
+  - `language.var-declaration` (JS-0239) — flags `var` declarations
+  - `language.parse-int-on-number-literal` (JS-0253) — flags `parseInt`/`Number.parseInt` on number literals
+  - `language.assignment-to-exports` (JS-0256) — flags `exports = ` reassignment
+  - `language.callback-missing-error-handling` (JS-0254) — flags callbacks with unused error params
+  - `language.callback-not-error-first` (JS-0255) — flags callbacks with wrong parameter order
+  - `language.extraneous-import` (JS-0257) — flags unused import bindings
+
+- 82fd4d5: Add batch-03 JavaScript parity adapter facts:
+  - `language.invalid-shebang` (JS-0271) — flags shebang `#!` not on line 1 col 0
+  - `language.deprecated-api` (JS-0272) — flags known deprecated API usage (`new Buffer()`, `url.parse()`, `domain.create()`, deprecated React lifecycle methods)
+  - `language.invalid-async-await` (JS-0294) — flags `await`/`for await...of` outside async function
+  - `language.ts-suppress-directive` (JS-0295) — flags `@ts-ignore`/`@ts-nocheck`/`@ts-expect-error` directives
+  - `runtime.process-exit-control-flow` (JS-0270) — flags `process.exit()` in finally blocks or with reachable code after
+  - `quality.banned-type` (JS-0296) — flags `any` type usage
+
+- 82fd4d5: Add Vue Options API fact detectors (framework.vue.reserved-key-overwrite, framework.vue.computed-mutation, framework.vue.invalid-prop-type, framework.vue.data-object-declaration) to the TypeScript adapter for JavaScript parity batch 08.
+- 0130a7f: feat: add 8 Ruby bug-risk fact collectors
+  - duplicateCaseConditions: detect duplicate when conditions in case statements
+  - duplicateMethodDefinitions: detect duplicate method definitions in same scope
+  - eachWithObjectImmutableArg: detect each_with_object with immutable arguments
+  - elseFollowedByExpression: detect expressions directly after else keyword
+  - emptyEnsureBlock: detect ensure blocks without a body
+  - emptyExpression: detect empty parenthesized expressions
+  - emptyInterpolation: detect empty string interpolation `#{}`
+  - whenBranchWithoutBody: detect when clauses without a body expression
+
+- 0130a7f: Ruby adapter: add deprecated-big-decimal-new, symbol-boolean-name, circular-argument-reference, deprecated-class-methods, disjunctive-assignment-in-constructor fact collectors
+
+  New `ruby.bug-risk.*` fact collectors in `@critiq/adapter-shared`:
+  - `ruby.bug-risk.deprecated-big-decimal-new` — detects deprecated `BigDecimal.new` calls
+  - `ruby.bug-risk.symbol-boolean-name` — detects `:true` and `:false` symbol literals
+  - `ruby.bug-risk.circular-argument-reference` — detects method arguments with self-referencing defaults
+  - `ruby.bug-risk.deprecated-class-methods` — detects deprecated `File.exists?`, `Dir.exists?`, and `iterator?`
+  - `ruby.bug-risk.disjunctive-assignment-in-constructor` — detects redundant `||=` in `initialize`
+
+- 0130a7f: Ruby adapter: add duplicate-constant-assignment, io-select-single-arg, bad-operand-order fact collectors
+
+  New `ruby.bug-risk.*` fact collectors in `@critiq/adapter-shared`:
+  - `ruby.bug-risk.duplicate-constant-assignment` — detects repeated constant assignments per file
+  - `ruby.bug-risk.io-select-single-arg` — detects IO.select with single IO argument
+  - `ruby.bug-risk.bad-operand-order` — detects literal-on-left binary expressions (Yoda conditions)
+
+- 846919c: **async.infinite-loop fact**: Added YieldExpression detection to loopBodyHasExit
+
+  Generator functions using `while(true) { yield value; }` are now correctly
+  recognized as having an exit path (cooperative suspension via yield). This
+  reduces false positives for generator-based infinite sequences.
+
+- 846919c: feat(ruby): add batch 17 bug-risk and performance fact collectors (RB-RL1052-RB-RL1059)
+
+  Adds 4 new bug-risk fact collectors:
+  - `ruby.bug-risk.plain-method-instead-of-proc` (RB-RL1052)
+  - `ruby.bug-risk.time-without-zone` (RB-RL1054)
+  - `ruby.bug-risk.invalid-rails-env-predicate` (RB-RL1056)
+  - `ruby.bug-risk.old-style-validation-macro` (RB-RL1057)
+
+  Adds 2 new performance fact collectors:
+  - `ruby.performance.enumerable-index-by` (RB-RL1058)
+  - `ruby.performance.enumerable-index-with` (RB-RL1059)
+
+  RB-RL1051 and RB-RL1055 are deferred (need AST-level analysis).
+
+- 846919c: Add 7 new Ruby bug-risk fact collectors for RB-LI batch 13: self-assignment (RB-LI1092), identical-binary-operands (RB-LI1093), branches-without-body (RB-LI1094), trailing-comma-attribute (RB-LI1099), equal-instead-of-equal (RB-LI1100), invalid-integer-times (RB-LI1101), and constant-in-block (RB-LI1102).
+- 846919c: ruby: add 8 rails framework bug-risk facts (RB-RL1001-RB-RL1008)
+- 846919c: ruby: add 8 rails framework bug-risk facts (RB-RL1009-RB-RL1016)
+- 846919c: Add 8 new Ruby bug-risk fact collectors for RB-RL batch 13: `ruby.bug-risk.deprecated-find-by-dynamic` (RB-RL1017), `ruby.bug-risk.enum-array-syntax` (RB-RL1018), `ruby.bug-risk.enum-duplicate-values` (RB-RL1019), `ruby.bug-risk.rails-env-equality` (RB-RL1020), `ruby.bug-risk.exit-in-app-code` (RB-RL1021), `ruby.bug-risk.rails-root-join` (RB-RL1022), `ruby.bug-risk.where-first-over-find-by` (RB-RL1023), `ruby.bug-risk.all-each-to-find-each` (RB-RL1024).
+- 846919c: feat: tune testing.flaky-timer-in-test fact for precision
+  - Removes `Date.now` and `performance.now` from wall-clock callee detection (these are performance measurement clocks, not flaky timers)
+  - Adds micro-delay threshold: only emits flaky-timer fact for `setTimeout`/`setInterval` with delay argument > 50ms
+  - No delay argument or numeric literal delay <= 50ms is treated as a micro-delay (event loop yielding) and skipped
+  - Non-literal delay arguments (variables, expressions) are still flagged since the actual delay value is unknown
+
+- 846919c: feat: tune security.iframe-missing-sandbox-attribute fact for precision
+  - Skips iframes with `allowFullScreen` attribute — signals intentional trust (app marketplace embeds, payment gateways that need full browser capabilities)
+  - Skips iframes with `allow` attribute — signals explicit CORS/permission policy management
+  - Plain iframes without `sandbox`, `allowFullScreen`, or `allow` continue to be flagged
+
+- 846919c: Ruby batch 09 (RB-RL) adapter facts
+  - Add 7 new fact kinds: redundant-with-options-receiver, class-name-should-be-string, non-preferred-assert-falseness, relative-date-as-constant, inconsistent-request-referrer, inconsistent-safe-navigation-try, safe-navigation-with-blank
+  - Extend irreversible-migration collector to detect irreversible operations (drop_table, remove_column, etc.) inside `def change` methods
+  - Wire all new collectors into collectRubyBugRiskFacts
+  - Alias codes: RB-RL1043 through RB-RL1050
+
+### Patch Changes
+
+- 7f0cce4: feat: add Java documentation fact collectors (java-doc.ts) for batch 05
+
+  Adds four Javadoc fact collectors:
+  - `java.doc.unmatched-parameter-tag` — detects @param tags that don't match method parameters
+  - `java.doc.parameter-tag-no-description` — detects @param tags with no description
+  - `java.doc.empty-javadoc-tag` — detects bare Javadoc block tags with no content
+  - `java.doc.malformed-javadoc-comment` — detects doubled @@ symbols in Javadoc
+
+  New domain file: `java-doc.ts` following the `go-doc.ts` pattern.
+
+- 846919c: Ruby batch 05 (RB-LI-1001, 1002, 1003) ambiguous method invocation rules
+
+  Add three new bug-risk fact collectors for ambiguous method invocation patterns:
+  - ambiguous-block-association (RB-LI1001) - detects blocks with params after method arguments
+  - ambiguous-operator-argument (RB-LI1002) - detects unary operators in method arguments
+  - ambiguous-regexp-literal (RB-LI1003) - detects regex literals as method arguments
+
 ## 0.3.0
 
 ### Minor Changes
@@ -10,7 +121,7 @@
 
 ### Minor Changes
 
-- Add TypeScript adapter facts for React maintenance and security JSX patterns (bind in props, prop spreads, lifecycle setState, direct state mutation, target=_blank rel, duplicate attributes, and this in function components).
+- Add TypeScript adapter facts for React maintenance and security JSX patterns (bind in props, prop spreads, lifecycle setState, direct state mutation, target=\_blank rel, duplicate attributes, and this in function components).
 - Add TypeScript runtime and language security fact collectors for `with` statements, `arguments.callee`, `javascript:` URLs, native prototype extension, global native reassignment, non-Error throws, blocking dialogs, `process.exit`, and unsafe `__dirname` path concatenation.
 
 ## 0.1.0
