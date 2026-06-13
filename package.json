@@ -19,6 +19,7 @@
     "verify": "npm run lint && npm run test && npm run build && npm run typecheck",
     "release:status": "changeset status",
     "version:packages": "changeset version",
+    "changelog:backfill": "node scripts/backfill-changelog.mjs",
     "check:changeset-status": "node scripts/check-changeset-status.mjs",
     "check:schema-drift": "node scripts/check-schema-drift.mjs",
     "check:package-exports": "node scripts/check-package-exports.mjs",

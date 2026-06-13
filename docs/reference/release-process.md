@@ -6,7 +6,7 @@ publishing `@critiq/cli`.
 ## Release Flow
 
 1. Add a changeset for user-facing CLI/runtime changes.
-2. Run `npm run version:packages` to cut the version commit.
+2. Run `npm run version:packages` to cut the version commit and update `apps/cli/CHANGELOG.md`.
 3. Push the version commit.
 4. Create and push a tag that matches `apps/cli/package.json`, for example
    `v0.1.0`.
