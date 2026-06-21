@@ -150,9 +150,21 @@ export interface CheckCommandEnvelope {
   diagnostics: Diagnostic[];
   secretsScan?: CheckSecretsScanPayload;
   profile?: import('./scan-profile').CheckScanProfile;
+  benchmark?: import('./benchmark-collector').BenchmarkReport;
 }
 
 export type { CheckScanProfile, CheckScanProfileTimings } from './scan-profile';
+export type {
+  AdapterBenchmark,
+  BenchmarkReport,
+  BenchmarkSummary,
+  FileBenchmarkEntry,
+  LanguageBenchmark,
+  PreloadBenchmark,
+  RuleBenchmark,
+  RuleBenchmarkEntry,
+} from './benchmark-collector';
+export { BenchmarkCollector } from './benchmark-collector';
 
 export interface CheckResolvedTarget {
   absolutePath: string;
@@ -180,6 +192,8 @@ export interface RunCheckCommandOptions {
   onProgress?: (update: CheckProgressUpdate) => void;
   scanContext?: import('./scan-context').ScanContext;
   profile?: import('./scan-profile').ScanPhaseTimer;
+  benchmark?: import('./benchmark-collector').BenchmarkCollector;
+  maxFileSizeKb?: number;
 }
 
 export interface CheckProgressUpdate {
@@ -252,7 +266,10 @@ function isSkippableDirectory(
   return name === 'cache' && currentDirectory.split(sep).at(-1) === '.yarn';
 }
 
-export function walkFiles(rootDirectory: string): string[] {
+export function walkFiles(
+  rootDirectory: string,
+  filter?: (absolutePath: string) => boolean,
+): string[] {
   const files: string[] = [];
   const queue = [rootDirectory];
 
@@ -279,7 +296,9 @@ export function walkFiles(rootDirectory: string): string[] {
       }
 
       if (entry.isFile()) {
-        files.push(absolutePath);
+        if (!filter || filter(absolutePath)) {
+          files.push(absolutePath);
+        }
       }
     }
   }

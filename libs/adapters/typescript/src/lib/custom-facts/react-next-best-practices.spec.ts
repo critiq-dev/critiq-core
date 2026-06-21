@@ -257,5 +257,47 @@ describe('detectReactNextBestPracticesFacts', () => {
 
     expect(detectReactNextBestPracticesFacts(context)).toEqual([]);
   });
+
+  it('ignores non-Next.js files under app/assets/javascripts/', () => {
+    const context = createContext(
+      'actioncable/app/assets/javascripts/action_cable.js',
+      [
+        'var Connection = {',
+        '  createWebSocketURL(url) {',
+        '    if (typeof WebSocket === "undefined") return url;',
+        '    var webSocketURL = new URL(url);',
+        '    webSocketURL.protocol = this._getProtocol();',
+        '    return webSocketURL.toString();',
+        '  }',
+        '};',
+      ].join('\n'),
+    );
+
+    expect(detectReactNextBestPracticesFacts(context)).toEqual([]);
+  });
+
+  it('flags browser APIs in Next.js app server files with next/ imports', () => {
+    const context = createContext(
+      'app/server-component.tsx',
+      [
+        "import { usePathname } from 'next/navigation';",
+        '',
+        'export default function Page() {',
+        '  const path = usePathname();',
+        '  return <div>{path}</div>;',
+        '}',
+      ].join('\n'),
+    );
+
+    const facts = detectReactNextBestPracticesFacts(context);
+
+    expect(facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'framework.next-server-client-boundary-leak',
+        }),
+      ]),
+    );
+  });
 });
 

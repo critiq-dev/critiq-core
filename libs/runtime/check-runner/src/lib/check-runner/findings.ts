@@ -97,29 +97,14 @@ export function dedupeReportFindings(
   findings: readonly CheckReportFinding[],
 ): CheckReportFinding[] {
   const dedupedFindings: CheckReportFinding[] = [];
-  const seenKeys = new Set<string>();
+  const seenFingerprints = new Set<string>();
 
   for (const finding of findings) {
-    const key = JSON.stringify({
-      schemaVersion: finding.schemaVersion,
-      rule: finding.rule,
-      title: finding.title,
-      summary: finding.summary,
-      category: finding.category,
-      severity: finding.severity,
-      confidence: finding.confidence,
-      tags: finding.tags,
-      locations: finding.locations,
-      evidence: finding.evidence,
-      remediation: finding.remediation,
-      attributes: finding.attributes,
-    });
-
-    if (seenKeys.has(key)) {
+    if (seenFingerprints.has(finding.fingerprints.primary)) {
       continue;
     }
 
-    seenKeys.add(key);
+    seenFingerprints.add(finding.fingerprints.primary);
     dedupedFindings.push(finding);
   }
 

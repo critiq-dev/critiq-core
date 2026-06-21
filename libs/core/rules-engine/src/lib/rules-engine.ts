@@ -9,7 +9,7 @@ import {
   type NormalizedRule,
 } from '@critiq/core-ir';
 import { createHash } from 'node:crypto';
-import { minimatch } from 'minimatch';
+import { Minimatch, minimatch } from 'minimatch';
 
 /**
  * Represents a line/column range in analyzed source text.
@@ -850,6 +850,31 @@ function evaluateFactPredicate(
 /**
  * Evaluates fast file-level applicability for a normalized rule.
  */
+const compiledGlobCache = new WeakMap<
+  NormalizedRule,
+  { include: Minimatch[]; exclude: Minimatch[] }
+>();
+
+function getCompiledGlobs(
+  rule: NormalizedRule,
+): { include: Minimatch[]; exclude: Minimatch[] } {
+  let compiled = compiledGlobCache.get(rule);
+
+  if (!compiled) {
+    compiled = {
+      include: rule.scope.includeGlobs.map(
+        (pattern) => new Minimatch(pattern, { dot: true }),
+      ),
+      exclude: rule.scope.excludeGlobs.map(
+        (pattern) => new Minimatch(pattern, { dot: true }),
+      ),
+    };
+    compiledGlobCache.set(rule, compiled);
+  }
+
+  return compiled;
+}
+
 export function evaluateRuleApplicability(
   rule: NormalizedRule,
   analyzedFile: AnalyzedFile,
@@ -868,11 +893,14 @@ export function evaluateRuleApplicability(
     };
   }
 
+  const compiledGlobs = rule.scope.includeGlobs.length > 0 || rule.scope.excludeGlobs.length > 0
+    ? getCompiledGlobs(rule)
+    : null;
+
   if (
+    compiledGlobs &&
     rule.scope.includeGlobs.length > 0 &&
-    !rule.scope.includeGlobs.some((pattern) =>
-      minimatch(analyzedFile.path, pattern, { dot: true }),
-    )
+    !compiledGlobs.include.some((matcher) => matcher.match(analyzedFile.path))
   ) {
     return {
       applicable: false,
@@ -881,9 +909,8 @@ export function evaluateRuleApplicability(
   }
 
   if (
-    rule.scope.excludeGlobs.some((pattern) =>
-      minimatch(analyzedFile.path, pattern, { dot: true }),
-    )
+    compiledGlobs &&
+    compiledGlobs.exclude.some((matcher) => matcher.match(analyzedFile.path))
   ) {
     return {
       applicable: false,

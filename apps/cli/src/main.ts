@@ -72,6 +72,9 @@ export async function runCli(
       parsed.headRef,
       parsed.staged,
       parsed.profile,
+      parsed.benchmark,
+      parsed.secrets,
+      parsed.maxFileSizeKb,
     );
   }
 

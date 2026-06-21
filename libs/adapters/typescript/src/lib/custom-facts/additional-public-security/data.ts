@@ -391,6 +391,21 @@ export function collectObservableTimingFacts(
       return;
     }
 
+    // Exclude comparisons involving a MemberExpression with a PascalCase
+    // property name (e.g. SyntaxKind.ExclamationToken, NodeType.CallExpression).
+    // PascalCase member properties are enum/namespace constant accesses,
+    // not runtime secret values.
+    if (
+      (node.left.type === 'MemberExpression' &&
+        node.left.property.type === 'Identifier' &&
+        /^[A-Z]/.test(node.left.property.name)) ||
+      (node.right.type === 'MemberExpression' &&
+        node.right.property.type === 'Identifier' &&
+        /^[A-Z]/.test(node.right.property.name))
+    ) {
+      return;
+    }
+
     facts.push(
       createObservedFact({
         appliesTo: 'block',

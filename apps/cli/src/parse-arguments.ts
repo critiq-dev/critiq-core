@@ -12,6 +12,9 @@ export function parseArguments(
   let headRef: string | undefined;
   let staged = false;
   let profile = false;
+  let benchmark = false;
+  let secrets = false;
+  let maxFileSizeKb: number | undefined;
 
   for (let index = 0; index < args.length; index += 1) {
     const value = args[index];
@@ -155,6 +158,67 @@ export function parseArguments(
       continue;
     }
 
+    if (value === '--benchmark') {
+      benchmark = true;
+      continue;
+    }
+
+    if (value === '--secrets') {
+      secrets = true;
+      continue;
+    }
+
+    if (value.startsWith('--max-file-size-kb=')) {
+      const raw = value.slice('--max-file-size-kb='.length);
+      const parsed = Number(raw);
+
+      if (!Number.isFinite(parsed) || parsed <= 0 || raw.trim().length === 0) {
+        return {
+          code: 'cli.argument.invalid',
+          severity: 'error',
+          message: 'Expected `--max-file-size-kb` to be a positive integer.',
+          details: {
+            received: raw,
+          },
+        };
+      }
+
+      maxFileSizeKb = parsed;
+      continue;
+    }
+
+    if (value === '--max-file-size-kb') {
+      const raw = args[index + 1];
+
+      if (raw === undefined || raw.startsWith('--')) {
+        return {
+          code: 'cli.argument.invalid',
+          severity: 'error',
+          message: 'Expected `--max-file-size-kb` to be followed by a positive integer.',
+          details: {
+            received: raw ?? null,
+          },
+        };
+      }
+
+      const parsed = Number(raw);
+
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        return {
+          code: 'cli.argument.invalid',
+          severity: 'error',
+          message: 'Expected `--max-file-size-kb` to be a positive integer.',
+          details: {
+            received: raw,
+          },
+        };
+      }
+
+      maxFileSizeKb = parsed;
+      index += 1;
+      continue;
+    }
+
     if (value.startsWith('--')) {
       return {
         code: 'cli.argument.invalid',
@@ -182,5 +246,8 @@ export function parseArguments(
     headRef,
     staged,
     profile,
+    benchmark,
+    secrets,
+    maxFileSizeKb,
   };
 }

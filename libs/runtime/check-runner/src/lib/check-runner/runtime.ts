@@ -184,6 +184,7 @@ export { createDefaultSourceAdapterRegistry } from './registry';
 export { createSourceAdapterRegistry } from './registry';
 export { filterIgnoredPaths, resolveCheckScope, resolveCheckTarget, resolveSecretsScanScope } from './scope';
 export {
+  BenchmarkCollector,
   createCliInputDiagnostic,
   DEFAULT_CATALOG_PACKAGE_NAME,
   determineExitCode,
@@ -193,6 +194,9 @@ export {
   walkFiles,
 } from './shared';
 export type {
+  AdapterBenchmark,
+  BenchmarkReport,
+  BenchmarkSummary,
   CheckCommandEnvelope,
   CheckCommandProvenance,
   CheckOverallRuleResult,
@@ -205,6 +209,11 @@ export type {
   CheckSecretsScanFinding,
   CheckSecretsScanFindingLocation,
   CheckSecretsScanPayload,
+  FileBenchmarkEntry,
+  LanguageBenchmark,
+  PreloadBenchmark,
+  RuleBenchmark,
+  RuleBenchmarkEntry,
   RunCheckCommandOptions,
   RunCheckCommandResult,
   SourceAdapter,
@@ -223,6 +232,7 @@ export function runCheckCommand(
   const registry =
     options.adapterRegistry ?? createDefaultSourceAdapterRegistry();
   const profile = options.profile;
+  const benchmark = options.benchmark;
   const scanContext = options.scanContext;
 
   profile?.mark('config:start');
@@ -441,16 +451,10 @@ export function runCheckCommand(
 
   profile?.mark('catalog:end');
 
-  const filteredScope = {
-    files: catalogScope.files.filter((path) =>
-      Boolean(registry.findAdapterForPath(path)),
-    ),
-    changedRangesByAbsolutePath: catalogScope.changedRangesByAbsolutePath,
-  };
   options.onProgress?.({
     step: 'preparing',
     scannedFileCount: 0,
-    totalFileCount: filteredScope.files.length,
+    totalFileCount: catalogScope.files.length,
   });
   const detectedLanguages = detectRepositoryLanguages(catalogScope.files);
   const scannableLanguages = detectedLanguages.filter((language) =>
@@ -535,7 +539,7 @@ export function runCheckCommand(
     }
   }
 
-  for (const absolutePath of filteredScope.files) {
+  for (const absolutePath of catalogScope.files) {
     const displayPath = toDisplayPath(
       resolvedTargetData.displayRoot,
       absolutePath,
@@ -543,7 +547,7 @@ export function runCheckCommand(
     options.onProgress?.({
       step: 'scanning',
       scannedFileCount: processedFileCount,
-      totalFileCount: filteredScope.files.length,
+      totalFileCount: catalogScope.files.length,
       currentFilePath: displayPath,
     });
     const textResult = readFileText(absolutePath);
@@ -556,7 +560,7 @@ export function runCheckCommand(
       options.onProgress?.({
         step: 'scanning',
         scannedFileCount: processedFileCount,
-        totalFileCount: filteredScope.files.length,
+        totalFileCount: catalogScope.files.length,
         currentFilePath: displayPath,
       });
       continue;
@@ -577,13 +581,40 @@ export function runCheckCommand(
       options.onProgress?.({
         step: 'scanning',
         scannedFileCount: processedFileCount,
-        totalFileCount: filteredScope.files.length,
+        totalFileCount: catalogScope.files.length,
         currentFilePath: displayPath,
       });
       continue;
     }
 
+    const effectiveMaxFileSizeKb = options.maxFileSizeKb ?? 512;
+    const fileSizeKb = Buffer.byteLength(textResult.text, 'utf8') / 1024;
+
+    if (fileSizeKb > effectiveMaxFileSizeKb) {
+      diagnostics.push(
+        createCheckRuntimeDiagnostic(
+          'runtime.file.too-large',
+          `Skipped \`${displayPath}\` (${Math.round(fileSizeKb)} KB, limit is ${effectiveMaxFileSizeKb} KB).`,
+          {
+            path: displayPath,
+            sizeKb: Math.round(fileSizeKb),
+            maxFileSizeKb: effectiveMaxFileSizeKb,
+          },
+        ),
+      );
+      processedFileCount += 1;
+      options.onProgress?.({
+        step: 'scanning',
+        scannedFileCount: processedFileCount,
+        totalFileCount: catalogScope.files.length,
+        currentFilePath: displayPath,
+      });
+      continue;
+    }
+
+    const analyzeStart = performance.now();
     const analysis = adapter.analyze(displayPath, textResult.text);
+    const analyzeMs = performance.now() - analyzeStart;
 
     if (!analysis.success) {
       const { diagnostics: analysisDiagnostics } = analysis as Extract<
@@ -595,11 +626,18 @@ export function runCheckCommand(
       options.onProgress?.({
         step: 'scanning',
         scannedFileCount: processedFileCount,
-        totalFileCount: filteredScope.files.length,
+        totalFileCount: catalogScope.files.length,
         currentFilePath: displayPath,
       });
       continue;
     }
+
+    benchmark?.recordAdapterAnalyze(
+      adapter.packageName,
+      analysis.data.language,
+      displayPath,
+      analyzeMs,
+    );
 
     if (analysis.diagnostics?.length) {
       diagnostics.push(...analysis.diagnostics);
@@ -607,13 +645,13 @@ export function runCheckCommand(
 
     analyzedFiles.push({
       ...analysis.data,
-      changedRanges: filteredScope.changedRangesByAbsolutePath.get(absolutePath),
+      changedRanges: catalogScope.changedRangesByAbsolutePath.get(absolutePath),
     });
     processedFileCount += 1;
     options.onProgress?.({
       step: 'scanning',
       scannedFileCount: processedFileCount,
-      totalFileCount: filteredScope.files.length,
+      totalFileCount: catalogScope.files.length,
       currentFilePath: displayPath,
     });
   }
@@ -621,36 +659,45 @@ export function runCheckCommand(
   options.onProgress?.({
     step: 'finalizing',
     scannedFileCount: processedFileCount,
-    totalFileCount: filteredScope.files.length,
+    totalFileCount: catalogScope.files.length,
   });
 
   profile?.mark('analyze:end');
   profile?.mark('project:start');
 
+  const isDiffMode =
+    repoScope.scope.mode === 'diff' || repoScope.scope.mode === 'staged';
+  const testPaths: string[] = [];
+  const changedTestPaths: string[] = [];
+
+  for (const absolutePath of analysisScope.files) {
+    const displayPath = toDisplayPath(
+      resolvedTargetData.displayRoot,
+      absolutePath,
+    );
+
+    if (!isTestPath(displayPath)) {
+      continue;
+    }
+
+    testPaths.push(displayPath);
+
+    if (isDiffMode) {
+      const changedRanges =
+        analysisScope.changedRangesByAbsolutePath.get(absolutePath);
+
+      if (changedRanges && changedRanges.length > 0) {
+        changedTestPaths.push(displayPath);
+      }
+    }
+  }
+
   const projectAugmentedFiles = augmentProjectFacts(analyzedFiles, {
-    scopeMode:
-      repoScope.scope.mode === 'diff' || repoScope.scope.mode === 'staged'
-        ? 'diff'
-        : 'repo',
-    availableTestPaths: new Set(
-      analysisScope.files
-        .map((absolutePath) =>
-          toDisplayPath(resolvedTargetData.displayRoot, absolutePath),
-        )
-        .filter((path) => isTestPath(path)),
-    ),
-    availableChangedTestPaths: new Set(
-      analysisScope.files
-        .map((absolutePath) => ({
-          path: toDisplayPath(resolvedTargetData.displayRoot, absolutePath),
-          changedRanges:
-            analysisScope.changedRangesByAbsolutePath.get(absolutePath) ?? [],
-        }))
-        .filter(
-          (file) => isTestPath(file.path) && file.changedRanges.length > 0,
-        )
-        .map((file) => file.path),
-    ),
+    scopeMode: isDiffMode ? 'diff' : 'repo',
+    availableTestPaths: new Set(testPaths),
+    ...(changedTestPaths.length > 0 && {
+      availableChangedTestPaths: new Set(changedTestPaths),
+    }),
     dependencyFacts: collectProjectDependencyFacts(dependencyManifestInputs),
   });
 
@@ -661,9 +708,14 @@ export function runCheckCommand(
     const candidateRules = ruleIndex.getCandidateRules(analyzedFile);
 
     for (const rule of candidateRules) {
+      const evalStart = performance.now();
+      let matchCount = 0;
+
       for (const match of evaluateRule(rule, analyzedFile, {
         skipApplicabilityCheck: true,
       })) {
+        matchCount += 1;
+
         const buildResult = buildFinding(rule, analyzedFile, match, {
           engineKind: CHECK_ENGINE_KIND,
           engineVersion: CHECK_ENGINE_VERSION,
@@ -700,6 +752,12 @@ export function runCheckCommand(
           ),
         );
       }
+
+      benchmark?.recordRuleEval(
+        rule.ruleId,
+        performance.now() - evalStart,
+        matchCount > 0,
+      );
     }
   }
 
@@ -717,14 +775,17 @@ export function runCheckCommand(
       : reportFindings.length > 0
         ? 1
         : 0;
-  const overallRuleResults: CheckOverallRuleResult[] = activeRules
-    .map((rule) => ({
+  const failingRuleIds = new Set(
+    sortedFindings.map((finding) => finding.rule.id),
+  );
+  const overallRuleResults: CheckOverallRuleResult[] = activeRules.map(
+    (rule) => ({
       ruleId: rule.ruleId,
-      status: sortedFindings.some((finding) => finding.rule.id === rule.ruleId)
+      status: failingRuleIds.has(rule.ruleId)
         ? ('failed' as const)
         : ('passed' as const),
-    }))
-    .sort((left, right) => left.ruleId.localeCompare(right.ruleId));
+    }),
+  );
 
   return {
     envelope: {
@@ -738,7 +799,7 @@ export function runCheckCommand(
         repoScope.scope.mode === 'diff'
           ? {
               ...repoScope.scope,
-              changedFileCount: filteredScope.files.length,
+              changedFileCount: catalogScope.files.length,
             }
           : repoScope.scope,
       provenance: {
@@ -747,7 +808,7 @@ export function runCheckCommand(
         rulePack: catalogPackageName,
         generatedAt,
       },
-      scannedFileCount: filteredScope.files.length,
+      scannedFileCount: catalogScope.files.length,
       matchedRuleCount: activeRules.length,
       findingCount: reportFindings.length,
       findings: reportFindings,

@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { realpathSync, statSync } from 'node:fs';
-import { dirname, isAbsolute, relative, resolve } from 'node:path';
+import { dirname, extname, isAbsolute, relative, resolve } from 'node:path';
 
 import type { Diagnostic } from '@critiq/core-diagnostics';
 import type { DiffRange } from '@critiq/core-rules-engine';
@@ -235,8 +235,11 @@ export function resolveCheckScope(
   }
 
   if (!baseRef && !headRef) {
+    const supportedExtensions = new Set(registry.supportedExtensions());
     const files = target.isDirectory
-      ? walkFiles(target.absolutePath)
+      ? walkFiles(target.absolutePath, (absolutePath) =>
+          supportedExtensions.has(extname(absolutePath).toLowerCase()),
+        )
       : [target.absolutePath];
 
     return {

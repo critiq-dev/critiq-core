@@ -1,3 +1,6 @@
+import { writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { runCheckWithSecretsScan } from '@critiq/check-runner';
 import { formatDiagnosticsForTerminal } from '@critiq/core-diagnostics';
 
@@ -19,6 +22,9 @@ export async function handleCheck(
   headRef?: string,
   staged = false,
   profile = false,
+  benchmark = false,
+  secrets = false,
+  maxFileSizeKb?: number,
 ): Promise<number> {
   const catalogEnsure = await ensureCatalogPackageForCheck(runtime, format);
 
@@ -30,7 +36,7 @@ export async function handleCheck(
   const progressRenderer =
     format === 'pretty' ? createScanProgressRenderer(runtime) : null;
   const runnerFormat = format === 'pretty' ? 'pretty' : 'json';
-  const { check: result } = await runCheckWithSecretsScan({
+  const { check: result, benchmark: benchmarkReport } = await runCheckWithSecretsScan({
     cwd: runtime.cwd,
     target,
     format: runnerFormat,
@@ -38,7 +44,10 @@ export async function handleCheck(
     headRef,
     staged,
     failOnFindings: false,
-    enableProfile: profile,
+    enableSecrets: secrets,
+    enableProfile: profile || benchmark,
+    enableBenchmark: benchmark,
+    maxFileSizeKb,
     catalogResolverBasePaths: catalogEnsure.catalogResolverBasePaths ?? [
       runtime.cwd,
     ],
@@ -50,6 +59,13 @@ export async function handleCheck(
       : undefined,
   });
   progressRenderer?.stop();
+
+  if (benchmarkReport) {
+    const timestamp = benchmarkReport.generatedAt.replace(/[:.]/g, '-');
+    const benchmarkPath = resolve(runtime.cwd, `critiq-benchmark-${timestamp}.json`);
+    writeFileSync(benchmarkPath, JSON.stringify(benchmarkReport, null, 2), 'utf8');
+    runtime.writeStderr(`Benchmark report written to ${benchmarkPath}\n`);
+  }
 
   const envelopeWithSecrets = result.envelope;
 

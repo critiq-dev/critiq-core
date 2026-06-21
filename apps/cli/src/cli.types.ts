@@ -63,6 +63,12 @@ export interface ParsedArguments {
   staged: boolean;
   /** When true, include phase timing metadata in JSON output. */
   profile: boolean;
+  /** When true, generate a detailed benchmark JSON file. */
+  benchmark: boolean;
+  /** When true, perform a secrets scan alongside the rule check. */
+  secrets: boolean;
+  /** Maximum file size in KB before skipping adapter analysis. Defaults to 512. */
+  maxFileSizeKb?: number;
 }
 
 export interface CliResultEnvelope {

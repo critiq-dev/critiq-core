@@ -60,6 +60,26 @@ function isLikelyNextServerFile(path: string): boolean {
   return SERVER_FILE_PATH_PATTERN.test(path) || SERVER_LEAF_FILE_PATTERN.test(path);
 }
 
+function fileHasNextImport(program: TSESTree.Program): boolean {
+  let found = false;
+
+  walkAst(program, (node: TSESTree.Node) => {
+    if (found || node.type !== 'ImportDeclaration') {
+      return;
+    }
+
+    if (typeof node.source.value === 'string' && /^next\//u.test(node.source.value)) {
+      found = true;
+    }
+  });
+
+  return found;
+}
+
+function isNonNextJsAppDirectory(path: string): boolean {
+  return /\/app\/(?:assets|javascripts|models|controllers|views|helpers|mailers|channels|jobs)\//u.test(path);
+}
+
 function isFetchLikeCallText(text: string | undefined): boolean {
   return Boolean(text && FETCH_LIKE_CALLEES.has(text));
 }
@@ -680,7 +700,18 @@ function collectEffectWaterfallFacts(
 function collectNextBoundaryLeakFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
-  if (!isLikelyNextServerFile(context.path) || hasUseClientDirective(context.program)) {
+  if (hasUseClientDirective(context.program)) {
+    return [];
+  }
+
+  if (isNonNextJsAppDirectory(context.path)) {
+    return [];
+  }
+
+  if (
+    !isLikelyNextServerFile(context.path) &&
+    !fileHasNextImport(context.program)
+  ) {
     return [];
   }
 

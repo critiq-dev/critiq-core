@@ -88,7 +88,7 @@ Use a **major tag** (`@v1`) or pin a **commit SHA** for supply-chain control. Mo
 
 ## Public Commands
 
-`critiq check` also runs an **advisory** built-in secret scan (same scope as the rule engine, plus optional `--staged` for index-only staging review) and prints a short summary before rule results. That scan does **not** change the `critiq check` exit code; use `critiq audit secrets` for full output and for gating in CI.
+`critiq check` focuses on deterministic rule-based findings. To also scan for leaked credentials, API keys, and other secret patterns, pass `--secrets`. The secret scan runs alongside rule checks with the same scope (plus optional `--staged` for index-only staging review) and prints a short summary before rule results. That scan does **not** change the `critiq check` exit code; use `critiq audit secrets` for full output and for gating in CI.
 
 **What "staged review" means**
 
@@ -100,7 +100,8 @@ Use a **major tag** (`@v1`) or pin a **commit SHA** for supply-chain control. Mo
 | --- | --- |
 | `critiq check [target]` | Runs deterministic checks against a codebase, directory, or single file. |
 | `critiq check . --base origin/main --head HEAD` | Limits scanning to changed files and changed ranges in a diff. |
-| `critiq check . --staged` | Rule scan unchanged; the advisory secret scan reads only what is staged in Git index (`git diff --cached`). |
+| `critiq check . --secrets` | Runs an advisory built-in secret-pattern scan alongside rule checks (exit code unaffected). |
+| `critiq check . --staged` | When paired with `--secrets`, the secret scan reads only what is staged in Git index (`git diff --cached`). |
 | `critiq check . --format sarif` | Exports findings as SARIF 2.1.0 for code scanning and security platforms. |
 | `critiq check . --format html` | Exports a shareable HTML report for human review and audit handoff. |
 | `critiq audit secrets [target]` | Runs the dedicated secret-pattern scanner (exit non-zero when matches are found). |

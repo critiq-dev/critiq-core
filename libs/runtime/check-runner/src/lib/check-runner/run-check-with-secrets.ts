@@ -8,21 +8,25 @@ import {
 import { runCheckCommand, type RunCheckCommandOptions } from './runtime';
 import { buildScanContext, collectPreloadPaths } from './scan-context';
 import { ScanPhaseTimer, type CheckScanProfile } from './scan-profile';
+import { BenchmarkCollector, type BenchmarkReport } from './benchmark-collector';
 import { runSecretsScan, toCheckSecretsScanPayload } from '../secrets-scanner/run-secrets-scan';
 import type { RunSecretsScanOptions } from '../secrets-scanner/types';
 
 export interface RunCheckWithSecretsOptions
-  extends Omit<RunCheckCommandOptions, 'profile' | 'scanContext'>,
+  extends Omit<RunCheckCommandOptions, 'profile' | 'scanContext' | 'benchmark'>,
     Pick<
       RunSecretsScanOptions,
       'staged' | 'includeTests' | 'ignorePaths' | 'failOnFindings'
     > {
   enableProfile?: boolean;
+  enableSecrets?: boolean;
+  enableBenchmark?: boolean;
 }
 
 export interface RunCheckWithSecretsResult {
   check: RunCheckCommandResult;
   profile?: CheckScanProfile;
+  benchmark?: BenchmarkReport;
 }
 
 function buildContextFailureResult(
@@ -66,6 +70,8 @@ function toCheckCommandOptions(
 ): RunCheckCommandOptions {
   const {
     enableProfile: _enableProfile,
+    enableSecrets: _enableSecrets,
+    enableBenchmark: _enableBenchmark,
     staged: _staged,
     includeTests: _includeTests,
     ignorePaths: _ignorePaths,
@@ -79,7 +85,10 @@ function toCheckCommandOptions(
 export async function runCheckWithSecretsScan(
   options: RunCheckWithSecretsOptions = {},
 ): Promise<RunCheckWithSecretsResult> {
-  const timer = options.enableProfile ? new ScanPhaseTimer() : undefined;
+  const timer = options.enableProfile || options.enableBenchmark ? new ScanPhaseTimer() : undefined;
+  const benchmarkCollector = options.enableBenchmark
+    ? new BenchmarkCollector()
+    : undefined;
   timer?.mark('scope:start');
   timer?.mark('config:start');
 
@@ -118,9 +127,13 @@ export async function runCheckWithSecretsScan(
   const checkOptions = toCheckCommandOptions(options);
 
   timer?.mark('preload:start');
-  await scanContext.preloadFiles(collectPreloadPaths(scanContext));
+  const preloadPaths = collectPreloadPaths(scanContext);
+  await scanContext.preloadFiles(preloadPaths);
   timer?.mark('preload:end');
-
+  benchmarkCollector?.recordPreload(
+    preloadPaths.length,
+    timer?.elapsedMs('preload:start', 'preload:end') ?? 0,
+  );
   timer?.mark('secrets:start');
 
   const promiseCheck = Promise.resolve().then(() => {
@@ -128,36 +141,104 @@ export async function runCheckWithSecretsScan(
       ...checkOptions,
       scanContext,
       profile: timer,
+      benchmark: benchmarkCollector,
     });
     return r;
   });
-  const promiseSecrets = Promise.resolve().then(() => {
-    const r = runSecretsScan({
-      cwd: options.cwd,
-      target: options.target,
-      baseRef: options.baseRef,
-      headRef: options.headRef,
-      staged: options.staged,
-      includeTests: options.includeTests,
-      ignorePaths: options.ignorePaths,
-      failOnFindings: options.failOnFindings,
-      scanContext,
-      profile: timer,
+
+  if (options.enableSecrets) {
+    const promiseSecrets = Promise.resolve().then(() => {
+      const r = runSecretsScan({
+        cwd: options.cwd,
+        target: options.target,
+        baseRef: options.baseRef,
+        headRef: options.headRef,
+        staged: options.staged,
+        includeTests: options.includeTests,
+        ignorePaths: options.ignorePaths,
+        failOnFindings: options.failOnFindings,
+        scanContext,
+        profile: timer,
+      });
+      return r;
     });
-    return r;
-  });
-  const [check, secretsResult] = await Promise.all([
-    promiseCheck,
-    promiseSecrets,
-  ]);
+    const [check, secretsResult] = await Promise.all([
+      promiseCheck,
+      promiseSecrets,
+    ]);
+
+    timer?.mark('secrets:end');
+
+    const finishedProfile = timer?.finish();
+    const benchmarkReport = benchmarkCollector?.finalize(
+      {
+        totalFiles: check.envelope.scannedFileCount,
+        totalRules: check.envelope.matchedRuleCount,
+        totalFindings: check.envelope.findingCount,
+        scopeMode: check.envelope.scope.mode,
+      },
+      finishedProfile?.timings ?? {
+        scopeResolveMs: 0,
+        configLoadMs: 0,
+        catalogLoadMs: 0,
+        filterPathsMs: 0,
+        filePreloadMs: 0,
+        analyzeMs: 0,
+        projectAnalysisMs: 0,
+        ruleEvalMs: 0,
+        secretsScanMs: 0,
+        totalMs: 0,
+      },
+    );
+
+    const secretsPayload = toCheckSecretsScanPayload(secretsResult);
+    const envelope: CheckCommandEnvelope = {
+      ...check.envelope,
+      secretsScan: secretsPayload,
+      profile: finishedProfile,
+      benchmark: benchmarkReport,
+    };
+
+    return {
+      check: {
+        ...check,
+        envelope,
+      },
+      profile: envelope.profile,
+      benchmark: benchmarkReport,
+    };
+  }
+
+  const check = await promiseCheck;
 
   timer?.mark('secrets:end');
 
-  const secretsPayload = toCheckSecretsScanPayload(secretsResult);
+  const finishedProfile = timer?.finish();
+  const benchmarkReport = benchmarkCollector?.finalize(
+    {
+      totalFiles: check.envelope.scannedFileCount,
+      totalRules: check.envelope.matchedRuleCount,
+      totalFindings: check.envelope.findingCount,
+      scopeMode: check.envelope.scope.mode,
+    },
+    finishedProfile?.timings ?? {
+      scopeResolveMs: 0,
+      configLoadMs: 0,
+      catalogLoadMs: 0,
+      filterPathsMs: 0,
+      filePreloadMs: 0,
+      analyzeMs: 0,
+      projectAnalysisMs: 0,
+      ruleEvalMs: 0,
+      secretsScanMs: 0,
+      totalMs: 0,
+    },
+  );
+
   const envelope: CheckCommandEnvelope = {
     ...check.envelope,
-    secretsScan: secretsPayload,
-    profile: timer?.finish(),
+    profile: finishedProfile,
+    benchmark: benchmarkReport,
   };
 
   return {
@@ -166,5 +247,6 @@ export async function runCheckWithSecretsScan(
       envelope,
     },
     profile: envelope.profile,
+    benchmark: benchmarkReport,
   };
 }

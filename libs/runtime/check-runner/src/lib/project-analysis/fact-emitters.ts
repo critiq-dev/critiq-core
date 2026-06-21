@@ -218,6 +218,8 @@ function isCallToIoHelper(
   return helperBodyLooksLikeIo(callName, context, fileContexts);
 }
 
+const LSP_SERVER_PATH_PATTERN = /(?:^|\/)(?:src\/server|session|language-server)(?:\/|$)/i;
+
 export function emitMissingAuthorizationFacts(
   fileContexts: ReadonlyMap<string, FileContext>,
 ): void {
@@ -226,6 +228,10 @@ export function emitMissingAuthorizationFacts(
       BACKEND_PATH_PATTERN.test(context.file.path) || context.routes.length > 0;
 
     if (!looksLikeBackend || context.hasAuthGuard) {
+      continue;
+    }
+
+    if (LSP_SERVER_PATH_PATTERN.test(context.file.path)) {
       continue;
     }
 

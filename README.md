@@ -49,6 +49,12 @@ Run Critiq against a diff:
 npx @critiq/cli check . --base origin/main --head HEAD
 ```
 
+Enable the built-in secret scan alongside rules:
+
+```bash
+npx @critiq/cli check . --secrets
+```
+
 The npm package surface we are standardizing on is:
 
 - `@critiq/cli` for the CLI and bundled runtime in this repo
