@@ -104,6 +104,60 @@ describe('collectTypescriptRuntimeSecurityFacts', () => {
     expect(kinds.filter((kind) => kind === 'security.throw-literal')).toHaveLength(2);
   });
 
+  it('excludes framework throw patterns (Response, redirect)', () => {
+    const kinds = kindsFor(
+      [
+        'function handler() {',
+        '  throw new Response("Not Found", { status: 404 });',
+        '  throw redirect("/login");',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(kinds.filter((kind) => kind === 'security.throw-literal')).toHaveLength(0);
+  });
+
+  it('excludes custom error classes (Error-suffixed names)', () => {
+    const kinds = kindsFor(
+      [
+        'function handler() {',
+        '  throw new CustomError("failed");',
+        '  throw new ServiceValidationError("invalid");',
+        '  throw new ToolExecutionError("bad tool");',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(kinds.filter((kind) => kind === 'security.throw-literal')).toHaveLength(0);
+  });
+
+  it('excludes namespaced custom error classes', () => {
+    const kinds = kindsFor(
+      [
+        'function handler() {',
+        '  throw new NS.CustomError("failed");',
+        '  throw new errors.ValidationError("invalid");',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(kinds.filter((kind) => kind === 'security.throw-literal')).toHaveLength(0);
+  });
+
+  it('flags non-Error constructors without Error suffix', () => {
+    const kinds = kindsFor(
+      [
+        'function handler() {',
+        '  throw new RandomClass();',
+        '  throw new Foo.bar();',
+        '  throw someFunc();',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(kinds.filter((kind) => kind === 'security.throw-literal')).toHaveLength(3);
+  });
+
   it('flags alert, confirm, and prompt calls', () => {
     const kinds = kindsFor(
       [
@@ -125,6 +179,18 @@ describe('collectTypescriptRuntimeSecurityFacts', () => {
           '}',
         ].join('\n'),
       ),
+    ).toContain('runtime.process-exit');
+  });
+
+  it('flags process.exit with bracket notation (single quotes)', () => {
+    expect(
+      kindsFor("process['exit'](0);"),
+    ).toContain('runtime.process-exit');
+  });
+
+  it('flags process.exit with bracket notation (double quotes)', () => {
+    expect(
+      kindsFor('process["exit"](1);'),
     ).toContain('runtime.process-exit');
   });
 
@@ -208,6 +274,56 @@ describe('collectTypescriptRuntimeSecurityFacts', () => {
       );
 
       expect(kinds).not.toContain('runtime.process-exit-control-flow');
+    });
+
+    it('flags process.exit in catch block with reachable code after try/catch', () => {
+      const kinds = kindsFor(
+        [
+          'function bad() {',
+          '  try {',
+          '    risky();',
+          '  } catch (e) {',
+          '    process.exit(1);',
+          '  }',
+          '  cleanup();',
+          '}',
+        ].join('\n'),
+      );
+
+      expect(kinds).toContain('runtime.process-exit-control-flow');
+    });
+
+    it('does not flag process.exit in catch block when try/catch is last statement', () => {
+      const kinds = kindsFor(
+        [
+          'function ok() {',
+          '  try {',
+          '    risky();',
+          '  } catch (e) {',
+          '    process.exit(1);',
+          '  }',
+          '}',
+        ].join('\n'),
+      );
+
+      expect(kinds).not.toContain('runtime.process-exit-control-flow');
+    });
+
+    it('flags process.exit in try block with reachable code in same try', () => {
+      const kinds = kindsFor(
+        [
+          'function bad() {',
+          '  try {',
+          '    process.exit(0);',
+          '    unreachable();',
+          '  } catch (e) {',
+          '    log(e);',
+          '  }',
+          '}',
+        ].join('\n'),
+      );
+
+      expect(kinds).toContain('runtime.process-exit-control-flow');
     });
   });
 });

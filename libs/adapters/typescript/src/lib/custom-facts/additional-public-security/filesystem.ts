@@ -237,7 +237,7 @@ function hasSafeRoot(
 }
 
 function isWorldAccessibleMode(mode: number | undefined): boolean {
-  return mode !== undefined && (mode & 0o007) !== 0;
+  return mode !== undefined && (mode & 0o002) !== 0;
 }
 
 function readPermissionModeFromOptions(

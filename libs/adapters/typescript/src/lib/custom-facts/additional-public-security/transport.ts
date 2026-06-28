@@ -13,10 +13,7 @@ import {
   walkFunctionBodySkippingNestedFunctions,
   type TypeScriptFactDetectorContext,
 } from '../shared';
-import {
-  getStringLiteralArgument,
-  isInsecureWebsocketUrl,
-} from '../outbound-network';
+import { isInsecureWebsocketUrl } from '../outbound-network';
 import {
   hasOriginCheck,
   isRequestDerivedExpression,
@@ -431,6 +428,15 @@ export function collectFormatStringFacts(
       return;
     }
 
+    // Structured objects and arrays are never used as format strings
+    // (e.g. logger.info({ ... }) is structured logging, not printf-style).
+    if (
+      firstArgument.type === 'ObjectExpression' ||
+      firstArgument.type === 'ArrayExpression'
+    ) {
+      return;
+    }
+
     if (
       !isRequestDerivedExpression(
         firstArgument,
@@ -578,6 +584,36 @@ export function collectModuleLoadFacts(
   return facts;
 }
 
+function getTemplateLiteralString(
+  node: TSESTree.TemplateLiteral,
+): string | undefined {
+  if (node.expressions.length > 0) {
+    return undefined;
+  }
+
+  return node.quasis.map((quasi) => quasi.value.cooked ?? '').join('');
+}
+
+function extractUrlFromArgument(
+  node: TSESTree.CallExpression | TSESTree.NewExpression,
+): string | undefined {
+  const firstArgument = node.arguments[0];
+
+  if (!firstArgument || firstArgument.type === 'SpreadElement') {
+    return undefined;
+  }
+
+  if (firstArgument.type === 'Literal' && typeof firstArgument.value === 'string') {
+    return firstArgument.value;
+  }
+
+  if (firstArgument.type === 'TemplateLiteral') {
+    return getTemplateLiteralString(firstArgument);
+  }
+
+  return undefined;
+}
+
 export function collectWebsocketFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
@@ -588,13 +624,18 @@ export function collectWebsocketFacts(
       return;
     }
 
-    const calleeText = getNodeText(node.callee, context.sourceText);
-    const firstArgument = getStringLiteralArgument(node);
+    const calleeText = getCalleeText(node.callee, context.sourceText);
 
     if (
-      calleeText === 'WebSocket' &&
-      isInsecureWebsocketUrl(firstArgument)
+      !calleeText ||
+      !(calleeText === 'WebSocket' || calleeText.endsWith('.WebSocket'))
     ) {
+      return;
+    }
+
+    const url = extractUrlFromArgument(node);
+
+    if (url && isInsecureWebsocketUrl(url)) {
       facts.push(
         createObservedFact({
           appliesTo: 'block',
@@ -602,7 +643,7 @@ export function collectWebsocketFacts(
           node,
           nodeIds: context.nodeIds,
           props: {
-            url: firstArgument,
+            url,
           },
           text: excerptFor(node, context.sourceText),
         }),

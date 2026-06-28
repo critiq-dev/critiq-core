@@ -1029,17 +1029,84 @@ function collectPredictableTokenFacts(
   const facts: ObservedFact[] = [];
 
   for (const candidate of collectSecretValueCandidates(context)) {
-    const valueText = getResolvedValueText(candidate.valueNode, context, bindings);
+    // TOTP/HOTP inherently uses time-based counters — not a vulnerability.
+    if (isOtpLikeTarget(candidate.target)) {
+      continue;
+    }
+
+    const suppressed = isCompatibilitySuppressed({
+      ancestors: candidate.ancestors,
+      context,
+      node: candidate.suppressionNode,
+      target: candidate.target,
+    });
+
+    // Object literals: inspect properties individually so that metadata
+    // properties (expiresAt, createdAt, etc.) do not cause false positives.
+    const objectExpression = resolveObjectExpression(
+      candidate.valueNode,
+      bindings,
+    );
+
+    if (objectExpression) {
+      for (const property of objectExpression.properties) {
+        if (property.type !== 'Property' || !property.key) {
+          continue;
+        }
+
+        const propertyName = getPropertyName(
+          property.key,
+          context.sourceText,
+        );
+
+        if (!propertyName || !isSecretLikeTarget(propertyName)) {
+          continue;
+        }
+
+        const propertyValue = property.value as TSESTree.Expression;
+        const propertyValueText = getResolvedValueText(
+          propertyValue,
+          context,
+          bindings,
+        );
+
+        if (
+          !propertyValueText ||
+          !isPredictableSourceText(propertyValueText) ||
+          suppressed
+        ) {
+          continue;
+        }
+
+        facts.push(
+          createObservedFact({
+            appliesTo: 'block',
+            kind: PREDICTABLE_TOKEN_FACT_KIND,
+            node: propertyValue,
+            nodeIds: context.nodeIds,
+            props: {
+              predictableSources:
+                collectPredictableSources(propertyValueText),
+              target: `${candidate.target}.${propertyName}`,
+            },
+            text: propertyValueText,
+          }),
+        );
+      }
+
+      continue;
+    }
+
+    const valueText = getResolvedValueText(
+      candidate.valueNode,
+      context,
+      bindings,
+    );
 
     if (
       !valueText ||
       !isPredictableSourceText(valueText) ||
-      isCompatibilitySuppressed({
-        ancestors: candidate.ancestors,
-        context,
-        node: candidate.suppressionNode,
-        target: candidate.target,
-      })
+      suppressed
     ) {
       continue;
     }

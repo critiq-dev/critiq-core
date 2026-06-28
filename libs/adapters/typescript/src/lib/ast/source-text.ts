@@ -58,6 +58,25 @@ export function getNodeText(
   return excerptFor(node, sourceText);
 }
 
+function getComputedPropertyName(
+  property: TSESTree.Node,
+): string | undefined {
+  if (property.type === 'Literal') {
+    return getStringLiteralValue(property);
+  }
+
+  if (property.type === 'TemplateLiteral') {
+    const template = property as TSESTree.TemplateLiteral;
+    const quasis = template.quasis;
+
+    if (quasis.length === 1 && quasis[0] && quasis[0].type === 'TemplateElement') {
+      return quasis[0].value.cooked ?? quasis[0].value.raw;
+    }
+  }
+
+  return undefined;
+}
+
 export function getCalleeText(
   callee: TSESTree.CallExpression['callee'],
   sourceText: string,
@@ -68,7 +87,9 @@ export function getCalleeText(
 
   if (callee.type === 'MemberExpression') {
     const objectText = getNodeText(callee.object, sourceText);
-    const propertyText = getNodeText(callee.property, sourceText);
+    const propertyText = callee.computed
+      ? getComputedPropertyName(callee.property)
+      : getNodeText(callee.property, sourceText);
 
     if (objectText && propertyText) {
       return `${objectText}.${propertyText}`;

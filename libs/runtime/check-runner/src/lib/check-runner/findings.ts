@@ -97,14 +97,17 @@ export function dedupeReportFindings(
   findings: readonly CheckReportFinding[],
 ): CheckReportFinding[] {
   const dedupedFindings: CheckReportFinding[] = [];
-  const seenFingerprints = new Set<string>();
+  const seen = new Set<string>();
 
   for (const finding of findings) {
-    if (seenFingerprints.has(finding.fingerprints.primary)) {
+    const loc = finding.locations.primary;
+    const key = `${finding.rule.id}:${loc.path}:${loc.startLine}:${loc.startColumn}:${loc.endLine}:${loc.endColumn}`;
+
+    if (seen.has(key)) {
       continue;
     }
 
-    seenFingerprints.add(finding.fingerprints.primary);
+    seen.add(key);
     dedupedFindings.push(finding);
   }
 

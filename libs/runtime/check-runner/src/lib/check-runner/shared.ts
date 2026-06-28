@@ -252,7 +252,7 @@ function isSkippableDirectory(
   name: string,
 ): boolean {
   if (
-    ['.git', '.nx', '.serverless', 'cdk.out', 'coverage', 'dist', 'node_modules', 'vendor'].includes(
+    ['.critiq', '.git', '.nx', '.serverless', 'cdk.out', 'coverage', 'dist', 'node_modules', 'vendor'].includes(
       name,
     )
   ) {

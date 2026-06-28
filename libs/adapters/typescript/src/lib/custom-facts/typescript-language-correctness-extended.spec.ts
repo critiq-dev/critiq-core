@@ -93,7 +93,7 @@ describe('collectTypescriptLanguageCorrectnessExtendedFacts', () => {
   });
 
   describe('language.invalid-async-await', () => {
-    it('flags await outside async function', () => {
+    it('flags await inside a non-async function', () => {
       const facts = kinds(
         'function sync() {\n  await Promise.resolve(1);\n}\nexport {}',
       );
@@ -101,7 +101,7 @@ describe('collectTypescriptLanguageCorrectnessExtendedFacts', () => {
       expect(facts).toContain('language.invalid-async-await');
     });
 
-    it('flags for-await-of outside async function', () => {
+    it('flags for-await-of inside a non-async function', () => {
       const facts = kinds(
         'function sync() {\n  for await (const x of []) {}\n}\nexport {}',
       );
@@ -109,7 +109,7 @@ describe('collectTypescriptLanguageCorrectnessExtendedFacts', () => {
       expect(facts).toContain('language.invalid-async-await');
     });
 
-    it('allows await inside async function', () => {
+    it('allows await inside an async function', () => {
       const facts = kinds(
         'async function asyncFn() {\n  await Promise.resolve(1);\n}\nexport {}',
       );
@@ -120,6 +120,22 @@ describe('collectTypescriptLanguageCorrectnessExtendedFacts', () => {
     it('allows await in nested async arrow', () => {
       const facts = kinds(
         'async function outer() {\n  const fn = async () => await Promise.resolve(1);\n}\nexport {}',
+      );
+
+      expect(facts).not.toContain('language.invalid-async-await');
+    });
+
+    it('allows top-level await in an ES module', () => {
+      const facts = kinds(
+        'const x = await fetch("/api/data");\nconst y = await x.json();\nexport {}',
+      );
+
+      expect(facts).not.toContain('language.invalid-async-await');
+    });
+
+    it('allows top-level for-await-of in an ES module', () => {
+      const facts = kinds(
+        'for await (const chunk of readChunks()) {}\nexport {}',
       );
 
       expect(facts).not.toContain('language.invalid-async-await');

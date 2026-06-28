@@ -55,6 +55,33 @@ describe('python-correctness collectors', () => {
     ).toHaveLength(2);
   });
 
+  it('flags tuple-form broad exception handlers containing Exception or BaseException', () => {
+    const facts = collectPythonCorrectnessFacts({
+      detector: 'python-detector',
+      text: [
+        'try:',
+        '    run()',
+        'except (ValueError, Exception) as e:',
+        '    log(e)',
+        'try:',
+        '    run2()',
+        'except (BaseException,):',
+        '    pass',
+        'try:',
+        '    run3()',
+        'except (EOFError, pickle.UnpicklingError, Exception):',
+        '    pass',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind === PYTHON_CORRECTNESS_FACT_KINDS.broadExceptionHandler,
+      ),
+    ).toHaveLength(3);
+  });
+
   it('flags duplicate keys in dict literals', () => {
     const facts = collectPythonCorrectnessFacts({
       detector: 'python-detector',
@@ -97,6 +124,14 @@ describe('python-correctness collectors', () => {
         '    run()',
         'except ValueError:',
         '    pass',
+        'try:',
+        '    run2()',
+        'except (ValueError, TypeError):',
+        '    pass',
+        'try:',
+        '    run3()',
+        'except (OSError,) as e:',
+        '    log(e)',
         "payload = {'x': 1, 'y': 2}",
         'assert value',
       ].join('\n'),

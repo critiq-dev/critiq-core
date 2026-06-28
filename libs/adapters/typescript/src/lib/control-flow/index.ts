@@ -27,6 +27,7 @@ import {
   recognizedAsyncCallees,
   recognizedBlockingSyncCallees,
   recognizedErrorSinkCallees,
+  recognizedExhaustiveCheck,
   recognizedExpensiveComputationCallees,
   recognizedExpensiveConstructorCallees,
   suggestiveLargePayloadNamePattern,
@@ -527,6 +528,16 @@ function calleeTextFor(
   return expressionText(callExpression.callee as TSESTree.Expression, sourceText);
 }
 
+function isChainedMethodCall(callExpression: TSESTree.CallExpression): boolean {
+  const callee = callExpression.callee;
+
+  if (!isMemberExpression(callee)) {
+    return false;
+  }
+
+  return callee.object.type === 'CallExpression';
+}
+
 function isAxiosCall(calleeText: string): boolean {
   return (
     calleeText === 'axios' ||
@@ -563,6 +574,10 @@ function isMissingTimeoutExternalCall(
   }
 
   if (calleeText === 'fetch' || calleeText.endsWith('.fetch')) {
+    if (calleeText.endsWith('.fetch') && isChainedMethodCall(callExpression)) {
+      return false;
+    }
+
     if (callExpression.arguments.length < 2) {
       return true;
     }
@@ -1804,7 +1819,8 @@ function topLevelConfigLiteralCandidates(
     value &&
     (typeof value.value === 'string' ||
       typeof value.value === 'number' ||
-      typeof value.value === 'boolean')
+      typeof value.value === 'boolean') &&
+    !(typeof value.value === 'string' && value.value.length <= 1)
   ) {
     return [
       {
@@ -1850,7 +1866,8 @@ function topLevelConfigLiteralCandidates(
         typeof propertyValue.value === 'string' ||
         typeof propertyValue.value === 'number' ||
         typeof propertyValue.value === 'boolean'
-      )
+      ) ||
+      (typeof propertyValue.value === 'string' && propertyValue.value.length <= 1)
     ) {
       return [];
     }
@@ -3076,6 +3093,28 @@ function isDictionaryLikeCollectionText(text: string): boolean {
   );
 }
 
+function collectionNameForAccess(
+  node: TSESTree.Node | TSESTree.PrivateIdentifier,
+  sourceText: string,
+): string | undefined {
+  const current = unwrapExpression(
+    node as TSESTree.Expression | TSESTree.PrivateIdentifier | null | undefined,
+  );
+  if (!current) {
+    return undefined;
+  }
+  if (current.type === 'Identifier') {
+    return current.name;
+  }
+  if (isMemberExpression(current) && !current.computed) {
+    return collectionNameForAccess(current.property, sourceText);
+  }
+  if (current.type === 'CallExpression') {
+    return expressionText(current.callee, sourceText);
+  }
+  return expressionText(current, sourceText);
+}
+
 function isRequestInputCallExpression(
   callExpression: TSESTree.CallExpression,
   bindings: ReadonlyMap<string, BindingFlowState>,
@@ -3443,6 +3482,16 @@ function testGuardsIdentifier(
     return testGuardsIdentifier(current.argument, identifier, sourceText);
   }
 
+  if (current.type === 'MemberExpression') {
+    // if (x?.prop) or if (x.prop) — accessing a property of null throws,
+    // so reaching the consequent implies the root object is non-null.
+    const rootObject = unwrapExpression(current.object);
+
+    return (
+      rootObject?.type === 'Identifier' && rootObject.name === identifier
+    );
+  }
+
   if (current.type !== 'BinaryExpression') {
     return false;
   }
@@ -3551,6 +3600,8 @@ function statementDefinitelyTerminates(
   switch (statement.type) {
     case 'ReturnStatement':
     case 'ThrowStatement':
+    case 'ContinueStatement':
+    case 'BreakStatement':
       return true;
     case 'BlockStatement': {
       const finalStatement = statement.body.at(-1);
@@ -3595,24 +3646,85 @@ function immediatePreviousStatement(
   return undefined;
 }
 
+function isIdentifierReassignment(
+  node: TSESTree.Node,
+  identifier: string,
+): boolean {
+  if (
+    node.type === 'ExpressionStatement' &&
+    node.expression.type === 'AssignmentExpression' &&
+    node.expression.operator === '=' &&
+    node.expression.left.type === 'Identifier' &&
+    node.expression.left.name === identifier
+  ) {
+    return true;
+  }
+
+  if (node.type === 'VariableDeclaration') {
+    return node.declarations.some(
+      (decl) => decl.id.type === 'Identifier' && decl.id.name === identifier,
+    );
+  }
+
+  return false;
+}
+
 function isIdentifierGuardedByPriorExit(
   context: FunctionBuildContext,
   node: TSESTree.Node,
   identifier: string,
 ): boolean {
-  const previousStatement = immediatePreviousStatement(context, node);
+  // Walk up from node to find the enclosing block so we can scan all previous
+  // statements — not just the immediately preceding one. This catches the
+  // common pattern where a null-check-and-return guard is separated from the
+  // dereference by intervening setup/validation statements.
+  let current: TSESTree.Node | undefined = node;
 
-  return Boolean(
-    previousStatement &&
-      previousStatement.type === 'IfStatement' &&
-      !previousStatement.alternate &&
-      testRejectsIdentifier(
-        previousStatement.test,
-        identifier,
-        context.root.sourceText,
-      ) &&
-      statementDefinitelyTerminates(previousStatement.consequent),
-  );
+  while (current) {
+    const parent = context.root.parentNodes.get(current);
+
+    if (!parent || isFunctionContainer(parent)) {
+      return false;
+    }
+
+    if (parent.type === 'BlockStatement' || parent.type === 'SwitchCase') {
+      const statements =
+        parent.type === 'BlockStatement' ? parent.body : (parent as TSESTree.SwitchCase).consequent;
+      const index = statements.indexOf(current as TSESTree.Statement);
+
+      if (index >= 0) {
+        // Scan backwards through previous statements in the block.
+        for (let i = index - 1; i >= 0; i--) {
+          const stmt = statements[i]!;
+
+          // If the identifier was reassigned between the guard and the usage,
+          // the guard no longer applies.
+          if (isIdentifierReassignment(stmt, identifier)) {
+            return false;
+          }
+
+          if (
+            stmt.type === 'IfStatement' &&
+            !stmt.alternate &&
+            testRejectsIdentifier(
+              stmt.test,
+              identifier,
+              context.root.sourceText,
+            ) &&
+            statementDefinitelyTerminates(stmt.consequent)
+          ) {
+            return true;
+          }
+        }
+
+        return false;
+      }
+    }
+
+    current = parent;
+  }
+
+  return false;
 }
 
 function testGuardsKeyAccess(
@@ -3980,7 +4092,8 @@ function maybeEmitUncheckedMapKeyAccessFacts(
           | undefined;
         const methodName = callee && expressionText(callee.property, context.root.sourceText);
         const keyArgument = expressionArgumentAt(candidate, 0);
-        const collectionText = callee && expressionText(callee.object, context.root.sourceText);
+        const collectionText =
+          callee && collectionNameForAccess(callee.object, context.root.sourceText);
         const keyText = expressionText(keyArgument, context.root.sourceText);
 
         if (
@@ -4008,7 +4121,17 @@ function maybeEmitUncheckedMapKeyAccessFacts(
         !candidate.optional &&
         !isPlainIndexedAssignmentTarget(context, candidate)
       ) {
-        const collectionText = expressionText(candidate.object, context.root.sourceText);
+        const prop = candidate.property;
+        const isNumericLiteralKey =
+          prop.type === 'Literal' &&
+          typeof (prop as TSESTree.Literal).value === 'number';
+        if (isNumericLiteralKey) {
+          return;
+        }
+        const collectionText = collectionNameForAccess(
+          candidate.object,
+          context.root.sourceText,
+        );
         const keyText = expressionText(candidate.property, context.root.sourceText);
 
         if (
@@ -4271,6 +4394,7 @@ function maybeEmitMissingRequestTimeoutOrRetryFacts(
       if (
         !calleeText ||
         !(calleeText === 'fetch' || calleeText.endsWith('.fetch') || isAxiosCall(calleeText)) ||
+        (calleeText.endsWith('.fetch') && isChainedMethodCall(candidate)) ||
         hasTimeoutOrRetryProtection(context, candidate)
       ) {
         return;
@@ -4549,7 +4673,15 @@ function isRecognizedErrorSinkCall(
 ): boolean {
   const callee = expressionText(callExpression.callee, sourceText);
 
-  return typeof callee === 'string' && recognizedErrorSinkCallees.has(callee);
+  if (typeof callee !== 'string') {
+    return false;
+  }
+
+  if (recognizedErrorSinkCallees.has(callee)) {
+    return true;
+  }
+
+  return /(?:^|\.)#?(?:logger|log|logging)\.(?:error|warn|debug|info|log|fatal|trace)$/i.test(callee);
 }
 
 function isRejectPropagationCall(
@@ -4595,6 +4727,7 @@ function maybeEmitCatchFacts(
   let hasThrowWithContext = false;
   let hasCallbackPropagation = false;
   let hasReturnFallback = false;
+  let hasErrorForwarded = false;
   let emittedMissingContext = false;
 
   visitSubtree(
@@ -4605,9 +4738,19 @@ function maybeEmitCatchFacts(
           !candidate.argument ||
           (candidate.argument.type === 'Literal' &&
             (candidate.argument.value === null ||
-              candidate.argument.value === false)) ||
+              candidate.argument.value === false ||
+              candidate.argument.value === '' ||
+              candidate.argument.value === 0)) ||
           (candidate.argument.type === 'Identifier' &&
-            candidate.argument.name === 'undefined')
+            candidate.argument.name === 'undefined') ||
+          (candidate.argument.type === 'ArrayExpression' &&
+            candidate.argument.elements.length === 0) ||
+          (candidate.argument.type === 'ObjectExpression' &&
+            candidate.argument.properties.length === 0) ||
+          (candidate.argument.type === 'TemplateLiteral' &&
+            candidate.argument.expressions.length === 0 &&
+            candidate.argument.quasis.length === 1 &&
+            candidate.argument.quasis[0].value.raw === '')
         ) {
           hasReturnFallback = true;
         }
@@ -4647,6 +4790,22 @@ function maybeEmitCatchFacts(
         hasCallbackPropagation = true;
       }
 
+      // Recognise any call that forwards the caught error in its arguments as
+      // valid error propagation. This covers delegated handlers (e.g.
+      // `this.#handleK8sError(err)`), toast/notification patterns
+      // (`toast({ description: err.message })`), and any other function that
+      // receives the error as input.
+      if (
+        errorIdentifier &&
+        candidate.arguments.some(
+          (argument) =>
+            argument.type !== 'SpreadElement' &&
+            subtreeReferencesIdentifier(argument, errorIdentifier),
+        )
+      ) {
+        hasErrorForwarded = true;
+      }
+
       if (!isRecognizedErrorSinkCall(candidate, context.root.sourceText)) {
         return;
       }
@@ -4674,7 +4833,8 @@ function maybeEmitCatchFacts(
     !hasReject &&
     !hasThrow &&
     !hasCallbackPropagation &&
-    !hasReturnFallback
+    !hasReturnFallback &&
+    !hasErrorForwarded
   ) {
     // Don't flag catch blocks where the error parameter name starts with `_`,
     // indicating the developer intentionally ignored the error (common in callbacks).
@@ -4937,6 +5097,31 @@ function analyzeStatement(
         terminalReasons: new Set(),
       };
     }
+    case 'ExpressionStatement': {
+      if (
+        node.expression.type === 'CallExpression' &&
+        recognizedExhaustiveCheck.has(
+          expressionText(node.expression.callee, context.root.sourceText) ?? '',
+        )
+      ) {
+        createEdge(
+          context,
+          blockId,
+          context.functionObservation.exitBlockId,
+          'throw',
+        );
+
+        return {
+          nextBlockIds: [],
+          terminalReasons: new Set(['after-throw']),
+        };
+      }
+
+      return {
+        nextBlockIds: [blockId],
+        terminalReasons: new Set(),
+      };
+    }
     case 'TryStatement': {
       if (node.handler) {
         maybeEmitCatchFacts(context, node.handler);
@@ -5021,6 +5206,17 @@ function maybeEmitImplicitUndefinedReturnFact(
 
   if (!context.hasReachableValueReturn || !hasFallthroughExit) {
     return;
+  }
+
+  if ('returnType' in node) {
+    const typedNode = node as TSESTree.FunctionDeclaration | TSESTree.FunctionExpression | TSESTree.ArrowFunctionExpression;
+    if (typedNode.returnType) {
+      const returnTypeText = excerptFor(typedNode.returnType, context.root.sourceText);
+
+      if (/\b(?:undefined|void)\b/.test(returnTypeText)) {
+        return;
+      }
+    }
   }
 
   emitFact(context, {

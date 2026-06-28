@@ -148,6 +148,38 @@ describe('collectTypescriptCoreLanguageCorrectnessFacts', () => {
     expect(emptyBlocks).toHaveLength(3);
   });
 
+  it('does not flag empty blocks that contain a comment', () => {
+    const facts = analyze(
+      [
+        'export function commentedEmptyBlocks(x: boolean) {',
+        '  try {',
+        '    void 0;',
+        '  } catch {',
+        '    // Intentionally swallow errors from database cleanup',
+        '  }',
+        '',
+        '  if (x) {',
+        '    void 0;',
+        '  } else {',
+        '    // Image already cached, no action needed',
+        '  }',
+        '',
+        '  try {',
+        '    void 0;',
+        '  } catch {',
+        '    /* empty */',
+        '  }',
+        '',
+        '  // But truly empty blocks still flag',
+        '  if (x) {}',
+        '}',
+      ].join('\n'),
+    );
+
+    const emptyBlocks = facts.filter((f) => f.kind === 'language.empty-block-statement');
+    expect(emptyBlocks).toHaveLength(1);
+  });
+
   it('flags catch binding reassignment for outer and inner catch clauses separately', () => {
     const facts = analyze(
       [
@@ -202,6 +234,14 @@ describe('collectTypescriptCoreLanguageCorrectnessFacts', () => {
 
     expect(
       escapedBackslash.filter((f) => f.kind === 'language.regexp-pattern-unusual-control-character'),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag regex word boundary \\b which is not a control character', () => {
+    const wordBoundary = analyze('export const r = /\\bword\\b/;\n');
+
+    expect(
+      wordBoundary.filter((f) => f.kind === 'language.regexp-pattern-unusual-control-character'),
     ).toHaveLength(0);
   });
 

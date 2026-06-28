@@ -182,6 +182,19 @@ function isFunctionBlockBody(
   return false;
 }
 
+/**
+ * Returns true when the source text between the opening `{` and closing `}`
+ * of an empty `BlockStatement` contains a comment (`//` or `/*`). A comment
+ * signals that the empty block is intentional and should not be flagged.
+ */
+function blockContainsComment(
+  node: TSESTree.BlockStatement,
+  sourceText: string,
+): boolean {
+  const innerText = sourceText.slice(node.range[0] + 1, node.range[1] - 1);
+  return innerText.includes('//') || innerText.includes('/*');
+}
+
 function regexpLiteralPattern(node: TSESTree.Node): string | undefined {
   if (node.type !== 'Literal') {
     return undefined;
@@ -798,7 +811,6 @@ function regexpPatternHasUnusualAsciiControl(pattern: string): boolean {
       r: 13,
       v: 11,
       f: 12,
-      b: 8,
     };
 
     if (next in singleEscapeValue) {
@@ -1607,8 +1619,10 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
     walkAstWithAncestors(program, (node, ancestors) => {
       if (node.type === 'ImportDeclaration') {
         const source = node.source.value;
-        const count = (importSourceCounts.get(source) ?? 0) + 1;
-        importSourceCounts.set(source, count);
+        const importKind = node.importKind ?? 'value';
+        const key = `${source}:${importKind}`;
+        const count = (importSourceCounts.get(key) ?? 0) + 1;
+        importSourceCounts.set(key, count);
 
         if (count >= 2) {
           facts.push(
@@ -2167,7 +2181,10 @@ export const collectTypescriptCoreLanguageCorrectnessFacts: TypeScriptFactDetect
       const parent = ancestors[ancestors.length - 1];
 
       if (node.type === 'BlockStatement' && node.body.length === 0) {
-        if (!isFunctionBlockBody(node, parent)) {
+        if (
+          !isFunctionBlockBody(node, parent) &&
+          !blockContainsComment(node, sourceText)
+        ) {
           facts.push(
             createObservedFact({
               appliesTo: 'file',
@@ -2358,6 +2375,24 @@ function collectNonExistentAssignmentOperatorFacts(
     if (
       right.type !== 'UnaryExpression' ||
       !['+', '-', '!', '~'].includes(right.operator)
+    ) {
+      return;
+    }
+
+    // Skip intentional minification patterns: `=!0` is `= true`, `=!1` is `= false`
+    if (
+      right.operator === '!' &&
+      right.argument.type === 'Literal' &&
+      (right.argument.value === 0 || right.argument.value === 1)
+    ) {
+      return;
+    }
+
+    // Skip valid negative number literal assignments: `x = -5`
+    if (
+      right.operator === '-' &&
+      right.argument.type === 'Literal' &&
+      typeof right.argument.value === 'number'
     ) {
       return;
     }

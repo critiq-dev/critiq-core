@@ -18,6 +18,9 @@
           "type": "string",
           "minLength": 1
         },
+        "version": {
+          "$ref": "#/properties/metadata/properties/id"
+        },
         "title": {
           "$ref": "#/properties/metadata/properties/id"
         },

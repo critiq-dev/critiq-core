@@ -4,18 +4,21 @@ metadata:
   id: ts.correctness.missing-default-dispatch
   title: Missing default case in switch or conditional dispatch
   summary: Dispatch constructs should include an explicit default or final else path.
-  rationale: Default handling makes control-flow intent explicit and avoids silent fallthrough for unhandled values.
+  version: v1
+  rationale: Without an explicit default or final else, dispatch constructs silently fall through for unhandled values, which can cause logic bugs, unexpected undefined returns, or incomplete handling when new cases are added. This is especially critical in reducers, event handlers, and dispatch functions where exhaustiveness matters.
   tags:
     - correctness
     - control-flow
-    - rules-catalog
-    - crq-cor-007
   stability: stable
   appliesTo: block
 scope:
   languages:
     - typescript
     - javascript
+  paths:
+    exclude:
+      - "**/*.d.ts"
+      - "**/*.generated.ts"
 match:
   fact:
     kind: control-flow.missing-default-dispatch
@@ -24,7 +27,7 @@ emit:
   finding:
     category: correctness.control-flow
     severity: medium
-    confidence: 0.85
+    confidence: 0.90
     tags:
       - correctness
       - control-flow

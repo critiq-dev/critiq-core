@@ -3,7 +3,7 @@ import type { ObservedFact } from '@critiq/core-rules-engine';
 import { collectSnippetFacts } from './collect-snippet-facts';
 
 const ssrfUrlHintPattern =
-  /\b(?:callback_?url|dest(?:ination)?|endpoint|href|next|redirect|return_?to|return_?url|target|uri|url)\b/i;
+  /\b(?:callback_?url|dest(?:ination)?|next|redirect|return_?to|return_?url|target|[a-zA-Z_]\w*\.(?:url|uri|href))\b/i;
 
 const privateHostPattern =
   /(?:^|\/\/|\b)(?:127\.0\.0\.1|localhost|0\.0\.0\.0|169\.254\.169\.254|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|\[::1\])(?::|\/|$|\b)/iu;

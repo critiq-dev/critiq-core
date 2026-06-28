@@ -11,7 +11,23 @@ import {
 
 const TS_SUPPRESS_DIRECTIVE_RE = /\/\/\s*@ts-(?:ignore|nocheck|expect-error)/u;
 
-function isInsideAsyncFunction(ancestors: readonly TSESTree.Node[]): boolean {
+type AsyncContextResult =
+  | 'inside-async-function'
+  | 'inside-sync-function'
+  | 'top-level';
+
+/**
+ * Determines whether a node is inside an async function, a sync (non-async)
+ * function, or at the top-level program scope with no enclosing function.
+ *
+ * This distinction is necessary because `await` and `for await...of` are
+ * valid in two places:
+ * 1. Inside an `async` function (always valid).
+ * 2. At the top level of an ES module (valid since ES2022).
+ *
+ * They are invalid inside a non-async function (regardless of module type).
+ */
+function getAsyncContext(ancestors: readonly TSESTree.Node[]): AsyncContextResult {
   for (let index = ancestors.length - 1; index >= 0; index -= 1) {
     const ancestor = ancestors[index];
     if (
@@ -19,10 +35,12 @@ function isInsideAsyncFunction(ancestors: readonly TSESTree.Node[]): boolean {
       ancestor.type === 'FunctionExpression' ||
       ancestor.type === 'ArrowFunctionExpression'
     ) {
-      return ancestor.async === true;
+      return ancestor.async === true
+        ? 'inside-async-function'
+        : 'inside-sync-function';
     }
   }
-  return false;
+  return 'top-level';
 }
 
 function collectInvalidShebangFacts(
@@ -238,8 +256,10 @@ function collectInvalidAsyncAwaitFacts(
   const { program, sourceText, nodeIds } = context;
 
   walkAstWithAncestors(program, (node, ancestors) => {
+    const asyncContext = getAsyncContext(ancestors);
+
     if (node.type === 'AwaitExpression') {
-      if (!isInsideAsyncFunction(ancestors)) {
+      if (asyncContext === 'inside-sync-function') {
         facts.push(
           createObservedFact({
             appliesTo: 'block',
@@ -257,7 +277,7 @@ function collectInvalidAsyncAwaitFacts(
     }
 
     if (node.type === 'ForOfStatement' && node.await) {
-      if (!isInsideAsyncFunction(ancestors)) {
+      if (asyncContext === 'inside-sync-function') {
         facts.push(
           createObservedFact({
             appliesTo: 'block',

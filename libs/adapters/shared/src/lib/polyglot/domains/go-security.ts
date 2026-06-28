@@ -14,7 +14,7 @@ export const goExtendedRequestSourcePattern =
   /\b(?:r|req|request)\.(?:Body|FormValue|PostFormValue|MultipartForm|URL\.(?:Path|RawPath|RawQuery|Query\(\)(?:\.Get)?|String\(\))|Header\.Get|Cookie|RemoteAddr)\b|\bc\.(?:Query|Param|Params|PostForm|PostFormValue|FormValue|Body|Cookies|GetHeader|Bind(?:JSON|XML|URI|Header)?|ShouldBind(?:JSON|XML|URI|Header)?|Request\.(?:URL|Body|Header|FormValue|PostForm|MultipartForm))\b|\bctx\.(?:FormValue|QueryParam|JSON|Body|Request)\b/;
 
 const ssrfUrlHintPattern =
-  /\b(?:callbackUrl|dest(?:ination)?|next|redirect|returnTo|returnUrl|target|endpoint|url|uri|href)\b/i;
+  /\b(?:callbackUrl|dest(?:ination)?|next|redirect|returnTo|returnUrl|target|[a-zA-Z_]\w*\.(?:url|uri|href))\b/i;
 
 export function looksLikeGoExtendedRequestSource(text: string): boolean {
   return goExtendedRequestSourcePattern.test(text);

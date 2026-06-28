@@ -287,6 +287,89 @@ describe('analyzeTypeScriptFile', () => {
     );
   });
 
+  it('does not emit missing-timeout facts for ORM chained .fetch() calls', () => {
+    const result = analyzeTypeScriptFile(
+      'src/orm-fetch.ts',
+      [
+        'declare const Card: any;',
+        'declare const Attachment: any;',
+        'declare const Notification: any;',
+        '',
+        'export async function ormCalls() {',
+        '  return Card.update({ id: 1 }).set({ name: "test" }).fetch();',
+        '}',
+        '',
+        'export async function ormCreate() {',
+        '  return Attachment.createEach([{ name: "a" }, { name: "b" }]).fetch();',
+        '}',
+        '',
+        'export async function ormSingle() {',
+        '  return Notification.create({ message: "hello" }).fetch();',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const missingTimeoutFacts = result.data.semantics?.controlFlow?.facts.filter(
+      (fact) => fact.kind === 'resilience.missing-timeout-on-external-call',
+    );
+
+    expect(missingTimeoutFacts ?? []).toHaveLength(0);
+  });
+
+  it('still emits missing-timeout for member fetch on identifier (e.g. request.fetch)', () => {
+    const result = analyzeTypeScriptFile(
+      'src/request-fetch.ts',
+      [
+        'declare const request: { fetch: typeof fetch };',
+        '',
+        'export async function requestFetch() {',
+        '  return request.fetch("/api/users");',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const missingTimeoutFacts = result.data.semantics?.controlFlow?.facts.filter(
+      (fact) => fact.kind === 'resilience.missing-timeout-on-external-call',
+    );
+
+    expect(missingTimeoutFacts ?? []).toHaveLength(1);
+  });
+
+  it('still emits missing-timeout for global fetch', () => {
+    const result = analyzeTypeScriptFile(
+      'src/global-fetch.ts',
+      [
+        'export async function globalFetch() {',
+        '  return fetch("https://api.example.com/data");',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(result.success).toBe(true);
+
+    if (!result.success) {
+      throw new Error('Expected analysis success.');
+    }
+
+    const missingTimeoutFacts = result.data.semantics?.controlFlow?.facts.filter(
+      (fact) => fact.kind === 'resilience.missing-timeout-on-external-call',
+    );
+
+    expect(missingTimeoutFacts ?? []).toHaveLength(1);
+  });
+
   it('emits data-flow and taint facts for the shipped runtime rule set', () => {
     const result = analyzeTypeScriptFile(
       'src/data-flow.ts',

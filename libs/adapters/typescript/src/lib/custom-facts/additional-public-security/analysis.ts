@@ -302,10 +302,11 @@ export function isValidatedTrustBoundaryExpression(
 export function collectSensitiveSignals(
   node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
   sourceText: string,
+  includeStringLiterals = true,
 ): string[] {
   const signals = collectDisclosureSignals(node, sourceText, {
     includeDiagnostics: false,
-    includeStringLiterals: true,
+    includeStringLiterals,
   });
 
   if (
@@ -433,7 +434,7 @@ export function collectExpressModelBindings(
       return;
     }
 
-    if (/(model|models|mongo|schema)/iu.test(sourceValue)) {
+    if (/(model|models|mongo|schema|mongoose|entity|entities)/iu.test(sourceValue)) {
       names.add(localName);
     }
   };
@@ -447,6 +448,18 @@ export function collectExpressModelBindings(
         );
       }
 
+      return;
+    }
+
+    if (
+      node.type === 'VariableDeclarator' &&
+      node.id.type === 'Identifier' &&
+      node.init?.type === 'CallExpression' &&
+      node.init.callee.type === 'MemberExpression' &&
+      node.init.callee.property.type === 'Identifier' &&
+      node.init.callee.property.name === 'model'
+    ) {
+      names.add(node.id.name);
       return;
     }
 

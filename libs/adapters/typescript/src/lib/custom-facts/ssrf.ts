@@ -21,10 +21,10 @@ export const SSRF_RULE_ID = 'ts.security.ssrf';
 const SSRF_FACT_KIND = 'security.ssrf';
 
 const requestSourcePattern =
-  /(?:\b(?:req|request|ctx|context|event)\b(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*|\b(?:query|params|body|headers|cookies|searchParams|formData|payload)\b(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*)/u;
+  /(?:\b(?:req|request|ctx|context|event)\b(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*|\b(?:query|params|body|headers|cookies|searchParams|formData|payload)\b(?:\.[A-Za-z_$][A-Za-z0-9_$]*)+)/u;
 
 const requestTargetHintPattern =
-  /\b(?:callbackUrl|dest(?:ination)?|next|redirect|returnTo|returnUrl|target|endpoint)\b/u;
+  /\b(?:callbackUrl|dest(?:ination)?|next|redirect|returnTo|returnUrl|target)\b/u;
 
 function isOutboundSink(calleeText: string | undefined): boolean {
   return isOutboundTransportSink(calleeText);

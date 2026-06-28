@@ -3,7 +3,7 @@ import {
   formatDiagnosticsForTerminal,
   type Diagnostic,
 } from '@critiq/core-diagnostics';
-import { normalizeRuleDocument } from '@critiq/core-ir';
+import { normalizeRuleDocument, type NormalizedRule } from '@critiq/core-ir';
 import {
   buildFinding,
   evaluateRule,
@@ -25,6 +25,7 @@ import {
   type SourceAdapterRegistry,
 } from '@critiq/check-runner';
 import { loadYamlText } from '@critiq/util-yaml-loader';
+import { Minimatch } from 'minimatch';
 import { readFileSync } from 'node:fs';
 import { dirname, extname, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -790,10 +791,14 @@ export function runRuleSpec(
     }
 
     const analyzedFiles = analysis.analyzedFiles ?? [];
-    const evaluationResults = analyzedFiles.map((analyzedFile) => ({
-      analyzedFile,
-      matches: evaluateRule(normalizedRule, analyzedFile),
-    }));
+    const evaluationResults = analyzedFiles.map((analyzedFile) => {
+      const fixtureRule = removeFixtureBlockingExcludes(normalizedRule, analyzedFile.path);
+
+      return {
+        analyzedFile,
+        matches: evaluateRule(fixtureRule, analyzedFile),
+      };
+    });
     const matches = evaluationResults.flatMap((result) => result.matches);
     const buildResults = evaluationResults.flatMap((result) =>
       result.matches.map((match) =>
@@ -906,4 +911,35 @@ export function workspaceHarnessPackageName(): string {
 
 export function relativeRuleSpecPath(rootDirectory: string, absolutePath: string): string {
   return relative(rootDirectory, absolutePath) || absolutePath;
+}
+
+/**
+ * Creates a copy of the rule with fixture-directory exclusion patterns removed
+ * from the scope. This ensures spec test fixture files (which live under
+ * `fixtures/` directories) are always analyzed by the harness, while
+ * intentional exclusions like test file patterns are preserved
+ * so specs that test path-exclusion behavior still work.
+ */
+function removeFixtureBlockingExcludes(
+  rule: NormalizedRule,
+  fixturePath: string,
+): NormalizedRule {
+  const fixtureExcludePatterns = rule.scope.excludeGlobs.filter((glob) => {
+    const matcher = new Minimatch(glob);
+    return matcher.match(fixturePath) && glob.includes('fixtures');
+  });
+
+  if (fixtureExcludePatterns.length === 0) {
+    return rule;
+  }
+
+  return {
+    ...rule,
+    scope: {
+      ...rule.scope,
+      excludeGlobs: rule.scope.excludeGlobs.filter(
+        (glob) => !fixtureExcludePatterns.includes(glob),
+      ),
+    },
+  };
 }

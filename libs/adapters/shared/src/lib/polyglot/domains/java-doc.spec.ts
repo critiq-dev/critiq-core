@@ -175,6 +175,122 @@ describe('java-doc collectors', () => {
         ),
       ).toHaveLength(0);
     });
+
+    it('flags bare @throws with nothing after', () => {
+      const facts = collectJavaDocFacts({
+        detector: 'java-detector',
+        text: [
+          '/**',
+          ' * @throws',
+          ' */',
+          'void foo() throws Exception {}',
+        ].join('\n'),
+      });
+
+      expect(facts.map((f) => f.kind)).toContain(
+        JAVA_DOC_FACT_KINDS.emptyJavadocTag,
+      );
+    });
+
+    it('flags bare @see with nothing after', () => {
+      const facts = collectJavaDocFacts({
+        detector: 'java-detector',
+        text: [
+          '/**',
+          ' * @see',
+          ' */',
+          'void foo() {}',
+        ].join('\n'),
+      });
+
+      expect(facts.map((f) => f.kind)).toContain(
+        JAVA_DOC_FACT_KINDS.emptyJavadocTag,
+      );
+    });
+
+    it('flags bare @since with nothing after', () => {
+      const facts = collectJavaDocFacts({
+        detector: 'java-detector',
+        text: [
+          '/**',
+          ' * @since',
+          ' */',
+          'void foo() {}',
+        ].join('\n'),
+      });
+
+      expect(facts.map((f) => f.kind)).toContain(
+        JAVA_DOC_FACT_KINDS.emptyJavadocTag,
+      );
+    });
+
+    it('does not flag @return with content', () => {
+      const facts = collectJavaDocFacts({
+        detector: 'java-detector',
+        text: [
+          '/**',
+          ' * @return the result',
+          ' */',
+          'int foo() { return 1; }',
+        ].join('\n'),
+      });
+
+      expect(
+        facts.filter(
+          (f) => f.kind === JAVA_DOC_FACT_KINDS.emptyJavadocTag,
+        ),
+      ).toHaveLength(0);
+    });
+
+    it('does not flag @param in a regular block comment (not Javadoc)', () => {
+      const facts = collectJavaDocFacts({
+        detector: 'java-detector',
+        text: [
+          '/* just a regular comment with @param',
+          ' */',
+          'void foo() {}',
+        ].join('\n'),
+      });
+
+      expect(
+        facts.filter(
+          (f) => f.kind === JAVA_DOC_FACT_KINDS.emptyJavadocTag,
+        ),
+      ).toHaveLength(0);
+    });
+
+    it('does not flag @return in a line comment (not Javadoc)', () => {
+      const facts = collectJavaDocFacts({
+        detector: 'java-detector',
+        text: [
+          '// @return',
+          'void foo() { return; }',
+        ].join('\n'),
+      });
+
+      expect(
+        facts.filter(
+          (f) => f.kind === JAVA_DOC_FACT_KINDS.emptyJavadocTag,
+        ),
+      ).toHaveLength(0);
+    });
+
+    it('does not flag @deprecated outside Javadoc', () => {
+      const facts = collectJavaDocFacts({
+        detector: 'java-detector',
+        text: [
+          '// @deprecated since v2',
+          '@Deprecated',
+          'void foo() {}',
+        ].join('\n'),
+      });
+
+      expect(
+        facts.filter(
+          (f) => f.kind === JAVA_DOC_FACT_KINDS.emptyJavadocTag,
+        ),
+      ).toHaveLength(0);
+    });
   });
 
   describe('malformed Javadoc comment (D1007)', () => {

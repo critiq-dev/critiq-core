@@ -104,6 +104,10 @@ const errorConstructorNames = new Set([
   'AggregateError',
 ]);
 
+// Constructors and functions that are intentionally thrown in SSR frameworks
+// (e.g. Remix, Next.js App Router) and should not be flagged as throw-literals.
+const frameworkThrowables = new Set(['Response', 'redirect']);
+
 const javascriptUrlPattern = /^\s*javascript:/iu;
 
 function containsDirnameOrFilename(text: string | undefined): boolean {
@@ -165,6 +169,10 @@ function isNativePrototypeMember(
   return constructorNode.name;
 }
 
+function looksLikeErrorConstructorName(name: string | undefined): boolean {
+  return Boolean(name && name.endsWith('Error'));
+}
+
 function isThrowingLiteralValue(
   argument: TSESTree.Expression | undefined,
 ): boolean {
@@ -188,7 +196,27 @@ function isThrowingLiteralValue(
           ? expression.callee.name
           : undefined;
 
-      return !calleeName || !errorConstructorNames.has(calleeName);
+      if (!calleeName) {
+        // callee is a MemberExpression (e.g. new Foo.Bar())
+        if (expression.callee.type === 'MemberExpression') {
+          const propName = expression.callee.computed
+            ? undefined
+            : expression.callee.property.type === 'Identifier'
+              ? expression.callee.property.name
+              : undefined;
+          return !propName || !looksLikeErrorConstructorName(propName);
+        }
+        return true;
+      }
+
+      if (
+        errorConstructorNames.has(calleeName) ||
+        frameworkThrowables.has(calleeName)
+      ) {
+        return false;
+      }
+
+      return !looksLikeErrorConstructorName(calleeName);
     }
     case 'CallExpression': {
       const calleeText =
@@ -196,7 +224,27 @@ function isThrowingLiteralValue(
           ? expression.callee.name
           : undefined;
 
-      return !calleeText || !errorConstructorNames.has(calleeText);
+      if (!calleeText) {
+        // callee is a MemberExpression (e.g. Foo.bar())
+        if (expression.callee.type === 'MemberExpression') {
+          const propName = expression.callee.computed
+            ? undefined
+            : expression.callee.property.type === 'Identifier'
+              ? expression.callee.property.name
+              : undefined;
+          return !propName || !looksLikeErrorConstructorName(propName);
+        }
+        return true;
+      }
+
+      if (
+        errorConstructorNames.has(calleeText) ||
+        frameworkThrowables.has(calleeText)
+      ) {
+        return false;
+      }
+
+      return !looksLikeErrorConstructorName(calleeText);
     }
     case 'Identifier':
       return false;
@@ -567,6 +615,57 @@ function collectProcessExitFacts(
   return facts;
 }
 
+function emitReachableCodeFinding(
+  facts: ObservedFact[],
+  context: TypeScriptFactDetectorContext,
+  node: TSESTree.CallExpression,
+  calleeText: string | undefined,
+  bodyStatements: TSESTree.Statement[],
+): void {
+  let nodeIndex = -1;
+
+  for (let index = 0; index < bodyStatements.length; index += 1) {
+    const stmt = bodyStatements[index];
+    let found = false;
+
+    walkAst(stmt, (inner) => {
+      if (inner === node) {
+        found = true;
+      }
+    });
+
+    if (found) {
+      nodeIndex = index;
+      break;
+    }
+  }
+
+  if (nodeIndex >= 0 && nodeIndex < bodyStatements.length - 1) {
+    const nextStatement = bodyStatements[nodeIndex + 1];
+
+    if (
+      nextStatement.type === 'ReturnStatement' ||
+      nextStatement.type === 'ThrowStatement'
+    ) {
+      return;
+    }
+
+    facts.push(
+      createObservedFact({
+        appliesTo: 'block',
+        kind: FACT_KINDS.processExitControlFlow,
+        node,
+        nodeIds: context.nodeIds,
+        text: excerptFor(node, context.sourceText),
+        props: {
+          context: 'reachable-code-after-exit',
+          callee: calleeText,
+        },
+      }),
+    );
+  }
+}
+
 function collectProcessExitControlFlowFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
@@ -631,62 +730,123 @@ function collectProcessExitControlFlowFacts(
       }
     }
 
-    if (parent.type === 'TryStatement' || parent.type === 'FunctionDeclaration' ||
-        parent.type === 'FunctionExpression' || parent.type === 'ArrowFunctionExpression') {
+    if (parent.type === 'TryStatement') {
+      // Check try block for reachable code within
+      const tryBlock = parent.block;
 
-      const body = parent.type === 'TryStatement'
-        ? parent.block
-        : (parent as TSESTree.FunctionLike).body;
+      if (tryBlock && tryBlock.type === 'BlockStatement') {
+        let insideTryBlock = false;
+
+        walkAst(tryBlock, (inner) => {
+          if (inner === node) {
+            insideTryBlock = true;
+          }
+        });
+
+        if (insideTryBlock) {
+          emitReachableCodeFinding(
+            facts, context, node, calleeText!, tryBlock.body,
+          );
+
+          return;
+        }
+      }
+
+      // Check catch handler – code after the try/catch is reachable
+      if (parent.handler && parent.handler.body.type === 'BlockStatement') {
+        let insideCatchBlock = false;
+
+        walkAst(parent.handler.body, (inner) => {
+          if (inner === node) {
+            insideCatchBlock = true;
+          }
+        });
+
+        if (insideCatchBlock) {
+          // Find the TryStatement's position in the enclosing scope
+          const parentAncestorIndex = ancestors.indexOf(parent);
+
+          if (parentAncestorIndex >= 0) {
+            for (
+              let idx = parentAncestorIndex - 1;
+              idx >= 0;
+              idx -= 1
+            ) {
+              const ancestor = ancestors[idx];
+              if (
+                ancestor.type === 'FunctionDeclaration' ||
+                ancestor.type === 'FunctionExpression' ||
+                ancestor.type === 'ArrowFunctionExpression' ||
+                ancestor.type === 'Program'
+              ) {
+                const enclosingBody =
+                  ancestor.type === 'Program'
+                    ? ancestor
+                    : (ancestor as TSESTree.FunctionLike).body;
+
+                if (
+                  enclosingBody &&
+                  enclosingBody.type === 'BlockStatement'
+                ) {
+                  const enclosingStatements = enclosingBody.body;
+                  const tryStatement = parent as unknown as TSESTree.Statement;
+                  const tryIndex =
+                    enclosingStatements.indexOf(tryStatement);
+
+                  if (
+                    tryIndex >= 0 &&
+                    tryIndex < enclosingStatements.length - 1
+                  ) {
+                    const nextStmt =
+                      enclosingStatements[tryIndex + 1];
+
+                    if (
+                      nextStmt.type !== 'ReturnStatement' &&
+                      nextStmt.type !== 'ThrowStatement'
+                    ) {
+                      facts.push(
+                        createObservedFact({
+                          appliesTo: 'block',
+                          kind: FACT_KINDS.processExitControlFlow,
+                          node,
+                          nodeIds: context.nodeIds,
+                          text: excerptFor(node, context.sourceText),
+                          props: {
+                            context: 'catch-reachable-code',
+                            callee: calleeText,
+                          },
+                        }),
+                      );
+                    }
+                  }
+                }
+
+                break;
+              }
+            }
+          }
+
+          return;
+        }
+      }
+
+      return;
+    }
+
+    if (
+      parent.type === 'FunctionDeclaration' ||
+      parent.type === 'FunctionExpression' ||
+      parent.type === 'ArrowFunctionExpression'
+    ) {
+      const body = (parent as TSESTree.FunctionLike).body;
 
       if (!body || body.type !== 'BlockStatement') {
         return;
       }
 
-      const bodyStatements = body.body;
-      let nodeIndex = -1;
-
-      for (let index = 0; index < bodyStatements.length; index += 1) {
-        const stmt = bodyStatements[index];
-        let found = false;
-        walkAst(stmt, (inner) => {
-          if (inner === node) {
-            found = true;
-          }
-        });
-        if (found) {
-          nodeIndex = index;
-          break;
-        }
-      }
-
-      if (nodeIndex >= 0 && nodeIndex < bodyStatements.length - 1) {
-        const nextStatement = bodyStatements[nodeIndex + 1];
-
-        let hasReachableCode = true;
-
-        if (
-          nextStatement.type === 'ReturnStatement' ||
-          nextStatement.type === 'ThrowStatement'
-        ) {
-          hasReachableCode = false;
-        }
-
-        if (hasReachableCode) {
-          facts.push(
-            createObservedFact({
-              appliesTo: 'block',
-              kind: FACT_KINDS.processExitControlFlow,
-              node,
-              nodeIds: context.nodeIds,
-              text: excerptFor(node, context.sourceText),
-              props: {
-                context: 'reachable-code-after-exit',
-                callee: calleeText,
-              },
-            }),
-          );
-        }
-      }
+      emitReachableCodeFinding(
+        facts, context, node, calleeText!, body.body,
+      );
     }
   });
 

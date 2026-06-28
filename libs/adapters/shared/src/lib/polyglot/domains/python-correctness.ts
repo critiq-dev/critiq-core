@@ -64,7 +64,7 @@ function collectBroadExceptionHandlerFacts(
     kind: PYTHON_CORRECTNESS_FACT_KINDS.broadExceptionHandler,
     appliesTo: 'block',
     pattern:
-      /^\s*except\s+(?:Exception|BaseException)\b(?:\s+as\s+[A-Za-z_][A-Za-z0-9_]*)?\s*:/gm,
+      /^\s*except\s+(?:\([^)]*\b(?:Exception|BaseException)\b[^)]*\)|(?:Exception|BaseException)\b)(?:\s+as\s+[A-Za-z_][A-Za-z0-9_]*)?\s*:/gm,
   });
 }
 

@@ -112,7 +112,17 @@ function collectSensitiveSignalsFromTokens(
     tokens.has('credentials') ||
     tokens.has('refresh')
   ) {
-    signals.add('token');
+    // Exclude token file-path references (tokenPath, tokenFile, etc.).
+    // These refer to a filesystem location where a token is stored, not the
+    // token value itself.
+    const isTokenPathReference =
+      tokens.has('path') ||
+      tokens.has('file') ||
+      tokens.has('filepath') ||
+      tokens.has('location');
+    if (!isTokenPathReference) {
+      signals.add('token');
+    }
   }
 
   if (tokens.has('jwt')) {
@@ -142,7 +152,32 @@ function collectSensitiveSignalsFromTokens(
       'visit_count',
     ]);
     const hasBenignCounter = [...tokens].some((token) => benignCounterTokens.has(token));
-    if (!hasBenignCounter) {
+
+    // Exclude opaque session identifiers (sessionId, activeSessionId, session.id, etc.).
+    // When both "session/sid" and "id" appear together, the text refers to a session's
+    // database/UUID key — not sensitive session data like tokens or cookies.
+    // Only suppress when no session-data evidence (token, secret, key, cookie, data,
+    // payload, store) is also present.
+    const sessionDataEvidenceTokens = new Set([
+      'token',
+      'secret',
+      'key',
+      'cookie',
+      'data',
+      'payload',
+      'store',
+      'value',
+      'state',
+    ]);
+    const hasSessionDataEvidence = [...tokens].some((token) =>
+      sessionDataEvidenceTokens.has(token),
+    );
+    const hasSessionId = tokens.has('id');
+
+    if (
+      !hasBenignCounter &&
+      !(hasSessionId && !hasSessionDataEvidence)
+    ) {
       signals.add('session');
     }
   }
@@ -156,7 +191,12 @@ function collectSensitiveSignalsFromTokens(
     tokens.has('authentication') ||
     tokens.has('authorization') ||
     tokens.has('identity') ||
-    isPrivilegedIdentityFieldText(text)
+    // Do not count as auth when the identifier describes something that is
+    // *not* authorized (unauthorized / unauthorised). These words denote a
+    // denied status, not an auth credential or privilege.
+    (isPrivilegedIdentityFieldText(text) &&
+      !tokens.has('unauthorized') &&
+      !tokens.has('unauthorised'))
   ) {
     signals.add('auth');
   }
@@ -310,6 +350,44 @@ function isSafeWrapperCall(
   return Boolean(calleeText && privacySafeWrapperPattern.test(calleeText));
 }
 
+function hasOnlyPascalCaseIdentifiers(
+  node: TSESTree.MemberExpression,
+): boolean {
+  let current: TSESTree.MemberExpression | TSESTree.Node = node;
+
+  while (true) {
+    if (
+      current.type === 'MemberExpression' &&
+      (current as TSESTree.MemberExpression).property.type === 'Identifier'
+    ) {
+      if (
+        !/^[A-Z]/.test(
+          ((current as TSESTree.MemberExpression).property as TSESTree.Identifier)
+            .name,
+        )
+      ) {
+        return false;
+      }
+
+      current = (current as TSESTree.MemberExpression).object;
+      continue;
+    }
+
+    if (current.type === 'Identifier') {
+      return /^[A-Z]/.test((current as TSESTree.Identifier).name);
+    }
+
+    if (
+      current.type === 'MemberExpression' &&
+      (current as TSESTree.MemberExpression).property.type !== 'Identifier'
+    ) {
+      return false;
+    }
+
+    return false;
+  }
+}
+
 function visitDisclosureNode(
   node: TSESTree.Node | TSESTree.PrivateIdentifier | null | undefined,
   sourceText: string,
@@ -346,6 +424,10 @@ function visitDisclosureNode(
   }
 
   if (node.type === 'MemberExpression') {
+    if (hasOnlyPascalCaseIdentifiers(node)) {
+      return;
+    }
+
     addSignals(
       signals,
       collectSignalsFromText(getNodeText(node, sourceText), options),

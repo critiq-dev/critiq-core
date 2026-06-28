@@ -237,6 +237,13 @@ export async function runCheckWithSecretsScan(
 
   const envelope: CheckCommandEnvelope = {
     ...check.envelope,
+    secretsScan: {
+      scope: check.envelope.scope,
+      scannedFileCount: 0,
+      findingCount: 0,
+      findings: [],
+      diagnostics: [],
+    },
     profile: finishedProfile,
     benchmark: benchmarkReport,
   };

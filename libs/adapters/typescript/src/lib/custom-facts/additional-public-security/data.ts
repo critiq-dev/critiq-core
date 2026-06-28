@@ -7,7 +7,6 @@ import {
   getCalleeText,
   getNodeText,
   isPropertyNamed,
-  looksSensitiveIdentifier,
   walkAst,
   type TypeScriptFactDetectorContext,
 } from '../shared';
@@ -19,9 +18,9 @@ import {
   FACT_KINDS,
   dynamodbQueryCommandNames,
   fileWriteSinkNames,
-  sensitiveComparePattern,
 } from './constants';
 import { normalizeText } from './text-normalization';
+import { tokenizeIdentifierLikeText } from '../../auth-vocabulary';
 
 export function collectNosqlInjectionFacts(
   context: TypeScriptFactDetectorContext,
@@ -94,7 +93,7 @@ export function collectNosqlInjectionFacts(
 
     if (
       !methodName ||
-      !/^(find|delete|update|replace|where|create|insert|map|bulk|aggregate|count)/iu.test(
+      !/^(find|delete|update|replace|where|create|insert|map|bulk|aggregate|count|distinct)/iu.test(
         methodName,
       )
     ) {
@@ -256,6 +255,7 @@ export function collectFileAndExceptionFacts(
         const sensitiveSignals = collectSensitiveSignals(
           node.arguments[0] as TSESTree.Expression | undefined,
           context.sourceText,
+          false,
         );
 
         if (sensitiveSignals.length > 0) {
@@ -282,6 +282,7 @@ export function collectFileAndExceptionFacts(
       const sensitiveSignals = collectSensitiveSignals(
         node.argument,
         context.sourceText,
+        false,
       );
 
       if (sensitiveSignals.length > 0) {
@@ -324,6 +325,31 @@ function containsBitmaskOperator(node: TSESTree.Node): boolean {
   return found;
 }
 
+// Narrow vocabulary for timing-discrepancy detection.  Only terms that
+// strongly indicate secret / credential material are included.
+// Terms like role, email, session, group, scope, owner, feature, flag,
+// billing, admin, tenant, permission are deliberately excluded because
+// they refer to metadata or authorization, not to secret values.
+const timingSecretRegex = /(?:api[_-]?(?:key|token)|auth[_-]?token)/i;
+
+const timingSecretTokens = new Set([
+  'password',
+  'passphrase',
+  'passcode',
+  'secret',
+  'hash',
+  'nonce',
+  'credential',
+]);
+
+function looksLikeTimingSecret(text: string | undefined): boolean {
+  if (!text) return false;
+  return (
+    timingSecretRegex.test(text) ||
+    tokenizeIdentifierLikeText(text).some((t) => timingSecretTokens.has(t))
+  );
+}
+
 export function collectObservableTimingFacts(
   context: TypeScriptFactDetectorContext,
 ): ObservedFact[] {
@@ -342,14 +368,11 @@ export function collectObservableTimingFacts(
       getNodeText(node.right, context.sourceText),
     );
 
-    const secretSide =
-      sensitiveComparePattern.test(leftText) ||
-      looksSensitiveIdentifier(leftText)
-        ? leftText
-        : sensitiveComparePattern.test(rightText) ||
-            looksSensitiveIdentifier(rightText)
-          ? rightText
-          : undefined;
+    const secretSide = looksLikeTimingSecret(leftText)
+      ? leftText
+      : looksLikeTimingSecret(rightText)
+        ? rightText
+        : undefined;
 
     const otherSide = secretSide === leftText ? rightText : leftText;
 
@@ -402,6 +425,18 @@ export function collectObservableTimingFacts(
       (node.right.type === 'MemberExpression' &&
         node.right.property.type === 'Identifier' &&
         /^[A-Z]/.test(node.right.property.name))
+    ) {
+      return;
+    }
+
+    // Exclude comparisons where the secret-matched side is a
+    // MemberExpression whose property does NOT itself look like a
+    // timing secret.  The matched term was the object container
+    // (e.g. "token.type"), not a secret value being compared.
+    if (
+      secretNode.type === 'MemberExpression' &&
+      secretNode.property.type === 'Identifier' &&
+      !looksLikeTimingSecret(secretNode.property.name)
     ) {
       return;
     }

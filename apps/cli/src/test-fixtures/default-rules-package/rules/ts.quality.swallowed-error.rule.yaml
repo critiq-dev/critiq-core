@@ -4,7 +4,16 @@ metadata:
   id: ts.quality.swallowed-error
   title: Errors swallowed silently
   summary: Catch blocks must log, reject, or rethrow failures instead of dropping them silently.
-  rationale: Silent catch blocks hide failures and make production diagnosis unnecessarily difficult.
+  rationale: >-
+    Silent catch blocks hide failures and make production diagnosis difficult.
+    Valid error handling includes logging via recognized sinks (console.error,
+    console.warn, captureException, captureMessage, or any method on a
+    log/logger/logging object ending in .error, .warn, .debug, .info, .log,
+    .fatal, or .trace), rethrowing, rejecting promises, propagating the error
+    through callback parameters (callback, cb, next, done), or forwarding the
+    error as an argument to any function call. Catch blocks that return null,
+    false, undefined, 0, an empty string, an empty array, an empty object, an
+    empty template literal, or a bare return are also considered safely handled.
   tags:
     - quality
     - error-handling
@@ -23,8 +32,8 @@ match:
 emit:
   finding:
     category: quality.error-handling
-    severity: medium
-    confidence: 0.95
+    severity: low
+    confidence: 0.70
     tags:
       - quality
       - error-handling

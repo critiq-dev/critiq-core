@@ -40,7 +40,7 @@ export const trustBoundaryExternalInputPathSegments = new Set([
 ]);
 
 export const trustBoundaryRequestSourcePattern =
-  /(?:\b(?:req|request|ctx|context|event)\b(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*|\b(?:authorization|body|cookie|cookies|formData|header|headers|input|param|params|payload|query|search|searchParams|session)\b(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*)/u;
+  /(?:\b(?:req|request)\b(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*|\b(?:ctx|context|event)\.(?:authorization|body|cookie|cookies|formData|header|headers|input|param|params|payload|query|search|searchParams|session)\b(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*|\b(?:authorization|body|cookie|cookies|formData|header|headers|input|param|params|payload|query|search|searchParams|session)\b(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*)/u;
 
 export const trustBoundarySensitiveConstructorCallees = new Set([
   'RegExp',

@@ -98,6 +98,42 @@ describe('collectAdditionalPublicSecurityFacts', () => {
     ).toHaveLength(0);
   });
 
+  it('does not flag structured logging objects as format strings', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'function handler(req, session) {',
+        '  logger.info({',
+        '    event: "ai.process.start",',
+        '    userId: session.user.id,',
+        '    input: req.query.search,',
+        '  });',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === 'security.format-string-using-user-input',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag console.log with a plain object as the first argument', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'function handler(req) {',
+        '  console.log({ status: "error", body: req.body.data });',
+        '}',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === 'security.format-string-using-user-input',
+      ),
+    ).toHaveLength(0);
+  });
+
   it('flags module loading and HTTP responses driven by request input', () => {
     const facts = collectAdditionalPublicSecurityFacts(
       createContext([
@@ -1000,6 +1036,78 @@ describe('collectAdditionalPublicSecurityFacts', () => {
         (fact) => fact.kind === 'security.graphql-upload-without-csrf-guard',
       ),
     ).toBe(false);
+  });
+
+  it('does not flag throw with string literals containing sensitive keywords', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'throw new Error("Invalid email address");',
+        'throw new Error("Token expired, please try again");',
+        "throw new Error('Unable to copy the token');",
+        'throw redirect("/reset-password");',
+        'throw redirect("/verify-email");',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.sensitive-data-in-exception'),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag Promise.reject with string literals containing sensitive keywords', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        "Promise.reject(new Error('Invalid email address'));",
+        "Promise.reject({ message: 'Token expired' });",
+        "reject(new Error('Invalid password'));",
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.sensitive-data-in-exception'),
+    ).toHaveLength(0);
+  });
+
+  it('still flags throw with dynamic sensitive data in non-string-literal expressions', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'throw new Error(`bad ${user.email}`);',
+        'throw new Error(user.password);',
+        'throw { token: session.token, email: user.email };',
+        'throw new AppError("Validation failed", { field: user.email });',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.sensitive-data-in-exception'),
+    ).toHaveLength(4);
+  });
+
+  it('still flags Promise.reject with dynamic sensitive data', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'Promise.reject({ token: session.token, email: user.email });',
+        'reject(user.password);',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.sensitive-data-in-exception'),
+    ).toHaveLength(2);
+  });
+
+  it('continues to flag file writes with string literals containing sensitive data', () => {
+    const facts = collectAdditionalPublicSecurityFacts(
+      createContext([
+        'import { writeFileSync } from "node:fs";',
+        'writeFileSync("users.json", JSON.stringify({ email: "admin@example.com" }));',
+        'writeFileSync("credentials.json", JSON.stringify({ password: "secret123" }));',
+      ].join('\n')),
+    );
+
+    expect(
+      facts.filter((fact) => fact.kind === 'security.sensitive-data-written-to-file'),
+    ).toHaveLength(2);
   });
 
   it('flags Nuxt public runtime keys that look like secrets', () => {

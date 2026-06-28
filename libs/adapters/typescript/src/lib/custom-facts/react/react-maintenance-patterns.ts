@@ -20,6 +20,7 @@ import {
   LEGACY_LIFECYCLE_METHODS,
 } from './react-class-components';
 import { getLifecycleMemberName } from './legacy-react-patterns';
+import { isJsxSpreadExempt } from './is-jsx-spread-exempt';
 
 const FACT_BIND_IN_JSX = 'ui.react.bind-in-jsx-prop';
 const FACT_JSX_PROPS_SPREAD = 'ui.react.jsx-props-spread';
@@ -100,6 +101,7 @@ function setStateCallHasUpdateGuard(
   return false;
 }
 
+/** Detects both `this.state = value` and `this.state.X = value` assignments. */
 function isDirectStateAssignment(node: TSESTree.AssignmentExpression): boolean {
   const { left } = node;
 
@@ -107,6 +109,16 @@ function isDirectStateAssignment(node: TSESTree.AssignmentExpression): boolean {
     return false;
   }
 
+  // `this.state = value`
+  if (
+    left.object.type === 'ThisExpression' &&
+    left.property.type === 'Identifier' &&
+    left.property.name === 'state'
+  ) {
+    return true;
+  }
+
+  // `this.state.X = value`
   if (left.object.type !== 'MemberExpression' || left.object.computed) {
     return false;
   }
@@ -332,10 +344,25 @@ function renderReturnIsInvalid(returnArg: TSESTree.Expression): boolean {
     return false;
   }
 
+  if (returnArg.type === 'TemplateLiteral') {
+    return false;
+  }
+
   if (returnArg.type === 'ConditionalExpression') {
     return (
       renderReturnIsInvalid(returnArg.consequent) ||
       renderReturnIsInvalid(returnArg.alternate)
+    );
+  }
+
+  if (returnArg.type === 'LogicalExpression') {
+    if (returnArg.operator === '&&') {
+      return renderReturnIsInvalid(returnArg.right);
+    }
+
+    return (
+      renderReturnIsInvalid(returnArg.left) ||
+      renderReturnIsInvalid(returnArg.right)
     );
   }
 
@@ -452,6 +479,10 @@ export function collectReactMaintenancePatternFacts(
 
       for (const attr of node.attributes) {
         if (attr.type === 'JSXSpreadAttribute') {
+          if (isJsxSpreadExempt(attr)) {
+            continue;
+          }
+
           facts.push(
             createObservedFact({
               appliesTo: 'function',
@@ -513,6 +544,15 @@ export function collectReactMaintenancePatternFacts(
     }
 
     if (node.type === 'AssignmentExpression' && isDirectStateAssignment(node)) {
+      const classNode = ancestors.find(
+        (ancestor): ancestor is TSESTree.ClassDeclaration | TSESTree.ClassExpression =>
+          ancestor.type === 'ClassDeclaration' || ancestor.type === 'ClassExpression',
+      );
+
+      if (!classNode || !isReactComponentSuperclass(classNode.superClass, context.sourceText)) {
+        return;
+      }
+
       facts.push(
         createObservedFact({
           appliesTo: 'function',

@@ -1417,14 +1417,32 @@ describe('java-correctness collectors', () => {
 
   // --- Batch 17: deprecated-thread-methods ---
 
-  it('flags thread.stop() call', () => {
+  it('flags thread.stop() call on variable named thread', () => {
     const facts = collectJavaCorrectnessFacts({
       detector: 'java-detector',
       text: [
         'class Demo {',
         '  void run() {',
-        '    Thread t = new Thread();',
-        '    t.stop();',
+        '    Thread thread = new Thread();',
+        '    thread.stop();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.deprecatedThreadMethods,
+    );
+  });
+
+  it('flags myThread.suspend() call', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void run() {',
+        '    Thread myThread = new Thread();',
+        '    myThread.suspend();',
         '  }',
         '}',
       ].join('\n'),
@@ -1442,6 +1460,46 @@ describe('java-correctness collectors', () => {
         'class Demo {',
         '  void run() throws Exception {',
         '    Thread.sleep(100);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.deprecatedThreadMethods,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag stopWatch.stop()', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void run() {',
+        '    StopWatch stopWatch = new StopWatch();',
+        '    stopWatch.stop();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.deprecatedThreadMethods,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag generic t.stop() on untyped variable', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void run() {',
+        '    Thread t = new Thread();',
+        '    t.stop();',
         '  }',
         '}',
       ].join('\n'),
@@ -1563,6 +1621,148 @@ describe('java-correctness collectors', () => {
     expect(facts.map((fact) => fact.kind)).toContain(
       JAVA_CORRECTNESS_FACT_KINDS.classIsInstanceOnClass,
     );
+  });
+
+  it('flags mutable list assigned in constructor without defensive copy', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'import java.util.List;',
+        'class Container {',
+        '  private List<String> items;',
+        '  Container(List<String> items) {',
+        '    this.items = items;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.mutableDataExposed,
+    );
+  });
+
+  it('flags mutable array assigned in constructor without defensive copy', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Container {',
+        '  private String[] items;',
+        '  Container(String[] items) {',
+        '    this.items = items;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.mutableDataExposed,
+    );
+  });
+
+  it('flags mutable map assigned in constructor without defensive copy', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'import java.util.Map;',
+        'class Container {',
+        '  private Map<String, String> items;',
+        '  Container(Map<String, String> items) {',
+        '    this.items = items;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.mutableDataExposed,
+    );
+  });
+
+  it('does not flag constructor using defensive copy (new ArrayList)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'import java.util.ArrayList;',
+        'import java.util.List;',
+        'class Container {',
+        '  private List<String> items;',
+        '  Container(List<String> items) {',
+        '    this.items = new ArrayList<>(items);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.mutableDataExposed,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag setter method assigning mutable param to field', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'import java.util.List;',
+        'class Container {',
+        '  private List<String> items;',
+        '  public void setItems(List<String> items) {',
+        '    this.items = items;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.mutableDataExposed,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag builder method assigning mutable param to field', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'import java.util.List;',
+        'class Container {',
+        '  private List<String> items;',
+        '  public Container items(List<String> items) {',
+        '    this.items = items;',
+        '    return this;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.mutableDataExposed,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag final field assignment in constructor', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'import java.util.List;',
+        'class Container {',
+        '  private final List<String> items;',
+        '  Container(List<String> items) {',
+        '    this.items = items;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.mutableDataExposed,
+      ),
+    ).toHaveLength(0);
   });
 
   // ── Batch 15 (JAVA-E) tests ─────────────────────────────
@@ -1932,6 +2132,188 @@ describe('java-correctness collectors', () => {
           JAVA_CORRECTNESS_FACT_KINDS.unterminatedAssertChain,
       ),
     ).toHaveLength(0);
+  });
+
+  it('flags assertThat with nested method call in argument', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void test() {',
+        '    assertThat(map.get("key"));',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.unterminatedAssertChain,
+    );
+  });
+
+  it('flags assertThat with deeply nested method calls', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void test() {',
+        '    assertThat(items.stream().filter(x -> x.isValid()).count());',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.unterminatedAssertChain,
+    );
+  });
+
+  it('does not flag assertThat with nested arg AND terminal assertion', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void test() {',
+        '    assertThat(map.get("key")).isEqualTo(expected);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind ===
+          JAVA_CORRECTNESS_FACT_KINDS.unterminatedAssertChain,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags bare assertThatThrownBy without chain', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void test() {',
+        '    assertThatThrownBy(() -> doSomething());',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.unterminatedAssertChain,
+    );
+  });
+
+  it('does not flag assertThatThrownBy with isInstanceOf', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void test() {',
+        '    assertThatThrownBy(() -> doSomething()).isInstanceOf(IOException.class);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind ===
+          JAVA_CORRECTNESS_FACT_KINDS.unterminatedAssertChain,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags bare assertThatCode without chain', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void test() {',
+        '    assertThatCode(() -> riskyOperation());',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.unterminatedAssertChain,
+    );
+  });
+
+  it('does not flag assertThatCode with doesNotThrow', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void test() {',
+        '    assertThatCode(() -> riskyOperation()).doesNotThrowAnyException();',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) =>
+          fact.kind ===
+          JAVA_CORRECTNESS_FACT_KINDS.unterminatedAssertChain,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags bare assertThatExceptionOfType without chain', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void test() {',
+        '    assertThatExceptionOfType(IOException.class);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.unterminatedAssertChain,
+    );
+  });
+
+  it('flags assertThat with static import (Assertions.assertThat)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void test() {',
+        '    Assertions.assertThat(value);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.unterminatedAssertChain,
+    );
+  });
+
+  it('flags verify with Mockito static prefix', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void test() {',
+        '    Mockito.verify(mock);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.unterminatedAssertChain,
+    );
   });
 
   // ── Batch 06 (JAVA-E) tests ─────────────────────────────
@@ -2531,6 +2913,166 @@ describe('java-correctness collectors', () => {
         (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.equalsNullCheck,
       ),
     ).toHaveLength(0);
+  });
+
+  it('flags equals with only this==o guard (identity check is not a null guard)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  String name;',
+        '  public boolean equals(Object o) {',
+        '    if (this == o) return true;',
+        '    if (getClass() != o.getClass()) return false;',
+        '    Demo other = (Demo) o;',
+        '    return Objects.equals(name, other.name);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.equalsNullCheck,
+    );
+  });
+
+  it('does not flag equals with Yoda null guard (null == o)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  String name;',
+        '  public boolean equals(Object o) {',
+        '    if (null == o) return false;',
+        '    return this.name.equals(o.toString());',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.equalsNullCheck,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag equals with null != o guard', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  String name;',
+        '  public boolean equals(Object o) {',
+        '    return null != o && this.name.equals(o.toString());',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.equalsNullCheck,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag equals with instanceof guard', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  String name;',
+        '  public boolean equals(Object o) {',
+        '    if (!(o instanceof Demo)) return false;',
+        '    Demo other = (Demo) o;',
+        '    return Objects.equals(name, other.name);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.equalsNullCheck,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags equals with getClass() dereference and no null check', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  String name;',
+        '  public boolean equals(Object o) {',
+        '    if (getClass() != o.getClass()) return false;',
+        '    Demo other = (Demo) o;',
+        '    return Objects.equals(name, other.name);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.equalsNullCheck,
+    );
+  });
+
+  it('does not flag equals with Objects.equals(o, field) safe call', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  String name;',
+        '  public boolean equals(Object o) {',
+        '    return Objects.equals(o, name);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (fact) => fact.kind === JAVA_CORRECTNESS_FACT_KINDS.equalsNullCheck,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags equals with Objects.equals(o.field, field) unsafe usage', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  String name;',
+        '  public boolean equals(Object o) {',
+        '    return Objects.equals(o.name, this.name);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.equalsNullCheck,
+    );
+  });
+
+  it('flags equals with cast-before-dereference and no null guard', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  String name;',
+        '  public boolean equals(Object o) {',
+        '    return this.name.equals(((Demo) o).name);',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(facts.map((fact) => fact.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.equalsNullCheck,
+    );
   });
 
   it('flags compareTo returning Integer.MIN_VALUE', () => {
@@ -4201,7 +4743,7 @@ describe('collectIterableIteratorReturnsThisFacts', () => {
         'class Demo {',
         '  void m() {',
         '    ThreadGroup tg = new ThreadGroup("x");',
-        '    tg.suspend();',
+        '    tg.allowThreadSuspension(true);',
         '  }',
         '}',
       ].join('\n'),
@@ -4357,6 +4899,71 @@ describe('collectIterableIteratorReturnsThisFacts', () => {
     ).toHaveLength(0);
   });
 
+  it('does not flag when @NonNull is on a field preceding a @Nullable method (E1095 FP)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'import org.jspecify.annotations.NonNull;',
+        'import org.jspecify.annotations.Nullable;',
+        'class Test {',
+        '  private final @NonNull String data;',
+        '',
+        '  @Override',
+        '  @Nullable',
+        '  String resolve() {',
+        '    return null;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind === JAVA_CORRECTNESS_FACT_KINDS.nonNullMethodReturnsNull,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag when @NonNull is on a constructor parameter (E1095 FP)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'import org.jspecify.annotations.NonNull;',
+        'class Test {',
+        '  Test(@NonNull String name) {',
+        '    this.name = name;',
+        '  }',
+        '',
+        '  String getValue() {',
+        '    return null;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(
+      facts.filter(
+        (f) =>
+          f.kind === JAVA_CORRECTNESS_FACT_KINDS.nonNullMethodReturnsNull,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags @NonNull method returning null when annotation is inline (E1095)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Test {',
+        '  public @NonNull String m() {',
+        '    return null;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+    expect(facts.map((f) => f.kind)).toContain(
+      JAVA_CORRECTNESS_FACT_KINDS.nonNullMethodReturnsNull,
+    );
+  });
+
   it('flags switch on enum missing elements without default (E1082)', () => {
     const facts = collectJavaCorrectnessFacts({
       detector: 'java-detector',
@@ -4418,6 +5025,112 @@ describe('collectIterableIteratorReturnsThisFacts', () => {
       facts.filter(
         (f) =>
           f.kind === JAVA_CORRECTNESS_FACT_KINDS.missingEnumSwitchElements,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags self-assignment of a local variable (x = x;)', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: 'class Demo { void m() { int x = getX(); x = x; } }',
+    });
+
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.selfAssignment,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('does not flag this.field = field constructor/setter pattern', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: 'class Demo { private String name; Demo(String name) { this.name = name; } }',
+    });
+
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.selfAssignment,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag this.apiKey = apiKey in constructor', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Engine {',
+        '  private String apiKey;',
+        '  Engine(String apiKey) {',
+        '    this.apiKey = apiKey;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.selfAssignment,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not flag this.field = field in setter method', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Result {',
+        '  private String stdout;',
+        '  public void setStdout(String stdout) {',
+        '    this.stdout = stdout;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.selfAssignment,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('flags self-assignment of multiple variables', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  void process(int a, int b) {',
+        '    a = a;',
+        '    b = b;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.selfAssignment,
+      ),
+    ).toHaveLength(2);
+  });
+
+  it('does not flag field = param with different names', () => {
+    const facts = collectJavaCorrectnessFacts({
+      detector: 'java-detector',
+      text: [
+        'class Demo {',
+        '  private String value;',
+        '  void set(String input) {',
+        '    value = input;',
+        '  }',
+        '}',
+      ].join('\n'),
+    });
+
+    expect(
+      facts.filter(
+        (f) => f.kind === JAVA_CORRECTNESS_FACT_KINDS.selfAssignment,
       ),
     ).toHaveLength(0);
   });

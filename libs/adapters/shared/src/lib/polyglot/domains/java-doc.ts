@@ -346,19 +346,41 @@ function collectParamTagNoDescriptionFacts(
  * Matches bare @param, @return, @throws, @see, @since, @deprecated,
  * @author, @version, @exception where the tag keyword is immediately
  * followed by nothing (end of block, newline, or another tag).
+ *
+ * Scoped to Javadoc blocks (/** ... *​/) to avoid false positives
+ * from non-Javadoc comments and other contexts.
  */
 function collectEmptyJavadocTagFacts(
   text: string,
   detector: string,
 ): ObservedFact[] {
-  return collectMatchedFacts({
-    text,
-    detector,
-    kind: JAVA_DOC_FACT_KINDS.emptyJavadocTag,
-    appliesTo: 'block',
-    pattern:
-      /@(?:param|return|throws|see|since|deprecated|author|version|exception)(?=\s*\*\/|\s*\n|\s*@)/gu,
-  });
+  const kind = JAVA_DOC_FACT_KINDS.emptyJavadocTag;
+  const findings: ObservedFact[] = [];
+
+  const pattern =
+    /@(?:param|return|throws|see|since|deprecated|author|version|exception)(?=\s*\*\/|\s*\n|\s*@)/gu;
+
+  for (const block of text.matchAll(JAVADOC_BLOCK)) {
+    const blockStart = block.index ?? 0;
+    const blockText = block[0];
+
+    pattern.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(blockText)) !== null) {
+      findings.push(
+        createOffsetFact(text, {
+          detector,
+          appliesTo: 'block',
+          kind,
+          startOffset: blockStart + match.index,
+          endOffset: blockStart + match.index + match[0].length,
+          text: match[0],
+        }),
+      );
+    }
+  }
+
+  return findings;
 }
 
 /**

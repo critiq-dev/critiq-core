@@ -105,19 +105,29 @@ function isTypeOrPropertyName(
   const parent = ancestors[ancestors.length - 1];
 
   return (
-    parent?.type === 'TSAsExpression' ||
     parent?.type === 'TSTypeReference' ||
     parent?.type === 'TSTypeQuery' ||
     (parent?.type === 'Property' && parent.key === node && !parent.computed) ||
+    (parent?.type === 'PropertyDefinition' && parent.key === node && !parent.computed) ||
     (parent?.type === 'MemberExpression' && parent.property === node && !parent.computed) ||
     (parent?.type === 'MethodDefinition' && parent.key === node && !parent.computed) ||
+    (parent?.type === 'TSAbstractMethodDefinition' && parent.key === node && !parent.computed) ||
+    (parent?.type === 'TSPropertySignature' && parent.key === node && !parent.computed) ||
     parent?.type === 'ImportSpecifier' ||
     parent?.type === 'ImportDefaultSpecifier' ||
     parent?.type === 'ImportNamespaceSpecifier' ||
     parent?.type === 'ExportSpecifier' ||
     (parent?.type === 'FunctionDeclaration' && parent.id === node) ||
     (parent?.type === 'ClassDeclaration' && parent.id === node) ||
-    (parent?.type === 'VariableDeclarator' && parent.id === node)
+    (parent?.type === 'VariableDeclarator' && parent.id === node) ||
+    (parent?.type === 'TSInterfaceDeclaration' && parent.id === node) ||
+    (parent?.type === 'TSTypeAliasDeclaration' && parent.id === node) ||
+    (parent?.type === 'TSEnumDeclaration' && parent.id === node) ||
+    parent?.type === 'TSFunctionType' ||
+    parent?.type === 'TSConstructorType' ||
+    parent?.type === 'TSMethodSignature' ||
+    parent?.type === 'TSCallSignatureDeclaration' ||
+    parent?.type === 'TSConstructSignatureDeclaration'
   );
 }
 
@@ -233,27 +243,31 @@ function collectNestedVarDeclarations(
   while (queue.length > 0) {
     const statement = queue.pop()!;
 
-    if (statement.type === 'VariableDeclaration' && statement.kind === 'var') {
-      for (const declarator of statement.declarations) {
-        if (declarator.id.type !== 'Identifier') {
-          continue;
-        }
+    if (statement.type === 'VariableDeclaration') {
+      const isBlockScoped = statement.kind === 'let' || statement.kind === 'const';
+      if (statement.kind === 'var' || isBlockScoped) {
+        for (const declarator of statement.declarations) {
+          if (declarator.id.type !== 'Identifier') {
+            continue;
+          }
 
-        if (!bindings.has(declarator.id.name)) {
-          // Pre-ES5 anti-mutation guard: `var undefined;` or `var undefined = undefined;`
-          const isUndefinedGuard =
-            declarator.id.name === 'undefined' &&
-            (!declarator.init ||
-              (declarator.init.type === 'Identifier' && declarator.init.name === 'undefined'));
+          if (!bindings.has(declarator.id.name)) {
+            // Pre-ES5 anti-mutation guard: `var undefined;` or `var undefined = undefined;`
+            const isUndefinedGuard =
+              statement.kind === 'var' &&
+              declarator.id.name === 'undefined' &&
+              (!declarator.init ||
+                (declarator.init.type === 'Identifier' && declarator.init.name === 'undefined'));
 
-          bindings.set(declarator.id.name, {
-            name: declarator.id.name,
-            kind: 'var',
-            declaredLine: declarator.id.loc?.start.line ?? 0,
-            referenced: false,
-            node: declarator.id,
-            isUndefinedGuard,
-          });
+            bindings.set(declarator.id.name, {
+              name: declarator.id.name,
+              kind: statement.kind as Binding['kind'],
+              declaredLine: declarator.id.loc?.start.line ?? 0,
+              referenced: false,
+              node: declarator.id,
+              isUndefinedGuard,
+            });
+          }
         }
       }
     }
@@ -265,7 +279,10 @@ function collectNestedVarDeclarations(
           if (entry && typeof entry === 'object' && 'type' in entry &&
               typeof (entry as { type: unknown }).type === 'string') {
             const node = entry as TSESTree.Node;
-            if (node.type.endsWith('Statement') && node !== statement) {
+            if (
+              (node.type.endsWith('Statement') || node.type === 'VariableDeclaration') &&
+              node !== statement
+            ) {
               queue.push(node as TSESTree.Statement);
             }
             if (node.type === 'SwitchCase') {
@@ -277,21 +294,34 @@ function collectNestedVarDeclarations(
       } else if (value && typeof value === 'object' && 'type' in value &&
                  typeof (value as { type: unknown }).type === 'string') {
         const node = value as TSESTree.Node;
-        // Catch var declarations in non-array positions (e.g. for-loop init)
-        if (node.type === 'VariableDeclaration' && (node as TSESTree.VariableDeclaration).kind === 'var') {
+        // Enqueue statement containers (e.g. for-loop body, if-body) so nested
+        // declarations inside those blocks are discovered. Must check before
+        // the VariableDeclaration handler so we don't miss compound statements.
+        if (
+          (node.type.endsWith('Statement') || node.type === 'VariableDeclaration') &&
+          node !== statement
+        ) {
+          queue.push(node as TSESTree.Statement);
+        }
+        // Catch variable declarations in non-array positions (e.g. for-loop init,
+        // for...of / for...in left). Handles var, let, and const.
+        if (node.type === 'VariableDeclaration') {
           const vd = node as TSESTree.VariableDeclaration;
-          for (const declarator of vd.declarations) {
-            if (declarator.id.type !== 'Identifier') {
-              continue;
-            }
-            if (!bindings.has(declarator.id.name)) {
-              bindings.set(declarator.id.name, {
-                name: declarator.id.name,
-                kind: 'var',
-                declaredLine: declarator.id.loc?.start.line ?? 0,
-                referenced: false,
-                node: declarator.id,
-              });
+          const isBindableKind = vd.kind === 'var' || vd.kind === 'let' || vd.kind === 'const';
+          if (isBindableKind) {
+            for (const declarator of vd.declarations) {
+              if (declarator.id.type !== 'Identifier') {
+                continue;
+              }
+              if (!bindings.has(declarator.id.name)) {
+                bindings.set(declarator.id.name, {
+                  name: declarator.id.name,
+                  kind: vd.kind as Binding['kind'],
+                  declaredLine: declarator.id.loc?.start.line ?? 0,
+                  referenced: false,
+                  node: declarator.id,
+                });
+              }
             }
           }
         }
@@ -315,7 +345,12 @@ function analyzeReferencesInStatement(
    * scope. Without this skip the walker would check inner-body identifiers against
    * the outer scope and emit false-positive undeclared-variable facts.
    */
-  function walk(node: TSESTree.Node, ancestors: TSESTree.Node[]): void {
+  function walk(
+    node: TSESTree.Node,
+    ancestors: TSESTree.Node[],
+    scopeBindings?: Map<string, Binding>,
+  ): void {
+    const effectiveBindings = scopeBindings ?? bindings;
     // Nested function-like nodes get their own scope analysis.
     // Skip children to avoid double-processing (the inner body was already analyzed).
     if (
@@ -325,15 +360,31 @@ function analyzeReferencesInStatement(
         node.type === 'FunctionDeclaration')
     ) {
       const maybeFn = node as unknown as { params?: TSESTree.Parameter[]; body?: TSESTree.Node };
-      if (maybeFn.body?.type === 'BlockStatement' && Array.isArray(maybeFn.params)) {
-        analyzeFunctionLike(
-          maybeFn.params,
-          maybeFn.body as TSESTree.BlockStatement,
-          bindings,
-          facts,
-          nodeIds,
-          sourceText,
-        );
+      if (Array.isArray(maybeFn.params)) {
+        if (maybeFn.body?.type === 'BlockStatement') {
+          analyzeFunctionLike(
+            maybeFn.params,
+            maybeFn.body as TSESTree.BlockStatement,
+            effectiveBindings,
+            facts,
+            nodeIds,
+            sourceText,
+          );
+        } else if (maybeFn.body) {
+          const childBindings = new Map(effectiveBindings);
+          for (const param of maybeFn.params) {
+            if (param.type === 'Identifier') {
+              childBindings.set(param.name, {
+                name: param.name,
+                kind: 'param',
+                declaredLine: param.loc?.start.line ?? 0,
+                referenced: true,
+                node: param,
+              });
+            }
+          }
+          walk(maybeFn.body, [...ancestors, node], childBindings);
+        }
       }
       return;
     }
@@ -343,7 +394,7 @@ function analyzeReferencesInStatement(
       node.operator === '=' &&
       node.left.type === 'Identifier'
     ) {
-      const binding = bindings.get(node.left.name);
+      const binding = effectiveBindings.get(node.left.name);
       if (binding?.kind === 'const') {
         facts.push(
           createObservedFact({
@@ -359,7 +410,7 @@ function analyzeReferencesInStatement(
     }
 
     if (node.type === 'UpdateExpression' && node.argument.type === 'Identifier') {
-      const binding = bindings.get(node.argument.name);
+      const binding = effectiveBindings.get(node.argument.name);
       if (binding?.kind === 'const') {
         facts.push(
           createObservedFact({
@@ -379,7 +430,7 @@ function analyzeReferencesInStatement(
     } else {
       const name = node.name;
       const referenceLine = node.loc?.start.line ?? 0;
-      const binding = bindings.get(name);
+      const binding = effectiveBindings.get(name);
 
       if (binding) {
         binding.referenced = true;
@@ -405,7 +456,7 @@ function analyzeReferencesInStatement(
         return;
       }
 
-      if (RESTRICTED_GLOBALS.has(name) && !bindings.has(name) && !parentBindings.has(name)) {
+      if (RESTRICTED_GLOBALS.has(name) && !effectiveBindings.has(name) && !parentBindings.has(name)) {
         facts.push(
           createObservedFact({
             appliesTo: 'file',
@@ -461,14 +512,14 @@ function analyzeReferencesInStatement(
       if (Array.isArray(value)) {
         for (const entry of value) {
           if (isNode(entry)) {
-            walk(entry, [...ancestors, node]);
+            walk(entry, [...ancestors, node], scopeBindings);
           }
         }
         continue;
       }
 
       if (isNode(value)) {
-        walk(value, [...ancestors, node]);
+        walk(value, [...ancestors, node], scopeBindings);
       }
     }
   }

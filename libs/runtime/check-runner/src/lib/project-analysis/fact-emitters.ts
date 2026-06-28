@@ -141,16 +141,6 @@ function helperBodyLooksLikeIo(
     return true;
   }
 
-  if (
-    DIRECT_IO_CALL_PATTERN.test(context.file.text) &&
-    new RegExp(
-      `\\b(?:async\\s+)?function\\s+${callName}\\s*\\(|\\bconst\\s+${callName}\\s*=`,
-      'u',
-    ).test(context.file.text)
-  ) {
-    return true;
-  }
-
   return context.imports.some((importEdge) => {
     if (!importEdge.resolvedPath) {
       return false;
@@ -162,20 +152,8 @@ function helperBodyLooksLikeIo(
       return false;
     }
 
-    if (
-      importedContext.functions.some(
-        (helper) => helper.name === callName && helper.hasDirectIo,
-      )
-    ) {
-      return true;
-    }
-
-    return (
-      DIRECT_IO_CALL_PATTERN.test(importedContext.file.text) &&
-      new RegExp(
-        `\\b(?:async\\s+)?function\\s+${callName}\\s*\\(|\\bconst\\s+${callName}\\s*=`,
-        'u',
-      ).test(importedContext.file.text)
+    return importedContext.functions.some(
+      (helper) => helper.name === callName && helper.hasDirectIo,
     );
   });
 }

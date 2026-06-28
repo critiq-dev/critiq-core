@@ -10,6 +10,15 @@ import {
 
 const ALLOWED_SIDE_EFFECT_IMPORT_PATH =
   /(?:^|\/)(?:setup|polyfills?|instrumentation|register|bootstrap|test-setup|jest\.setup|vitest\.setup)(?:\/|\.|$)/i;
+
+const STYLESHEET_IMPORT_PATH =
+  /\.(?:css|scss|sass|less)$/i;
+
+const STYLESHEET_PACKAGE_IMPORT_PATH =
+  /^tailwindcss(\/|$)/i;
+
+const STORYBOOK_FILE_PATH =
+  /(?:^|\/)\.storybook\//i;
 const PUBLIC_ABBREVIATION_PATTERN =
   /\b(?:cfg|ctx|dto|misc|obj|tmp|util|val)\b/i;
 const API_STYLE_FUNCTION_NAME_PATTERN =
@@ -332,7 +341,10 @@ export const collectTypescriptQualityMaintainabilityFacts: TypeScriptFactDetecto
       if (
         node.type === 'ImportDeclaration' &&
         node.specifiers.length === 0 &&
-        !ALLOWED_SIDE_EFFECT_IMPORT_PATH.test(node.source.value)
+        !ALLOWED_SIDE_EFFECT_IMPORT_PATH.test(node.source.value) &&
+        !STYLESHEET_IMPORT_PATH.test(node.source.value) &&
+        !STYLESHEET_PACKAGE_IMPORT_PATH.test(node.source.value) &&
+        !STORYBOOK_FILE_PATH.test(path)
       ) {
         facts.push(
           createObservedFact({

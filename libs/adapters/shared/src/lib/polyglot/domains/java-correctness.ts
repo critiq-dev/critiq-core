@@ -646,7 +646,7 @@ function collectOptionalNullFacts(
   }
 
   const methodOpenPattern =
-    /(?:(?:public|protected|private|static|final|abstract|synchronized|native)\s+)*Optional(?:<[^<>;\n]+>)?\s+\w+\s*\(/gu;
+    /(?:(?:public|protected|private|static|final|abstract|synchronized|native)\s+)?Optional(?:<[^<>;\n]+>)?\s+\w+\s*\(/gu;
 
   for (const match of text.matchAll(methodOpenPattern)) {
     const bodyOpen = match.index! + match[0].length;
@@ -704,7 +704,7 @@ function collectUnconditionalRecursionFacts(
   const findings: ObservedFact[] = [];
 
   const methodPattern =
-    /(?:(?:public|protected|private|static|final|abstract|synchronized|native)\s+)*(?:\w+\s+)*(\w+)\s*\([^)]*\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{/gu;
+    /(?:(?:public|protected|private|static|final|abstract|synchronized|native)\s+)?(?:\w+\s+)*(\w+)\s*\([^)]*\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{/gu;
 
   for (const match of text.matchAll(methodPattern)) {
     const methodName = match[1];
@@ -1328,7 +1328,7 @@ function collectUnsupportedMethodCallFacts(
   const throwingMethods = new Map<string, number>();
 
   const methodPattern =
-    /(?:(?:public|protected|private|static|final|abstract|synchronized|native)\s+)*(\w+(?:\[\])*(?:\s*<[^>]*>)?)\s+(\w+)\s*\([^)]*\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{/gu;
+    /(?:(?:public|protected|private|static|final|abstract|synchronized|native)\s+)?(\w+(?:\[\])*(?:\s*<[^>]*>)?)\s+(\w+)\s*\([^)]*\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{/gu;
   for (const match of text.matchAll(methodPattern)) {
     const methodName = match[2];
     const openIndex = (match.index ?? 0) + match[0].lastIndexOf('{');
@@ -1485,7 +1485,7 @@ function collectUnsyncStaticLazyInitFacts(
       if (/\bsynchronized\s*\(/.test(beforeBlock)) continue;
 
       const methodDecl = beforeText.match(
-        /(?:(?:public|protected|private|static|final|abstract|synchronized|native)\s+)*(?:\w+(?:\[\])*(?:\s*<[^>]*>)?)\s+\w+\s*\([^)]*\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{[^{]*$/u,
+        /(?:(?:public|protected|private|static|final|abstract|synchronized|native)\s+)?(?:\w+(?:\[\])*(?:\s*<[^>]*>)?)\s+\w+\s*\([^)]*\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{[^{]*$/u,
       );
       if (methodDecl && /\bsynchronized\b/.test(methodDecl[0])) continue;
 
@@ -1701,7 +1701,7 @@ function collectDoubleAssignmentFacts(
   const findings: ObservedFact[] = [];
 
   const methodPattern =
-    /(?:(?:public|protected|private|static|final|abstract|synchronized|native)\s+)*(\w+(?:\[\])*(?:\s*<[^>]*>)?)\s+(\w+)\s*\([^)]*\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{/gu;
+    /(?:(?:public|protected|private|static|final|abstract|synchronized|native)\s+)?(\w+(?:\[\])*(?:\s*<[^>]*>)?)\s+(\w+)\s*\([^)]*\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{/gu;
 
   for (const method of text.matchAll(methodPattern)) {
     const openIndex = (method.index ?? 0) + method[0].lastIndexOf('{');
@@ -1990,7 +1990,7 @@ function collectDeprecatedThreadMethodsFacts(
     detector,
     kind,
     appliesTo: 'block',
-    pattern: /\.\s*(?:stop|suspend|resume)\s*\(/gu,
+    pattern: /\b\w*thread\w*\s*\.\s*(?:stop|suspend|resume)\s*\(/gui,
   });
 }
 
@@ -2004,7 +2004,7 @@ function collectPossibleNullAccessFacts(
     kind: JAVA_CORRECTNESS_FACT_KINDS.possibleNullAccess,
     appliesTo: 'block',
     pattern:
-      /\b\w+\.\s*(?:get|poll|peek|element|remove)\s*\([^)]*\)\s*\.\s*\w+\s*\(/gu,
+      /\b\w+\.\s*(?:get|poll|peek|element)\s*\([^)]*\)\s*\.\s*\w+\s*\(/gu,
   });
 }
 
@@ -2080,7 +2080,7 @@ function collectMutableDataExposedFacts(
     const isFinal = decl[0].includes('final');
     if (isFinal) continue;
     const isMutable =
-      /\b(?:List|Set|Map|Queue|Deque|Collection|StringBuilder|StringBuffer|String\[\]|int\[\]|byte\[\]|Object\[\]|char\[\]|long\[\]|double\[\]|float\[\]|short\[\]|boolean\[\])\b/.test(
+      /\b(?:List|Set|Map|Queue|Deque|Collection|StringBuilder|StringBuffer|String\[\]|int\[\]|byte\[\]|Object\[\]|char\[\]|long\[\]|double\[\]|float\[\]|short\[\]|boolean\[\])(?!\w)/.test(
         type,
       );
     if (isMutable) {
@@ -2090,75 +2090,99 @@ function collectMutableDataExposedFacts(
 
   if (mutableFields.size === 0) return findings;
 
-  // Step 2: find constructor declarations with their parameter names
-  const constructorPattern =
-    /(?:public|protected|private)?\s+(\w+)\s*\(([^)]*)\)\s*(?:throws\s+\w+(?:\s*,\s*\w+)*)?\s*\{/gu;
-  for (const ctor of text.matchAll(constructorPattern)) {
-    const ctorName = ctor[1];
-    const params = ctor[2];
+  // Step 1b: collect class names to distinguish true constructors from
+  // regular methods that happen to take mutable parameters.
+  const classNames = new Set<string>();
+  const classPattern = /\bclass\s+(\w+)/g;
+  for (const match of text.matchAll(classPattern)) {
+    classNames.add(match[1]);
+  }
 
-    // Find constructor body
-    const ctorOpen = (ctor.index ?? 0) + ctor[0].length - 1;
-    const ctorClose = findMatchingDelimiter(
-      text,
-      ctorOpen,
-      '{',
-      '}',
+  if (classNames.size === 0) return findings;
+
+  // Step 2: find true constructor declarations.
+  // A constructor is identified by a class name that appears after optional
+  // modifiers (public/protected/private) and is immediately followed by '('.
+  // We iterate over known class names and build targeted regex patterns.
+  const paramPattern = /(\w+(?:<[^>]*>)?(?:\[\])*)\s+(\w+)(?:\s*,\s*|$)/gu;
+  for (const className of classNames) {
+    const escapedName = escapeRegex(className);
+    const ctorRegex = new RegExp(
+      `(?:public|protected|private)?\\s+${escapedName}\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w.,]+(?:\\s*,\\s*[\\w.,]+)*)?\\s*\\{`,
+      'gu',
     );
-    if (ctorClose < 0) continue;
+    for (const ctor of text.matchAll(ctorRegex)) {
+      const params = ctor[1];
 
-    const ctorBody = text.slice(ctorOpen + 1, ctorClose);
-
-    // Collect parameter names with mutable types
-    const paramPattern = /(\w+(?:<[^>]*>)?(?:\[\])*)\s+(\w+)(?:\s*,\s*|$)/gu;
-    for (const param of params.matchAll(paramPattern)) {
-      const paramType = param[1];
-      const paramName = param[2];
-
-      const isMutableParam =
-        /\b(?:List|Set|Map|Queue|Deque|Collection|StringBuilder|StringBuffer|String\[\]|int\[\]|byte\[\]|Object\[\])\b/.test(
-          paramType,
-        );
-      if (!isMutableParam) continue;
-
-      // Look for this.field = paramName or field = paramName in constructor body
-      const assignPattern = new RegExp(
-        `(?:this\\.)?${escapeRegex(paramName)}\\s*=\\s*${escapeRegex(paramName)}\\s*;`,
-        'g',
+      // Find constructor body
+      const ctorOpen = (ctor.index ?? 0) + ctor[0].length - 1;
+      const ctorClose = findMatchingDelimiter(
+        text,
+        ctorOpen,
+        '{',
+        '}',
       );
-      for (const assign of ctorBody.matchAll(assignPattern)) {
-        const assignText = assign[0];
-        const absoluteStart = ctorOpen + 1 + (assign.index ?? 0);
+      if (ctorClose < 0) continue;
 
-        // Check if there's a defensive copy nearby
-        const beforeAssign = ctorBody.slice(
-          Math.max(0, (assign.index ?? 0) - 120),
-          assign.index ?? 0,
+      const ctorBody = text.slice(ctorOpen + 1, ctorClose);
+
+      // Collect parameter names with mutable types
+      paramPattern.lastIndex = 0;
+      for (const param of params.matchAll(paramPattern)) {
+        const paramType = param[1];
+        const paramName = param[2];
+
+        const isMutableParam =
+          /\b(?:List|Set|Map|Queue|Deque|Collection|StringBuilder|StringBuffer|String\[\]|int\[\]|byte\[\]|Object\[\])(?!\w)/.test(
+            paramType,
+          );
+        if (!isMutableParam) continue;
+
+        // Only flag if the param name matches a known mutable (non-final) field.
+        // This cross-references Step 1 results against Step 2 parameters so we
+        // do not flag constructors whose fields happen to share names with
+        // mutable fields in other classes in the same file.
+        if (!mutableFields.has(paramName)) continue;
+
+        // Look for this.field = paramName or field = paramName in constructor body
+        const assignPattern = new RegExp(
+          `(?:this\\.)?${escapeRegex(paramName)}\\s*=\\s*${escapeRegex(paramName)}\\s*;`,
+          'g',
         );
-        if (
-          /new\s+(?:ArrayList|HashSet|HashMap|LinkedList|TreeSet|TreeMap|ArrayDeque|PriorityQueue|ConcurrentHashMap|CopyOnWriteArrayList)\s*[<(]/.test(
-            beforeAssign,
-          ) ||
-          /Collections\.(?:unmodifiable|synchronized)/.test(beforeAssign) ||
-          /\.clone\s*\(/.test(beforeAssign) ||
-          /Arrays\.copyOf/.test(beforeAssign) ||
-          new RegExp(
-            `\\b${escapeRegex(paramName)}\\.stream\\b`,
-          ).test(beforeAssign)
-        ) {
-          continue;
+        for (const assign of ctorBody.matchAll(assignPattern)) {
+          const assignText = assign[0];
+          const absoluteStart = ctorOpen + 1 + (assign.index ?? 0);
+
+          // Check if there's a defensive copy nearby
+          const beforeAssign = ctorBody.slice(
+            Math.max(0, (assign.index ?? 0) - 120),
+            assign.index ?? 0,
+          );
+          if (
+            /new\s+(?:ArrayList|HashSet|HashMap|LinkedList|TreeSet|TreeMap|ArrayDeque|PriorityQueue|ConcurrentHashMap|CopyOnWriteArrayList)\s*[<(]/.test(
+              beforeAssign,
+            ) ||
+            /Collections\.(?:unmodifiable|synchronized)/.test(beforeAssign) ||
+            /\.clone\s*\(/.test(beforeAssign) ||
+            /Arrays\.copyOf/.test(beforeAssign) ||
+            new RegExp(
+              `\\b${escapeRegex(paramName)}\\.stream\\b`,
+            ).test(beforeAssign)
+          ) {
+            continue;
+          }
+
+          findings.push(
+            createOffsetFact(text, {
+              detector,
+              appliesTo: 'block',
+              kind,
+              startOffset: absoluteStart,
+              endOffset: absoluteStart + assignText.length,
+              text: assignText,
+            }),
+          );
         }
-
-        findings.push(
-          createOffsetFact(text, {
-            detector,
-            appliesTo: 'block',
-            kind,
-            startOffset: absoluteStart,
-            endOffset: absoluteStart + assignText.length,
-            text: assignText,
-          }),
-        );
       }
     }
   }
@@ -2351,7 +2375,7 @@ function collectUnterminatedAssertChainFacts(
     detector,
     kind: JAVA_CORRECTNESS_FACT_KINDS.unterminatedAssertChain,
     appliesTo: 'block',
-    pattern: /\.?\b(?:assertThat|verify)\s*\([^)]*\)\s*;/gu,
+    pattern: /\.?\b(?:assertThat|verify|assertThatThrownBy|assertThatCode|assertThatExceptionOfType|assertThatObject)\s*\(([^()]|\(([^()]|\([^()]*\))*\))*\)\s*;/gu,
   });
 }
 
@@ -2983,7 +3007,7 @@ function collectEqualsNullCheckFacts(
   const kind = JAVA_CORRECTNESS_FACT_KINDS.equalsNullCheck;
   const findings: ObservedFact[] = [];
 
-  const equalsPattern = /\bboolean\s+equals\s*\(\s*Object\s+(\w+)\s*\)\s*\{/gu;
+  const equalsPattern = /\bboolean\s+equals\s*\(\s*(?:@\w+(?:\s*\([^)]*\))?\s+)*Object\s+(\w+)\s*\)\s*\{/gu;
   for (const match of text.matchAll(equalsPattern)) {
     const paramName = match[1];
     const openBrace = (match.index ?? 0) + match[0].length - 1;
@@ -2993,13 +3017,20 @@ function collectEqualsNullCheckFacts(
     const methodBody = text.slice(openBrace + 1, closeBrace);
 
     const nullGuardPattern = new RegExp(
-      `(?:${escapeRegex(paramName)}\\s*==\\s*null|${escapeRegex(paramName)}\\s*!=\\s*null|this\\s*==\\s*${escapeRegex(paramName)})`,
+      `(?:${escapeRegex(paramName)}\\s*==\\s*null|${escapeRegex(paramName)}\\s*!=\\s*null|null\\s*==\\s*${escapeRegex(paramName)}|null\\s*!=\\s*${escapeRegex(paramName)})`,
       'gu',
     );
     if (nullGuardPattern.test(methodBody)) continue;
 
+    // instanceof returns false for null, so it acts as a null guard
+    const instanceofPattern = new RegExp(
+      `${escapeRegex(paramName)}\\s+instanceof\\s+\\w+`,
+      'gu',
+    );
+    if (instanceofPattern.test(methodBody)) continue;
+
     const safeCallPattern = new RegExp(
-      `Objects\\.equals\\s*\\(\\s*${escapeRegex(paramName)}`,
+      `Objects\\.equals\\s*\\(\\s*${escapeRegex(paramName)}\\s*[,)]`,
       'gu',
     );
     if (safeCallPattern.test(methodBody)) continue;
@@ -3012,8 +3043,12 @@ function collectEqualsNullCheckFacts(
       `${escapeRegex(paramName)}\\.\\w+`,
       'gu',
     );
+    const castDerefPattern = new RegExp(
+      `\\(\\s*\\([^)]+\\)\\s*${escapeRegex(paramName)}\\s*\\)\\s*\\.\\s*\\w+`,
+      'gu',
+    );
 
-    const hasDeref = derefPattern.test(methodBody) || fieldAccessPattern.test(methodBody);
+    const hasDeref = derefPattern.test(methodBody) || fieldAccessPattern.test(methodBody) || castDerefPattern.test(methodBody);
     if (hasDeref) {
       findings.push(
         createOffsetFact(text, {
@@ -3283,6 +3318,94 @@ function collectClassNameCollisionFacts(
 
 // --- Batch 09 (JAVA-E) collectors ---
 
+/**
+ * Checks whether the return value of a `.read()` call is genuinely ignored.
+ *
+ * The initial regex match flags ANY `.read()` call not preceded by `=` or
+ * `return`. This predicate further filters out cases where the return value
+ * is actually consumed (passed as a function argument, used in a comparison,
+ * or used in an arithmetic expression) so the emitted fact is closer to a
+ * genuine ignored-return-value violation.
+ */
+function isReadReturnValueIgnored(
+  text: string,
+  startOffset: number,
+  matchedText: string,
+): boolean {
+  // --- reject compound assignments that slip past the regex lookbehind ---
+  // e.g.  n += is.read(buf)   (the `+=` is not `=` so the lookbehind passes)
+  const before = text.substring(Math.max(0, startOffset - 20), startOffset);
+  if (/(?:[+\-*/%&|^?:]\s*)$/.test(before)) return false;
+
+  // --- locate the opening '(' of .read(…) ---
+  const openIdx = matchedText.indexOf('(');
+  let pos = startOffset + openIdx + 1; // first character inside the parens
+  let depth = 1;
+
+  // balance parentheses to find the matching ')'
+  while (pos < text.length && depth > 0) {
+    const ch = text[pos];
+    if (ch === '(') {
+      depth++;
+    } else if (ch === ')') {
+      depth--;
+    } else if (ch === '"' || ch === "'") {
+      const quote = ch;
+      pos++;
+      while (pos < text.length && text[pos] !== quote) {
+        if (text[pos] === '\\') pos++; // skip escaped char
+        pos++;
+      }
+    } else if (ch === '/' && pos + 1 < text.length) {
+      const nxt = text[pos + 1];
+      if (nxt === '/') {
+        while (pos < text.length && text[pos] !== '\n') pos++;
+        continue;
+      }
+      if (nxt === '*') {
+        pos += 2;
+        while (pos < text.length && !(text[pos] === '*' && text[pos + 1] === '/')) pos++;
+        pos += 2;
+        continue;
+      }
+    }
+    pos++;
+  }
+
+  // skip whitespace after the closing paren
+  while (pos < text.length && /\s/.test(text[pos])) pos++;
+
+  // --- decide based on what follows ---
+  if (pos >= text.length) return true; // end-of-file – value discarded
+
+  const next = text[pos];
+  const nextTwo = text.substring(pos, pos + 2).toLowerCase();
+
+  // passed as function / constructor argument  …).read(x) -> …func(read(x))…
+  if (next === ')' || next === ',') return false;
+
+  // method chaining  .read(x).close()
+  if (next === '.') return false;
+
+  // comparison / equality  .read(x) == -1  /  .read(x) != 0
+  if (next === '!' && pos + 1 < text.length && text[pos + 1] === '=') return false;
+  if (nextTwo === '==' || nextTwo === '!=' || nextTwo === '<=' || nextTwo === '>=')
+    return false;
+  if (next === '<' || next === '>') return false;
+
+  // instanceof check
+  if (text.substring(pos, pos + 10).toLowerCase() === 'instanceof') return false;
+
+  // ternary  .read(x) ? …
+  if (next === '?') return false;
+
+  // arithmetic / logical continuation (value consumed in a larger expression)
+  if (/[+\-*/%&|^]/.test(next)) return false;
+
+  // otherwise treat as a standalone statement whose return value is discarded
+  return true;
+}
+
 function collectIgnoredInputstreamReadFacts(
   text: string,
   detector: string,
@@ -3293,6 +3416,8 @@ function collectIgnoredInputstreamReadFacts(
     kind: JAVA_CORRECTNESS_FACT_KINDS.ignoredInputstreamRead,
     appliesTo: 'block',
     pattern: /(?<!=\s*)(?<!return\s+)\b\w+\.read\s*\(/gu,
+    predicate: (match) =>
+      isReadReturnValueIgnored(text, match.startOffset, match.matchedText),
   });
 }
 
@@ -3395,18 +3520,29 @@ function collectReadlineWithoutNullCheckFacts(
   const kind = JAVA_CORRECTNESS_FACT_KINDS.readlineWithoutNullCheck;
   const findings: ObservedFact[] = [];
 
-  const assignPattern = /(\w+)\s*=\s*(\w+)\.\s*readLine\s*\(\s*\)/gu;
+  // Match assignment to a variable from readLine(): varName = expr.readLine()
+  const assignPattern = /(\w+)\s*=\s*(\w+(?:\.\w+)*)\.\s*readLine\s*\(\s*\)/gu;
   for (const match of findAllMatches(text, assignPattern)) {
-    const assignEnd = match.endOffset;
-    const afterText = text.slice(assignEnd);
-    const lineStart = assignEnd;
-    const lines = afterText.split('\n');
+    // Get the full line containing the match for while-loop context detection
+    const matchLineStart = text.lastIndexOf('\n', match.startOffset - 1) + 1;
+    let matchLineEnd = text.indexOf('\n', match.startOffset);
+    if (matchLineEnd === -1) matchLineEnd = text.length;
+    const matchLine = text.slice(matchLineStart, matchLineEnd);
 
     const varName = match.matchedText.match(/(\w+)\s*=\s*/)?.[1] ?? '';
 
-    const readlineInWhilePattern = /while\s*\(\s*(?:\([^)]*\)\s*)?\s*(?:\w+\s*=\s*)?\w+\.\s*readLine\s*\(\s*\)\s*(?:!=\s*null\s*\))?/;
-    const beforeText = text.slice(Math.max(0, match.startOffset - 80), match.startOffset);
-    if (readlineInWhilePattern.test(beforeText)) continue;
+    // Skip if readLine() is inside a while-loop condition with a null check,
+    // e.g. while ((line = reader.readLine()) != null) { ... }
+    if (
+      /while\s*\(/.test(matchLine) &&
+      /!=\s*null/.test(matchLine)
+    ) {
+      continue;
+    }
+
+    const assignEnd = match.endOffset;
+    const afterText = text.slice(assignEnd);
+    const lines = afterText.split('\n');
 
     let hasNullCheck = false;
     let checkCount = 0;
@@ -3414,7 +3550,7 @@ function collectReadlineWithoutNullCheckFacts(
       if (checkCount > 5) break;
       checkCount++;
       const nullCheck = new RegExp(
-        `${varName}\\s*(?:==|!=)\\s*null`,
+        `(?:${varName}\\s*(?:==|!=)\\s*null|null\\s*(?:==|!=)\\s*${varName})`,
         'gu',
       );
       if (nullCheck.test(line)) {
@@ -3435,6 +3571,35 @@ function collectReadlineWithoutNullCheckFacts(
         }),
       );
     }
+  }
+
+  // Detect direct dereference of readLine() result: expr.readLine().method()
+  // Without storing the result in a variable, there's no way to null-check it
+  const directPattern = /(\w+(?:\.\w+)*)\.\s*readLine\s*\(\s*\)\s*\.\s*(\w+)/gu;
+  for (const match of findAllMatches(text, directPattern)) {
+    const matchLineStart = text.lastIndexOf('\n', match.startOffset - 1) + 1;
+    let matchLineEnd = text.indexOf('\n', match.startOffset);
+    if (matchLineEnd === -1) matchLineEnd = text.length;
+    const matchLine = text.slice(matchLineStart, matchLineEnd);
+
+    // Skip if inside a while-loop condition with a null check
+    if (
+      /while\s*\(/.test(matchLine) &&
+      /!=\s*null/.test(matchLine)
+    ) {
+      continue;
+    }
+
+    findings.push(
+      createOffsetFact(text, {
+        detector,
+        appliesTo: 'block',
+        kind,
+        startOffset: match.startOffset,
+        endOffset: match.endOffset,
+        text: match.matchedText,
+      }),
+    );
   }
 
   return findings;
@@ -3485,28 +3650,18 @@ function collectSelfAssignmentFacts(
   detector: string,
 ): ObservedFact[] {
   const kind = JAVA_CORRECTNESS_FACT_KINDS.selfAssignment;
-  const findings: ObservedFact[] = [];
 
-  const assignPattern = /(\w+)\s*=\s*\1\s*;/gu;
-  for (const match of findAllMatches(text, assignPattern)) {
-    const expr = match.matchedText;
-
-    if (/this\./.test(expr)) continue;
-    if (/\w+\.\w+\s*=/.test(expr)) continue;
-
-    findings.push(
-      createOffsetFact(text, {
-        detector,
-        appliesTo: 'block',
-        kind,
-        startOffset: match.startOffset,
-        endOffset: match.endOffset,
-        text: match.matchedText,
-      }),
-    );
-  }
-
-  return findings;
+  return collectMatchedFacts({
+    text,
+    detector,
+    kind,
+    appliesTo: 'block',
+    pattern: /(\w+)\s*=\s*\1\s*;/gu,
+    predicate: (match) => {
+      const before = text.slice(0, match.startOffset);
+      return !/\w+\.\s*$/u.test(before);
+    },
+  });
 }
 
 function collectSyncOnLockPrimitiveFacts(
@@ -3705,31 +3860,38 @@ function collectLostIncrementInAssignmentFacts(
 }
 
 function findEnclosingMethod(text: string, offset: number): string | null {
-  const beforeOffset = text.slice(0, offset);
-  const methodPattern =
-    /(?:(?:public|protected|private|static|final|abstract|synchronized|native)\s+)*(\w+(?:\[\])*(?:\s*<[^>]*>)?)\s+(\w+)\s*\(/gu;
-  let lastMatch: RegExpExecArray | null = null;
-  let match: RegExpExecArray | null;
-
-  while ((match = methodPattern.exec(beforeOffset)) !== null) {
-    const braceAfter = beforeOffset.indexOf('{', match.index);
-    if (braceAfter >= 0 && braceAfter < offset) {
-      const closeIndex = findMatchingDelimiter(
-        text,
-        braceAfter,
-        '{',
-        '}',
-      );
-      if (closeIndex >= offset) {
-        lastMatch = match;
-        match = methodPattern.exec(beforeOffset);
-        continue;
+  // Scan backwards from offset to find the nearest method declaration.
+  // Avoids regex catastrophic backtracking on large files.
+  for (let i = offset - 1; i >= 0; i--) {
+    if (text[i] !== ')') continue;
+    const closeParen = i;
+    // Find matching open paren by scanning the reversed prefix
+    const prefix = text.slice(0, closeParen + 1);
+    let depth = 0;
+    let openParen = -1;
+    for (let j = prefix.length - 1; j >= 0; j--) {
+      if (prefix[j] === ')') depth++;
+      else if (prefix[j] === '(') {
+        if (depth === 0) { openParen = j; break; }
+        depth--;
       }
     }
-    lastMatch = match;
+    if (openParen < 0) continue;
+    // Find the method name before openParen
+    let nameEnd = openParen - 1;
+    while (nameEnd >= 0 && (text[nameEnd] === ' ' || text[nameEnd] === '\t')) nameEnd--;
+    if (nameEnd < 0 || !/\w/.test(text[nameEnd])) continue;
+    let nameStart = nameEnd;
+    while (nameStart >= 0 && /\w/.test(text[nameStart])) nameStart--;
+    nameStart++;
+    // Check that this method body contains our offset
+    const braceIndex = text.indexOf('{', closeParen);
+    if (braceIndex < 0 || braceIndex >= offset) continue;
+    const closeBrace = findMatchingDelimiter(text, braceIndex, '{', '}');
+    if (closeBrace < offset) continue;
+    return text.slice(nameStart, nameEnd + 1);
   }
-
-  return lastMatch ? lastMatch[2] : null;
+  return null;
 }
 
 function collectArrayVariableNames(text: string): Set<string> {
@@ -4463,11 +4625,15 @@ function collectThreadGroupDeprecatedMethodsFacts(
   const kind = JAVA_CORRECTNESS_FACT_KINDS.threadGroupDeprecatedMethods;
   const findings: ObservedFact[] = [];
 
-  const forbiddenMethods =
-    /(?:stop|suspend|resume|destroy|isDestroyed|setDaemon|isDaemon|checkAccess|allowThreadSuspension)\s*\(/gu;
+  // All deprecated ThreadGroup methods covered by this rule
+  const deprecatedMethods =
+    'stop|suspend|resume|destroy|isDestroyed|setDaemon|isDaemon|checkAccess|allowThreadSuspension';
 
   // Static calls: ThreadGroup.stop(...)
-  const staticPattern = /\bThreadGroup\s*\.\s*(?:stop|suspend|resume|destroy|isDestroyed|setDaemon|isDaemon|checkAccess|allowThreadSuspension)\s*\(/gu;
+  const staticPattern = new RegExp(
+    `\\bThreadGroup\\s*\\.\\s*(?:${deprecatedMethods})\\s*\\(`,
+    'gu',
+  );
   for (const match of findAllMatches(text, staticPattern)) {
     findings.push(
       createOffsetFact(text, {
@@ -4481,13 +4647,20 @@ function collectThreadGroupDeprecatedMethodsFacts(
     );
   }
 
-  // Instance calls: variable.method(...) where method is one of the forbidden methods
-  // We match any call to these methods via instance invocation
-  const instancePattern = /(\w+(?:\.\w+)*)\s*\.\s*(stop|suspend|resume|destroy|isDestroyed|setDaemon|isDaemon|checkAccess|allowThreadSuspension)\s*\(/gu;
+  // Instance calls: only match allowThreadSuspension() which is unique to ThreadGroup.
+  // Matching common method names (stop, suspend, resume, destroy, setDaemon, isDaemon,
+  // checkAccess, isDestroyed) on arbitrary receivers produces massive false positives
+  // (server.stop(), stopWatch.stop(), renderScript.destroy(), thread.isDaemon(), etc.)
+  // because these names are used by many non-ThreadGroup classes.
+  const instancePattern = /(\w+(?:\.\w+)*)\s*\.\s*allowThreadSuspension\s*\(/gu;
   for (const match of findAllMatches(text, instancePattern)) {
-    // Skip if it's a ThreadGroup static call (already handled above) or a Thread method (Batch 13)
     const receiver = match.matchedText.match(/^(\w+(?:\.\w+)*)/)?.[1];
-    if (!receiver || receiver === 'ThreadGroup' || receiver.endsWith('.ThreadGroup')) continue;
+    if (
+      !receiver ||
+      receiver === 'ThreadGroup' ||
+      receiver.endsWith('.ThreadGroup')
+    )
+      continue;
     findings.push(
       createOffsetFact(text, {
         detector,
@@ -4593,6 +4766,14 @@ function collectNonNullMethodReturnsNullFacts(
     if (!methodDeclMatch) continue;
 
     const methodDeclEnd = annMatch.startOffset + methodDeclMatch.index! + methodDeclMatch[0].length;
+
+    // Verify the @NonNull annotation is on THIS method, not an unrelated declaration.
+    // The gap between the annotation end and the method '(' must not contain:
+    //   1. '{' — would mean the annotation belongs to a field/parameter in a different scope
+    //   2. @Nullable — would mean the method is explicitly nullable
+    const gap = text.slice(annMatch.endOffset, methodDeclEnd);
+    if (gap.includes('{')) continue;
+    if (/@[\w.]*Nullable\b/u.test(gap)) continue;
 
     // Find method body by looking for the opening brace
     const bodyStart = text.indexOf('{', methodDeclEnd);

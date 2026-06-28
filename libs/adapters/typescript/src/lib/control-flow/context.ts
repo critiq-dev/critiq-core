@@ -130,10 +130,26 @@ export interface FunctionDataFlowState {
 
 export const recognizedErrorSinkCallees = new Set([
   'captureException',
+  'captureMessage',
   'console.error',
   'console.warn',
+  'console.info',
+  'console.debug',
+  'log.debug',
+  'log.error',
+  'log.warn',
+  'log.info',
+  'log.log',
+  'logger.debug',
   'logger.error',
   'logger.warn',
+  'logger.info',
+  'logger.log',
+  'Logger.debug',
+  'Logger.error',
+  'Logger.warn',
+  'Logger.info',
+  'Logger.log',
 ]);
 
 export const recognizedAsyncCallees = new Set([
@@ -175,6 +191,14 @@ export const recognizedExpensiveConstructorCallees = new Set([
   'Intl.DateTimeFormat',
   'Intl.NumberFormat',
   'RegExp',
+]);
+
+export const recognizedExhaustiveCheck = new Set([
+  'assertExhaustive',
+  'assertNever',
+  'exhaustiveCheck',
+  'invariant',
+  'unreachable',
 ]);
 
 export const largePayloadExtensionPattern = /\.(csv|jsonl|ndjson|log|parquet|tsv|xml)$/i;

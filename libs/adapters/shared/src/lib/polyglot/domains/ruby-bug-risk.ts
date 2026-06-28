@@ -3229,17 +3229,55 @@ function collectSelfAssignmentFacts(
   );
 }
 
+function isInsideRubyStringOrComment(text: string, offset: number): boolean {
+  const lineStart = text.lastIndexOf('\n', offset - 1) + 1;
+  let quote: '"' | "'" | null = null;
+  let escapeNext = false;
+
+  for (let idx = lineStart; idx < offset; idx += 1) {
+    const c = text[idx];
+
+    if (quote) {
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+      if (c === '\\') {
+        escapeNext = true;
+        continue;
+      }
+      if (c === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (c === "'" || c === '"') {
+      quote = c;
+      continue;
+    }
+
+    if (c === '#') {
+      return true;
+    }
+  }
+
+  return quote !== null;
+}
+
 function collectIdenticalBinaryOperandsFacts(
   text: string,
   detector: string,
 ): ObservedFact[] {
   const kind = RUBY_BUG_RISK_FACT_KINDS.identicalBinaryOperands;
+  const notInStringOrComment = (m: { startOffset: number }) =>
+    !isInsideRubyStringOrComment(text, m.startOffset);
 
   return collectMatchedFacts({
     text, detector, kind,
     appliesTo: 'block',
     pattern: /(\b[a-zA-Z_]\w*)[ \t]*([+\-*/%])[ \t]*\1\b(?!\w)/g,
-    predicate: (m) => !m.matchedText.includes('\n'),
+    predicate: (m) => !m.matchedText.includes('\n') && notInStringOrComment(m),
   }).concat(
     collectMatchedFacts({
       text, detector, kind,
@@ -3250,26 +3288,50 @@ function collectIdenticalBinaryOperandsFacts(
         if (text[m.startOffset - 1] === '|') return false;
         const pipeIdx = m.matchedText.indexOf('|');
         if (pipeIdx > 0 && /\w/.test(m.matchedText[pipeIdx - 1])) return false;
-        return true;
+        return notInStringOrComment(m);
       },
     }),
     collectMatchedFacts({
       text, detector, kind,
       appliesTo: 'block',
       pattern: /(\b[a-zA-Z_]\w*)[ \t]*(&)[ \t]*\1\b(?!\w)(?!&)/g,
-      predicate: (m) => !m.matchedText.includes('\n'),
+      predicate: (m) => !m.matchedText.includes('\n') && notInStringOrComment(m),
     }),
     collectMatchedFacts({
       text, detector, kind,
       appliesTo: 'block',
       pattern: /(\b[a-zA-Z_]\w*)[ \t]*(\^)[ \t]*\1\b(?!\w)/g,
-      predicate: (m) => !m.matchedText.includes('\n'),
+      predicate: (m) => !m.matchedText.includes('\n') && notInStringOrComment(m),
     }),
     collectMatchedFacts({
       text, detector, kind,
       appliesTo: 'block',
       pattern: /(\b[a-zA-Z_]\w*)[ \t]*(<=>)[ \t]*\1\b(?!\w)/g,
-      predicate: (m) => !m.matchedText.includes('\n'),
+      predicate: (m) => !m.matchedText.includes('\n') && notInStringOrComment(m),
+    }),
+    collectMatchedFacts({
+      text, detector, kind,
+      appliesTo: 'block',
+      pattern: /(\b[a-zA-Z_]\w*)[ \t]*(\*\*)[ \t]*\1\b(?!\w)/g,
+      predicate: (m) => !m.matchedText.includes('\n') && notInStringOrComment(m),
+    }),
+    collectMatchedFacts({
+      text, detector, kind,
+      appliesTo: 'block',
+      pattern: /(?<!\w)@([a-zA-Z_]\w*)[ \t]*([+\-*/%|&^]|<=>|\*\*)[ \t]*@\1(?!\w)/g,
+      predicate: (m) => !m.matchedText.includes('\n') && notInStringOrComment(m),
+    }),
+    collectMatchedFacts({
+      text, detector, kind,
+      appliesTo: 'block',
+      pattern: /(?<!\w)@@([a-zA-Z_]\w*)[ \t]*([+\-*/%|&^]|<=>|\*\*)[ \t]*@@\1(?!\w)/g,
+      predicate: (m) => !m.matchedText.includes('\n') && notInStringOrComment(m),
+    }),
+    collectMatchedFacts({
+      text, detector, kind,
+      appliesTo: 'block',
+      pattern: /(?<!\w)\$([a-zA-Z_]\w*)[ \t]*([+\-*/%|&^]|<=>|\*\*)[ \t]*\$\1(?!\w)/g,
+      predicate: (m) => !m.matchedText.includes('\n') && notInStringOrComment(m),
     }),
   );
 }
@@ -4014,12 +4076,12 @@ function collectTimeWithoutZoneFacts(
     detector,
     kind: RUBY_BUG_RISK_FACT_KINDS.timeWithoutZone,
     appliesTo: 'block',
-    pattern: /\bTime\.(?:now|parse|current|at|new)\s*(?:\(|(?=\s|$|\.|,|\)|\+|-|\*|\/|&&|\|\|))/g,
+    pattern: /\bTime\.(?:now|parse|current|at|new)\s*(?:\(|(?=[ \t\r\f\v]|$|\.|,|\)|\+|-|\*|\/|&&|\|\|))/g,
     predicate: (match) => {
-      const before = text.slice(0, match.startOffset);
+      const lineStart = text.lastIndexOf('\n', match.startOffset - 1) + 1;
       const lineEnd = text.indexOf('\n', match.startOffset);
-      const restOfLine = text.slice(match.startOffset, lineEnd >= 0 ? lineEnd : undefined);
-      return !/Time\.zone\b/.test(before + restOfLine);
+      const line = text.slice(lineStart, lineEnd >= 0 ? lineEnd : undefined);
+      return !/Time\.zone\b/.test(line);
     },
   });
 }

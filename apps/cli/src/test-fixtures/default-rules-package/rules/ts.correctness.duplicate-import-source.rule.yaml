@@ -3,8 +3,8 @@ kind: Rule
 metadata:
   id: ts.correctness.duplicate-import-source
   title: Duplicate imports from the same module
-  summary: The file imports from the same module path more than once.
-  rationale: Multiple import declarations for one module increase bundle noise and can diverge over time.
+  summary: Two or more value imports are declared from the same module path. Type-only imports are tracked separately and will not trigger duplication with value imports.
+  rationale: Multiple value import declarations for one module increase bundle noise and can diverge over time. Type-only imports are intentionally kept separate for compile-time erasure and tree-shaking, so a type-only import followed by a value import from the same module is not flagged.
   tags:
     - correctness
     - modules
@@ -33,4 +33,4 @@ emit:
     title: Consolidate duplicate imports
     summary: "`${captures.issue.text}` imports from a module path already imported above."
   remediation:
-    summary: Merge named imports into a single `import` declaration from that module.
+    summary: Merge value named imports into a single `import` declaration from that module. Type-only imports should remain separate.

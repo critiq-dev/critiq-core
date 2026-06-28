@@ -132,4 +132,63 @@ describe('collectTypescriptAsyncCorrectnessFacts', () => {
 
     expect(facts.map((fact) => fact.kind)).toEqual([]);
   });
+
+  it('emits misused-promises when async callback is NOT wrapped by Promise.all', () => {
+    const facts = analyze(
+      [
+        'export function misused(): void {',
+        '  [1, 2].map(async (value) => value + 1);',
+        '}',
+        '',
+        'export function alsoMisused(items: string[]): void {',
+        '  items.filter(async (item) => {',
+        '    await loadSomething(item);',
+        '    return true;',
+        '  });',
+        '}',
+        '',
+        'async function loadSomething(x: string): Promise<void> {}',
+      ].join('\n'),
+    );
+
+    const kinds = facts.map((f) => f.kind);
+    expect(kinds.filter((k) => k === 'async.misused-promises')).toHaveLength(2);
+    expect(kinds).not.toContain('async.floating-promise-in-function');
+  });
+
+  it('ignores async map/filter when wrapped by Promise.all or Promise.allSettled', () => {
+    const facts = analyze(
+      [
+        'async function fetchUser(id: number): Promise<{ id: number; name: string }> {',
+        '  return { id, name: "user" + id };',
+        '}',
+        '',
+        'export async function validParallelPattern(): Promise<{ id: number; name: string }[]> {',
+        '  return await Promise.all([1, 2, 3].map(async (id) => fetchUser(id)));',
+        '}',
+        '',
+        'export async function validAllSettled(): Promise<void> {',
+        '  await Promise.allSettled([1, 2].map(async (n) => n * 2));',
+        '}',
+        '',
+        'export async function validFilterWithPromiseAll(): Promise<number[]> {',
+        '  const results = await Promise.all(',
+        '    [1, 2, 3, 4].filter(async (n) => {',
+        '      await fetchUser(n);',
+        '      return n % 2 === 0;',
+        '    }),',
+        '  );',
+        '  return results;',
+        '}',
+        '',
+        'export async function validForEachWrapped(): Promise<void> {',
+        '  const items = [1, 2, 3];',
+        '  await Promise.all(items.map(async (n) => n * 2));',
+        '}',
+      ].join('\n'),
+    );
+
+    const kinds = facts.map((f) => f.kind);
+    expect(kinds.filter((k) => k === 'async.misused-promises')).toHaveLength(0);
+  });
 });

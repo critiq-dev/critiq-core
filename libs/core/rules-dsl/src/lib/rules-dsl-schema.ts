@@ -392,6 +392,7 @@ export type RuleVulnerability = z.infer<typeof ruleVulnerabilitySchema>;
 export const ruleMetadataSchema = z
   .object({
     id: nonEmptyStringSchema,
+    version: nonEmptyStringSchema.optional(),
     title: nonEmptyStringSchema,
     summary: nonEmptyStringSchema,
     rationale: nonEmptyStringSchema.optional(),

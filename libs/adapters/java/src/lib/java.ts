@@ -222,13 +222,13 @@ const javaAdapterDefinition: PolyglotAdapterDefinition<JavaScanState> = {
 export const { analyze: analyzeJavaFile, sourceAdapter: javaSourceAdapter } =
   createRegexPolyglotAdapter({
     packageName: '@critiq/adapter-java',
-    supportedExtensions: ['.java', '.properties'] as const,
+    supportedExtensions: ['.java', '.properties', '.html', '.htm'] as const,
     supportedLanguages: ['java'] as const,
     definition: javaAdapterDefinition,
   });
 
 function validateJavaSource(path: string, text: string): Diagnostic | undefined {
-  if (/\.properties$/iu.test(path)) {
+  if (/\.(?:properties|html?)$/iu.test(path)) {
     return undefined;
   }
 

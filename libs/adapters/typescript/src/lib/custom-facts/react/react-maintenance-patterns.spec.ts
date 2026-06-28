@@ -79,6 +79,29 @@ describe('collectReactMaintenancePatternFacts', () => {
     );
   });
 
+  it('excludes CallExpression spread arguments (library API returns)', () => {
+    const context = createContext(
+      'src/JsxCallExpr.tsx',
+      [
+        'declare function getRootProps(): Record<string, unknown>;',
+        'declare function useButton(): { buttonProps: Record<string, unknown> };',
+        '',
+        'export function AriaInput() {',
+        '  return <input {...getRootProps()} />;',
+        '}',
+        '',
+        'const { buttonProps } = useButton();',
+        'export function Button() {',
+        '  return <button {...buttonProps}>Click</button>;',
+        '}',
+      ].join('\n'),
+    );
+
+    // getRootProps() is a CallExpression spread → excluded
+    // buttonProps is an Identifier spread → should flag
+    expect(factsOfKind(context, 'ui.react.jsx-props-spread')).toHaveLength(1);
+  });
+
   it('flags class lifecycle setState and direct state mutation', () => {
     const context = createContext(
       'src/Class.tsx',
@@ -98,6 +121,10 @@ describe('collectReactMaintenancePatternFacts', () => {
         '    this.state.count = 1;',
         '  }',
         '',
+        '  replace() {',
+        '    this.state = { count: 0 };',
+        '  }',
+        '',
         '  render() {',
         '    return null;',
         '  }',
@@ -107,7 +134,28 @@ describe('collectReactMaintenancePatternFacts', () => {
 
     expect(factsOfKind(context, 'ui.react.set-state-in-component-did-mount')).toHaveLength(1);
     expect(factsOfKind(context, 'ui.react.set-state-in-component-did-update')).toHaveLength(1);
-    expect(factsOfKind(context, 'ui.react.direct-state-mutation')).toHaveLength(1);
+    expect(factsOfKind(context, 'ui.react.direct-state-mutation')).toHaveLength(2);
+  });
+
+  it('allows state mutation on non-React classes', () => {
+    const context = createContext(
+      'src/NonReactState.tsx',
+      [
+        'export class Store {',
+        '  state = { count: 0 };',
+        '',
+        '  bump() {',
+        '    this.state.count = 1;',
+        '  }',
+        '',
+        '  reset() {',
+        '    this.state = { count: 0 };',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(factsOfKind(context, 'ui.react.direct-state-mutation')).toHaveLength(0);
   });
 
   it('allows guarded setState in componentDidUpdate', () => {
@@ -545,6 +593,142 @@ describe('collectReactMaintenancePatternFacts', () => {
         'export class Page {',
         '  render() {',
         '    return 42;',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(factsOfKind(context, 'ui.react.render-return-value')).toHaveLength(0);
+  });
+
+  it('flags plain object render return', () => {
+    const context = createContext(
+      'src/PlainObjectRenderReturn.tsx',
+      [
+        "import React from 'react';",
+        '',
+        'export class Widget extends React.Component {',
+        '  render() {',
+        '    return { title: "bad" };',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(factsOfKind(context, 'ui.react.render-return-value')).toHaveLength(1);
+  });
+
+  it('flags logical AND with invalid right branch', () => {
+    const context = createContext(
+      'src/LogicalAndInvalid.tsx',
+      [
+        "import React from 'react';",
+        '',
+        'export class Widget extends React.Component<{ ok: boolean }> {',
+        '  render() {',
+        '    return this.props.ok && { error: "bad" };',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(factsOfKind(context, 'ui.react.render-return-value')).toHaveLength(1);
+  });
+
+  it('flags logical OR with invalid left branch', () => {
+    const context = createContext(
+      'src/LogicalOrInvalid.tsx',
+      [
+        "import React from 'react';",
+        '',
+        'export class Widget extends React.Component<{ alt: boolean }> {',
+        '  render() {',
+        '    return this.props.alt || { fallback: "bad" };',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(factsOfKind(context, 'ui.react.render-return-value')).toHaveLength(1);
+  });
+
+  it('flags ternary with one invalid branch', () => {
+    const context = createContext(
+      'src/TernaryOneInvalid.tsx',
+      [
+        "import React from 'react';",
+        '',
+        'export class Widget extends React.Component<{ ok: boolean }> {',
+        '  render() {',
+        '    return this.props.ok ? <div>good</div> : 0;',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(factsOfKind(context, 'ui.react.render-return-value')).toHaveLength(1);
+  });
+
+  it('allows logical AND with valid right branch', () => {
+    const context = createContext(
+      'src/LogicalAndValid.tsx',
+      [
+        "import React from 'react';",
+        '',
+        'export class Widget extends React.Component<{ ok: boolean }> {',
+        '  render() {',
+        '    return this.props.ok && <div>good</div>;',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(factsOfKind(context, 'ui.react.render-return-value')).toHaveLength(0);
+  });
+
+  it('allows template literal render return', () => {
+    const context = createContext(
+      'src/TemplateLiteralReturn.tsx',
+      [
+        "import React from 'react';",
+        '',
+        'export class Widget extends React.Component<{ name: string }> {',
+        '  render() {',
+        '    return `Hello, ${this.props.name}`;',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(factsOfKind(context, 'ui.react.render-return-value')).toHaveLength(0);
+  });
+
+  it('allows null render return via ternary', () => {
+    const context = createContext(
+      'src/NullReturnTernary.tsx',
+      [
+        "import React from 'react';",
+        '',
+        'export class Widget extends React.Component<{ visible: boolean }> {',
+        '  render() {',
+        '    return this.props.visible ? <div>shown</div> : null;',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(factsOfKind(context, 'ui.react.render-return-value')).toHaveLength(0);
+  });
+
+  it('allows boolean render return via ternary', () => {
+    const context = createContext(
+      'src/BooleanReturnTernary.tsx',
+      [
+        "import React from 'react';",
+        '',
+        'export class Widget extends React.Component<{ ok: boolean }> {',
+        '  render() {',
+        '    return this.props.ok && true;',
         '  }',
         '}',
       ].join('\n'),

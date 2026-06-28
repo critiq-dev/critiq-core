@@ -204,6 +204,33 @@ function isVoidExpressionStatement(statement: TSESTree.ExpressionStatement): boo
   );
 }
 
+function isWrappedByPromiseConstructor(
+  ancestors: readonly TSESTree.Node[],
+): boolean {
+  if (ancestors.length === 0) {
+    return false;
+  }
+
+  const parent = ancestors[ancestors.length - 1];
+
+  if (parent.type !== 'CallExpression') {
+    return false;
+  }
+
+  const callee = parent.callee;
+
+  if (callee.type !== 'MemberExpression') {
+    return false;
+  }
+
+  return (
+    callee.object.type === 'Identifier' &&
+    callee.object.name === 'Promise' &&
+    callee.property.type === 'Identifier' &&
+    (callee.property.name === 'all' || callee.property.name === 'allSettled')
+  );
+}
+
 /**
  * Collects async correctness facts: infinite loops, await misuse, floating promises.
  */
@@ -325,15 +352,17 @@ export const collectTypescriptAsyncCorrectnessFacts: TypeScriptFactDetector = (
           callback.type === 'FunctionExpression') &&
         callback.async
       ) {
-        facts.push(
-          createObservedFact({
-            appliesTo: 'block',
-            kind: 'async.misused-promises',
-            node: callback,
-            nodeIds,
-            text: getNodeText(node, sourceText),
-          }),
-        );
+        if (!isWrappedByPromiseConstructor(ancestors)) {
+          facts.push(
+            createObservedFact({
+              appliesTo: 'block',
+              kind: 'async.misused-promises',
+              node: callback,
+              nodeIds,
+              text: getNodeText(node, sourceText),
+            }),
+          );
+        }
       }
     }
 
