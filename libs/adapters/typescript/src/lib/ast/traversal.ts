@@ -74,6 +74,49 @@ export function walkAst(
   }
 }
 
+const FUNCTION_SCOPE_BOUNDARY_TYPES = new Set<string>([
+  'FunctionDeclaration',
+  'FunctionExpression',
+  'ArrowFunctionExpression',
+]);
+
+/**
+ * Walks the subtree rooted at `node` without descending into nested function
+ * scopes (function declarations, function expressions, and arrow functions).
+ *
+ * Detectors that reason about a single function body -- such as "return value
+ * in constructor" or "return value from setter" -- must not treat a `return`
+ * statement inside a nested callback as belonging to the enclosing function.
+ * The `node` passed in is visited even if it is itself a function; only
+ * function children encountered during the walk terminate that branch.
+ */
+export function walkFunctionScope(
+  node: TSESTree.Node,
+  visitor: (node: TSESTree.Node) => void,
+): void {
+  visitor(node);
+
+  for (const value of Object.values(node)) {
+    if (!value) {
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (isNode(entry) && !FUNCTION_SCOPE_BOUNDARY_TYPES.has(entry.type)) {
+          walkFunctionScope(entry, visitor);
+        }
+      }
+
+      continue;
+    }
+
+    if (isNode(value) && !FUNCTION_SCOPE_BOUNDARY_TYPES.has(value.type)) {
+      walkFunctionScope(value, visitor);
+    }
+  }
+}
+
 export function walkAstWithAncestors(
   node: TSESTree.Node,
   visitor: (node: TSESTree.Node, ancestors: readonly TSESTree.Node[]) => void,

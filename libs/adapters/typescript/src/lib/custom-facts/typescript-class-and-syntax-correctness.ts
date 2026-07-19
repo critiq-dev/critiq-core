@@ -1,7 +1,7 @@
 import type { ObservedFact } from '@critiq/core-rules-engine';
 import type { TSESTree } from '@typescript-eslint/typescript-estree';
 
-import { getNodeText, walkAst, walkAstWithAncestors } from '../ast';
+import { getNodeText, walkAst, walkAstWithAncestors, walkFunctionScope } from '../ast';
 import {
   createObservedFact,
   type TypeScriptFactDetector,
@@ -130,7 +130,7 @@ function collectClassMemberFacts(
     if (member.type === 'MethodDefinition' && isConstructorMethod(member)) {
       const body = member.value.body;
       if (body) {
-        walkAst(body, (inner) => {
+        walkFunctionScope(body, (inner) => {
           if (inner.type === 'ReturnStatement' && inner.argument) {
             facts.push(
               createObservedFact({
@@ -150,7 +150,7 @@ function collectClassMemberFacts(
     if (member.type === 'MethodDefinition' && member.kind === 'set') {
       const body = member.value.body;
       if (body) {
-        walkAst(body, (inner) => {
+        walkFunctionScope(body, (inner) => {
           if (inner.type === 'ReturnStatement' && inner.argument) {
             facts.push(
               createObservedFact({

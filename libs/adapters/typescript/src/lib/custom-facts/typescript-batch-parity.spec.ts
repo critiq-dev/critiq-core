@@ -94,6 +94,60 @@ describe('collectTypescriptClassAndSyntaxCorrectnessFacts', () => {
     expect(kinds.filter((kind) => kind === 'language.duplicate-class-member').length).toBeGreaterThanOrEqual(1);
   });
 
+  it('does not flag returns inside nested functions within a constructor or setter', () => {
+    const facts = analyzeClass(
+      [
+        'class Example {',
+        '  constructor() {',
+        '    this.handler = () => {',
+        '      return 42;',
+        '    };',
+        '    [1].map(function (x) {',
+        '      return x + 1;',
+        '    });',
+        '    this.provider = {',
+        '      get value() {',
+        '        return 7;',
+        '      },',
+        '    };',
+        '  }',
+        '  set config(next: number) {',
+        '    this.onChange(() => {',
+        '      return next;',
+        '    });',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    const kinds = facts.map((fact) => fact.kind);
+
+    expect(kinds).not.toContain('language.constructor-return-value');
+    expect(kinds).not.toContain('language.setter-return-value');
+  });
+
+  it('flags a direct constructor return but not a sibling nested-callback return', () => {
+    const facts = analyzeClass(
+      [
+        'class Example {',
+        '  constructor() {',
+        '    this.fn = () => {',
+        '      return "nested";',
+        '    };',
+        '    return { ok: true };',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    const constructorReturns = facts.filter(
+      (fact) => fact.kind === 'language.constructor-return-value',
+    );
+
+    expect(constructorReturns).toHaveLength(1);
+    expect(constructorReturns[0].text).toContain('return { ok: true }');
+  });
+
   it('flags switch fallthrough, empty destructuring, delete on variables, and invalid this', () => {
     const kinds = analyzeClass(
       [
